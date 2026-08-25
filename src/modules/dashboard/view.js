@@ -5,7 +5,7 @@ export function renderDashboardView(container) {
   const isDark = themeManager.isDark();
   const kiosks = spreadsheetService.loadKiosks();
 
-  // 1. Overall Master Stats (612 Units)
+  // 1. Overall Master Stats (610 Units)
   const totalKios = kiosks.length;
   const terisi = kiosks.filter(k => k.status === 'terisi' || (k.pedagang && k.pedagang !== '-')).length;
   const kosong = totalKios - terisi;
@@ -38,17 +38,10 @@ export function renderDashboardView(container) {
   container.innerHTML = `
     <div class="p-6 space-y-6 overflow-y-auto h-full ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}">
       
-      <!-- Title & Header Badge -->
+      <!-- Title Bar (Clean & Direct) -->
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div class="flex items-center gap-2 mb-1">
-            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
-              PASAR MUKTI MAKMUR KARANGPUCUNG 2026
-            </span>
-            <span class="text-xs font-bold text-emerald-500">GLOBAL EXECUTIVE DASHBOARD</span>
-          </div>
           <h2 class="text-xl font-bold ${textPrimary}">Ringkasan Utama & Status Pembayaran</h2>
-          <p class="text-xs ${textSecondary}">Desa Karangpucung, Kecamatan Karangpucung • Kabupaten Cilacap</p>
         </div>
 
         <button id="export-excel-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-emerald-900/30 transition-all w-fit">
@@ -138,7 +131,7 @@ export function renderDashboardView(container) {
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          ${expiringKiosks.map(k => `
+          ${expiringKiosks.length > 0 ? expiringKiosks.map(k => `
             <div class="p-3 rounded-xl border flex items-center justify-between text-xs ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-amber-200'}">
               <div>
                 <span class="font-bold text-amber-500">Blok ${k.blokKode || k.id}</span>
@@ -152,7 +145,11 @@ export function renderDashboardView(container) {
                 <p class="text-[10px] text-rose-500 font-bold mt-1">Perlu Tagihan</p>
               </div>
             </div>
-          `).join('')}
+          `).join('') : `
+            <div class="col-span-3 text-center text-xs text-amber-600 font-medium py-2">
+              Semua status pembayaran sewa lunas dan aman.
+            </div>
+          `}
         </div>
       </div>
 
@@ -165,11 +162,10 @@ export function renderDashboardView(container) {
             </div>
             <div>
               <h3 class="text-base font-bold ${textPrimary}">Statistik Pasar Sandang</h3>
-              <p class="text-xs ${textSecondary}">Pakaian, Sepatu, Tas, Warung Makan (320 Unit)</p>
             </div>
           </div>
           <span class="px-3 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-500 border border-blue-500/30">
-            ZONA SANDANG
+            ZONA SANDANG (${sandangKiosks.length} Unit)
           </span>
         </div>
 
@@ -205,11 +201,10 @@ export function renderDashboardView(container) {
             </div>
             <div>
               <h3 class="text-base font-bold ${textPrimary}">Statistik Pasar Sayur</h3>
-              <p class="text-xs ${textSecondary}">Sayuran, Sembako, Daging, Tempe, Garam (292 Unit)</p>
             </div>
           </div>
           <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
-            ZONA SAYUR
+            ZONA SAYUR (${sayurKiosks.length} Unit)
           </span>
         </div>
 

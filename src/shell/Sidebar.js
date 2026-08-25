@@ -1,12 +1,10 @@
 import { registry } from './ModuleRegistry.js';
 import { themeManager } from './ThemeManager.js';
-import { spreadsheetService } from '../services/SpreadsheetService.js';
 
 export function renderSidebar(container) {
   const modules = registry.getModules();
   const currentPath = registry.currentPath;
   const isDark = themeManager.isDark();
-  const kiosks = spreadsheetService.loadKiosks();
 
   if (!window._expandedMenus) {
     window._expandedMenus = new Set(['pedagang']);
@@ -19,8 +17,8 @@ export function renderSidebar(container) {
         : 'bg-white border-slate-200 text-slate-900 shadow-sm'
     }">
       <div>
-        <!-- App Header / Logo -->
-        <div class="p-4 border-b flex items-center gap-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
+        <!-- App Header / Logo (Clean & Minimalist) -->
+        <div class="p-5 border-b flex items-center gap-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
           <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md shadow-emerald-900/30 shrink-0">
             <i data-lucide="store" class="w-5 h-5"></i>
           </div>
@@ -30,20 +28,9 @@ export function renderSidebar(container) {
           </div>
         </div>
 
-        <!-- Master Indicator Pill -->
-        <div class="p-3 border-b ${isDark ? 'border-slate-800/80 bg-slate-900/50' : 'border-slate-200 bg-slate-50'}">
-          <div class="flex items-center justify-between text-[11px] font-bold text-emerald-500">
-            <span class="flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>Kawasan Master</span>
-            </span>
-            <span class="text-[10px] px-2 py-0.5 rounded-full ${isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}">${kiosks.length} Unit</span>
-          </div>
-        </div>
-
         <!-- Navigation Section -->
-        <div class="px-3 py-3 overflow-y-auto max-h-[calc(100vh-200px)]">
-          <p class="text-[10px] font-bold tracking-widest uppercase px-3 mb-2 ${isDark ? 'text-slate-400' : 'text-slate-400'}">Navigasi Sistem</p>
+        <div class="px-3 py-4 overflow-y-auto max-h-[calc(100vh-140px)]">
+          <p class="text-[10px] font-bold tracking-widest uppercase px-3 mb-2 ${isDark ? 'text-slate-400' : 'text-slate-400'}">NAVIGASI SISTEM</p>
           <nav class="space-y-1">
   `;
 
@@ -126,11 +113,11 @@ export function renderSidebar(container) {
       <!-- Footer Info -->
       <div class="p-3 border-t ${isDark ? 'border-slate-800/80 bg-slate-950/50' : 'border-slate-200 bg-slate-50'}">
         <div class="rounded-lg p-2.5 border ${isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'}">
-          <div class="flex items-center justify-between text-[11px] font-semibold mb-1">
+          <div class="flex items-center justify-between text-[11px] font-semibold mb-0.5">
             <span class="${isDark ? 'text-slate-300' : 'text-slate-700'}">Karangpucung</span>
-            <span class="text-emerald-500 font-mono text-[10px]">Tahun 2026</span>
+            <span class="text-emerald-500 font-mono text-[10px]">2026</span>
           </div>
-          <p class="text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'} leading-tight">Desa Karangpucung, Kec. Karangpucung</p>
+          <p class="text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'} leading-tight">Desa Karangpucung, Cilacap</p>
         </div>
       </div>
     </aside>
