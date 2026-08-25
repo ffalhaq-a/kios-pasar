@@ -5,31 +5,37 @@ export function renderDashboardView(container) {
   const isDark = themeManager.isDark();
   const kiosks = spreadsheetService.loadKiosks();
 
-  // 1. Overall Master Stats (610 Units)
+  // 1. Overall Master Stats (612 Units)
   const totalKios = kiosks.length;
-  const terisi = kiosks.filter(k => k.status === 'terisi' || (k.pedagang && k.pedagang !== '-')).length;
+  const terisi = kiosks.filter(k => k.pedagang && k.pedagang !== '-').length;
   const kosong = totalKios - terisi;
   
-  // Sudah Bayar vs Jatuh Tempo
+  // Sudah Bayar vs Jatuh Tempo / Belum Bayar
   const sudahBayar = kiosks.filter(k => k.statusBayar === 'lunas' && k.pedagang !== '-').length;
-  const jatuhTempo = kiosks.filter(k => (k.statusBayar === 'menunggu' || k.statusBayar === 'menunggak' || k.status === 'jatuh_tempo') && k.pedagang !== '-').length;
+  const belumBayar = kiosks.filter(k => k.pedagang !== '-' && k.statusBayar !== 'lunas').length;
 
-  // 2. Zone Breakdown (Pasar Sandang vs Pasar Sayur)
+  // 2. Unit Type Breakdown (Kios 1, Kios 2, Los, Lemprakan)
+  const countKios1 = kiosks.filter(k => (k.tipeKios || '').toUpperCase().includes('KIOS 1')).length;
+  const countKios2 = kiosks.filter(k => (k.tipeKios || '').toUpperCase().includes('KIOS 2')).length;
+  const countLos = kiosks.filter(k => (k.tipeKios || '').toUpperCase().includes('LOS')).length;
+  const countLemprakan = kiosks.filter(k => (k.tipeKios || '').toUpperCase().includes('LEMPRAKAN')).length;
+
+  // 3. Zone Breakdown (Pasar Sandang vs Pasar Sayur)
   const sandangKiosks = kiosks.filter(k => k.zona === 'PASAR SANDANG');
   const sayurKiosks = kiosks.filter(k => k.zona === 'PASAR SAYUR');
 
-  const sandangTerisi = sandangKiosks.filter(k => k.status === 'terisi' || (k.pedagang && k.pedagang !== '-')).length;
+  const sandangTerisi = sandangKiosks.filter(k => k.pedagang && k.pedagang !== '-').length;
   const sandangKosong = sandangKiosks.length - sandangTerisi;
   const sandangSudahBayar = sandangKiosks.filter(k => k.statusBayar === 'lunas' && k.pedagang !== '-').length;
-  const sandangJatuhTempo = sandangKiosks.length - sandangKosong - sandangSudahBayar;
+  const sandangBelumBayar = sandangTerisi - sandangSudahBayar;
 
-  const sayurTerisi = sayurKiosks.filter(k => k.status === 'terisi' || (k.pedagang && k.pedagang !== '-')).length;
+  const sayurTerisi = sayurKiosks.filter(k => k.pedagang && k.pedagang !== '-').length;
   const sayurKosong = sayurKiosks.length - sayurTerisi;
   const sayurSudahBayar = sayurKiosks.filter(k => k.statusBayar === 'lunas' && k.pedagang !== '-').length;
-  const sayurJatuhTempo = sayurKiosks.length - sayurKosong - sayurSudahBayar;
+  const sayurBelumBayar = sayurTerisi - sayurSudahBayar;
 
-  // List of kiosks nearing expiration for Alert Widget
-  const expiringKiosks = kiosks.filter(k => k.pedagang !== '-' && (k.statusBayar === 'menunggu' || k.statusBayar === 'menunggak' || k.status === 'jatuh_tempo')).slice(0, 5);
+  // List of kiosks needing payment attention
+  const expiringKiosks = kiosks.filter(k => k.pedagang !== '-' && (k.statusBayar === 'belum_bayar' || k.statusBayar === 'hampir_habis' || k.statusBayar === 'jatuh_tempo')).slice(0, 5);
 
   const cardBg = isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200 shadow-sm';
   const textPrimary = isDark ? 'text-slate-100' : 'text-slate-900';
@@ -41,17 +47,18 @@ export function renderDashboardView(container) {
       <!-- Title Bar (Clean & Direct) -->
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 class="text-xl font-bold ${textPrimary}">Ringkasan Utama & Status Pembayaran</h2>
+          <h1 class="text-xl font-extrabold ${textPrimary}">Ringkasan Utama & Status Pembayaran</h1>
+          <p class="text-xs ${textSecondary} mt-0.5">Sistem Manajemen Kios Pasar Mukti Makmur Karangpucung 2026</p>
         </div>
 
-        <button id="export-excel-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-emerald-900/30 transition-all w-fit">
+        <button id="export-excel-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 shadow-lg shadow-emerald-900/30 transition-all w-fit">
           <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
           <span>Download Master Dataset CSV</span>
         </button>
       </div>
 
-      <!-- 1. GRID STATISTIK UTAMA (Jumlah Unit, Terisi, Kosong, Sudah Bayar, Jatuh Tempo) -->
-      <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <!-- 1. BARIS ATAS: 5 KARTU STATISTIK UTAMA (Jumlah Unit, Terisi, Kosong, Sudah Bayar, Jatuh Tempo/Belum) -->
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
         <!-- Total Unit -->
         <div class="${cardBg} border rounded-2xl p-4 relative overflow-hidden">
           <div class="flex items-center justify-between mb-2">
@@ -68,7 +75,7 @@ export function renderDashboardView(container) {
         <div class="${cardBg} border rounded-2xl p-4 relative overflow-hidden">
           <div class="flex items-center justify-between mb-2">
             <span class="text-xs font-bold ${textSecondary}">Unit Terisi</span>
-            <div class="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg">
+            <div class="p-1.5 bg-emerald-500/10 text-emerald-500 rounded-lg">
               <i data-lucide="check-circle-2" class="w-4 h-4"></i>
             </div>
           </div>
@@ -80,7 +87,7 @@ export function renderDashboardView(container) {
         <div class="${cardBg} border rounded-2xl p-4 relative overflow-hidden">
           <div class="flex items-center justify-between mb-2">
             <span class="text-xs font-bold ${textSecondary}">Unit Kosong</span>
-            <div class="p-2 bg-rose-500/10 text-rose-500 rounded-lg">
+            <div class="p-1.5 bg-rose-500/10 text-rose-500 rounded-lg">
               <i data-lucide="building" class="w-4 h-4"></i>
             </div>
           </div>
@@ -88,11 +95,11 @@ export function renderDashboardView(container) {
           <p class="text-[10px] ${textSecondary} mt-0.5">Siap Disewakan</p>
         </div>
 
-        <!-- Sudah Bayar (Lunas) -->
+        <!-- Sudah Bayar -->
         <div class="${cardBg} border rounded-2xl p-4 relative overflow-hidden">
           <div class="flex items-center justify-between mb-2">
             <span class="text-xs font-bold ${textSecondary}">Sudah Bayar</span>
-            <div class="p-2 bg-teal-500/10 text-teal-500 rounded-lg">
+            <div class="p-1.5 bg-teal-500/10 text-teal-500 rounded-lg">
               <i data-lucide="badge-check" class="w-4 h-4"></i>
             </div>
           </div>
@@ -100,20 +107,70 @@ export function renderDashboardView(container) {
           <p class="text-[10px] text-teal-600 dark:text-teal-400 font-semibold mt-0.5">Sewa Lunas Aktif</p>
         </div>
 
-        <!-- Jatuh Tempo -->
+        <!-- Belum Bayar / Jatuh Tempo -->
         <div class="${cardBg} border rounded-2xl p-4 relative overflow-hidden">
           <div class="flex items-center justify-between mb-2">
-            <span class="text-xs font-bold ${textSecondary}">Jatuh Tempo</span>
-            <div class="p-2 bg-amber-500/10 text-amber-500 rounded-lg">
+            <span class="text-xs font-bold ${textSecondary}">Belum Bayar</span>
+            <div class="p-1.5 bg-amber-500/10 text-amber-500 rounded-lg">
               <i data-lucide="alert-triangle" class="w-4 h-4"></i>
             </div>
           </div>
-          <p class="text-2xl font-extrabold text-amber-500">${jatuhTempo}</p>
+          <p class="text-2xl font-extrabold text-amber-500">${belumBayar}</p>
           <p class="text-[10px] text-amber-600 dark:text-amber-400 font-semibold mt-0.5">Perlu Penagihan</p>
         </div>
       </div>
 
-      <!-- PERINGATAN KIOS AKAN HABIS MASA SEWA (EXPIRATION ALERTS BANNER) -->
+      <!-- 2. BARIS KE-2: 4 KARTU BREAKDOWN TIPE UNIT (KIOS 1, KIOS 2, LOS, LEMPRAKAN) -->
+      <div>
+        <h2 class="text-xs font-bold uppercase tracking-widest ${textSecondary} mb-2.5">Rincian Tipe Unit Kios</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <!-- KIOS 1 -->
+          <div class="${cardBg} border rounded-2xl p-4 flex items-center justify-between border-l-4 border-l-emerald-500">
+            <div>
+              <span class="text-xs font-bold ${textSecondary}">KIOS 1</span>
+              <p class="text-xl font-extrabold ${textPrimary} mt-0.5">${countKios1} <span class="text-xs font-normal ${textSecondary}">Unit</span></p>
+            </div>
+            <div class="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold text-xs">
+              K1
+            </div>
+          </div>
+
+          <!-- KIOS 2 -->
+          <div class="${cardBg} border rounded-2xl p-4 flex items-center justify-between border-l-4 border-l-teal-500">
+            <div>
+              <span class="text-xs font-bold ${textSecondary}">KIOS 2</span>
+              <p class="text-xl font-extrabold ${textPrimary} mt-0.5">${countKios2} <span class="text-xs font-normal ${textSecondary}">Unit</span></p>
+            </div>
+            <div class="w-9 h-9 rounded-xl bg-teal-500/10 text-teal-500 flex items-center justify-center font-bold text-xs">
+              K2
+            </div>
+          </div>
+
+          <!-- LOS -->
+          <div class="${cardBg} border rounded-2xl p-4 flex items-center justify-between border-l-4 border-l-blue-500">
+            <div>
+              <span class="text-xs font-bold ${textSecondary}">LOS</span>
+              <p class="text-xl font-extrabold ${textPrimary} mt-0.5">${countLos} <span class="text-xs font-normal ${textSecondary}">Unit</span></p>
+            </div>
+            <div class="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-xs">
+              LOS
+            </div>
+          </div>
+
+          <!-- LEMPRAKAN -->
+          <div class="${cardBg} border rounded-2xl p-4 flex items-center justify-between border-l-4 border-l-purple-500">
+            <div>
+              <span class="text-xs font-bold ${textSecondary}">LEMPRAKAN</span>
+              <p class="text-xl font-extrabold ${textPrimary} mt-0.5">${countLemprakan} <span class="text-xs font-normal ${textSecondary}">Unit</span></p>
+            </div>
+            <div class="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold text-xs">
+              LMP
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PERINGATAN MASA SEWA KIOS (EXPIRATION ALERTS BANNER) -->
       <div class="border rounded-2xl p-5 ${isDark ? 'bg-amber-950/30 border-amber-800/60' : 'bg-amber-50 border-amber-200'}">
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-2">
@@ -121,8 +178,8 @@ export function renderDashboardView(container) {
               <i data-lucide="bell-ring" class="w-4 h-4"></i>
             </div>
             <div>
-              <h3 class="text-sm font-bold text-amber-500">Peringatan Masa Sewa Kios</h3>
-              <p class="text-xs ${textSecondary}">Kios yang mendekati atau telah memasuki tenggat waktu habis sewa.</p>
+              <h3 class="text-sm font-bold text-amber-500">Peringatan Penagihan Sewa Kios</h3>
+              <p class="text-xs ${textSecondary}">Daftar kios yang belum menyetor pembayaran retribusi sewa.</p>
             </div>
           </div>
           <button data-goto="/pedagang/daftar" class="nav-goto-btn bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs px-3 py-1.5 rounded-xl font-bold transition-all">
@@ -139,10 +196,10 @@ export function renderDashboardView(container) {
                 <p class="text-[10px] ${textSecondary}">${k.zona}</p>
               </div>
               <div class="text-right">
-                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/30">
-                  ${k.tglHabisSewa || '2026-12-31'}
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-500 border border-rose-500/30">
+                  ${k.sewaBulanan || 'Rp 225.000'}
                 </span>
-                <p class="text-[10px] text-rose-500 font-bold mt-1">Perlu Tagihan</p>
+                <p class="text-[10px] text-amber-500 font-bold mt-1">Belum Bayar</p>
               </div>
             </div>
           `).join('') : `
@@ -153,80 +210,144 @@ export function renderDashboardView(container) {
         </div>
       </div>
 
-      <!-- 2. STATISTIK PASAR SANDANG -->
-      <div class="${cardBg} border rounded-2xl p-6 space-y-4">
+      <!-- 3. STATISTIK PASAR SANDANG (KOTAK BESAR DI KIRI & 4 CARD STATISTIK DI KANAN) -->
+      <div class="${cardBg} border rounded-2xl p-5 space-y-4">
         <div class="flex items-center justify-between border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-lg">
+            <div class="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-lg">
               👕
             </div>
-            <div>
-              <h3 class="text-base font-bold ${textPrimary}">Statistik Pasar Sandang</h3>
-            </div>
+            <h3 class="text-base font-extrabold ${textPrimary}">Statistik Pasar Sandang</h3>
           </div>
           <span class="px-3 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-500 border border-blue-500/30">
-            ZONA SANDANG (${sandangKiosks.length} Unit)
+            ZONA SANDANG
           </span>
         </div>
 
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-          <div class="p-3 rounded-xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'}">
-            <span class="${textSecondary}">Unit Terisi:</span>
-            <p class="text-lg font-extrabold text-emerald-500 mt-0.5">${sandangTerisi} Unit</p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <!-- KOTAK BESAR JUMLAH UNIT (KIRI) -->
+          <div class="md:col-span-1 rounded-2xl p-5 border flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-lg shadow-blue-900/20">
+            <div class="flex items-center justify-between mb-4">
+              <span class="text-xs font-bold tracking-wider uppercase opacity-90">Kawasan Sandang</span>
+              <div class="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                <i data-lucide="store" class="w-6 h-6"></i>
+              </div>
+            </div>
+            <div>
+              <p class="text-4xl font-black">${sandangKiosks.length}</p>
+              <p class="text-sm font-semibold opacity-90 mt-1">Total Jumlah Unit</p>
+            </div>
+            <p class="text-[11px] opacity-75 mt-4">Kios, Los, & Lemprakan Pakaian/Jasa</p>
           </div>
 
-          <div class="p-3 rounded-xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'}">
-            <span class="${textSecondary}">Unit Kosong:</span>
-            <p class="text-lg font-extrabold text-rose-500 mt-0.5">${sandangKosong} Unit</p>
-          </div>
+          <!-- 4 CARD GRID STATISTIK (KANAN) -->
+          <div class="md:col-span-2 grid grid-cols-2 gap-3 text-xs">
+            <!-- Unit Terisi -->
+            <div class="p-4 rounded-xl border flex flex-col justify-between ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'}">
+              <div class="flex items-center justify-between mb-2">
+                <span class="${textSecondary} font-semibold">Unit Terisi</span>
+                <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-500"></i>
+              </div>
+              <p class="text-2xl font-extrabold text-emerald-500">${sandangTerisi} <span class="text-xs font-normal ${textSecondary}">Unit</span></p>
+            </div>
 
-          <div class="p-3 rounded-xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'}">
-            <span class="${textSecondary}">Sewa Sudah Bayar:</span>
-            <p class="text-lg font-extrabold text-teal-500 mt-0.5">${sandangSudahBayar} Unit</p>
-          </div>
+            <!-- Unit Kosong -->
+            <div class="p-4 rounded-xl border flex flex-col justify-between ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'}">
+              <div class="flex items-center justify-between mb-2">
+                <span class="${textSecondary} font-semibold">Unit Kosong</span>
+                <i data-lucide="building" class="w-4 h-4 text-rose-500"></i>
+              </div>
+              <p class="text-2xl font-extrabold text-rose-500">${sandangKosong} <span class="text-xs font-normal ${textSecondary}">Unit</span></p>
+            </div>
 
-          <div class="p-3 rounded-xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'}">
-            <span class="${textSecondary}">Tenggat / Jatuh Tempo:</span>
-            <p class="text-lg font-extrabold text-amber-500 mt-0.5">${sandangJatuhTempo} Unit</p>
+            <!-- Sudah Bayar -->
+            <div class="p-4 rounded-xl border flex flex-col justify-between ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'}">
+              <div class="flex items-center justify-between mb-2">
+                <span class="${textSecondary} font-semibold">Sudah Bayar</span>
+                <i data-lucide="badge-check" class="w-4 h-4 text-teal-500"></i>
+              </div>
+              <p class="text-2xl font-extrabold text-teal-500">${sandangSudahBayar} <span class="text-xs font-normal ${textSecondary}">Unit</span></p>
+            </div>
+
+            <!-- Belum Bayar / Jatuh Tempo -->
+            <div class="p-4 rounded-xl border flex flex-col justify-between ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'}">
+              <div class="flex items-center justify-between mb-2">
+                <span class="${textSecondary} font-semibold">Belum Bayar</span>
+                <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-500"></i>
+              </div>
+              <p class="text-2xl font-extrabold text-amber-500">${sandangBelumBayar} <span class="text-xs font-normal ${textSecondary}">Unit</span></p>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- 3. STATISTIK PASAR SAYUR -->
-      <div class="${cardBg} border rounded-2xl p-6 space-y-4">
+      <!-- 4. STATISTIK PASAR SAYUR (KOTAK BESAR DI KIRI & 4 CARD STATISTIK DI KANAN) -->
+      <div class="${cardBg} border rounded-2xl p-5 space-y-4">
         <div class="flex items-center justify-between border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold text-lg">
+            <div class="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold text-lg">
               🥬
             </div>
-            <div>
-              <h3 class="text-base font-bold ${textPrimary}">Statistik Pasar Sayur</h3>
-            </div>
+            <h3 class="text-base font-extrabold ${textPrimary}">Statistik Pasar Sayur</h3>
           </div>
           <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
-            ZONA SAYUR (${sayurKiosks.length} Unit)
+            ZONA SAYUR
           </span>
         </div>
 
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-          <div class="p-3 rounded-xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'}">
-            <span class="${textSecondary}">Unit Terisi:</span>
-            <p class="text-lg font-extrabold text-emerald-500 mt-0.5">${sayurTerisi} Unit</p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <!-- KOTAK BESAR JUMLAH UNIT (KIRI) -->
+          <div class="md:col-span-1 rounded-2xl p-5 border flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-lg shadow-emerald-900/20">
+            <div class="flex items-center justify-between mb-4">
+              <span class="text-xs font-bold tracking-wider uppercase opacity-90">Kawasan Sayur</span>
+              <div class="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                <i data-lucide="store" class="w-6 h-6"></i>
+              </div>
+            </div>
+            <div>
+              <p class="text-4xl font-black">${sayurKiosks.length}</p>
+              <p class="text-sm font-semibold opacity-90 mt-1">Total Jumlah Unit</p>
+            </div>
+            <p class="text-[11px] opacity-75 mt-4">Kios, Los, & Lemprakan Sayuran/Sembako</p>
           </div>
 
-          <div class="p-3 rounded-xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'}">
-            <span class="${textSecondary}">Unit Kosong:</span>
-            <p class="text-lg font-extrabold text-rose-500 mt-0.5">${sayurKosong} Unit</p>
-          </div>
+          <!-- 4 CARD GRID STATISTIK (KANAN) -->
+          <div class="md:col-span-2 grid grid-cols-2 gap-3 text-xs">
+            <!-- Unit Terisi -->
+            <div class="p-4 rounded-xl border flex flex-col justify-between ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'}">
+              <div class="flex items-center justify-between mb-2">
+                <span class="${textSecondary} font-semibold">Unit Terisi</span>
+                <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-500"></i>
+              </div>
+              <p class="text-2xl font-extrabold text-emerald-500">${sayurTerisi} <span class="text-xs font-normal ${textSecondary}">Unit</span></p>
+            </div>
 
-          <div class="p-3 rounded-xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'}">
-            <span class="${textSecondary}">Sewa Sudah Bayar:</span>
-            <p class="text-lg font-extrabold text-teal-500 mt-0.5">${sayurSudahBayar} Unit</p>
-          </div>
+            <!-- Unit Kosong -->
+            <div class="p-4 rounded-xl border flex flex-col justify-between ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'}">
+              <div class="flex items-center justify-between mb-2">
+                <span class="${textSecondary} font-semibold">Unit Kosong</span>
+                <i data-lucide="building" class="w-4 h-4 text-rose-500"></i>
+              </div>
+              <p class="text-2xl font-extrabold text-rose-500">${sayurKosong} <span class="text-xs font-normal ${textSecondary}">Unit</span></p>
+            </div>
 
-          <div class="p-3 rounded-xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'}">
-            <span class="${textSecondary}">Tenggat / Jatuh Tempo:</span>
-            <p class="text-lg font-extrabold text-amber-500 mt-0.5">${sayurJatuhTempo} Unit</p>
+            <!-- Sudah Bayar -->
+            <div class="p-4 rounded-xl border flex flex-col justify-between ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'}">
+              <div class="flex items-center justify-between mb-2">
+                <span class="${textSecondary} font-semibold">Sudah Bayar</span>
+                <i data-lucide="badge-check" class="w-4 h-4 text-teal-500"></i>
+              </div>
+              <p class="text-2xl font-extrabold text-teal-500">${sayurSudahBayar} <span class="text-xs font-normal ${textSecondary}">Unit</span></p>
+            </div>
+
+            <!-- Belum Bayar / Jatuh Tempo -->
+            <div class="p-4 rounded-xl border flex flex-col justify-between ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'}">
+              <div class="flex items-center justify-between mb-2">
+                <span class="${textSecondary} font-semibold">Belum Bayar</span>
+                <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-500"></i>
+              </div>
+              <p class="text-2xl font-extrabold text-amber-500">${sayurBelumBayar} <span class="text-xs font-normal ${textSecondary}">Unit</span></p>
+            </div>
           </div>
         </div>
       </div>
