@@ -5,6 +5,17 @@ export function renderDaftarPedagangView(container) {
   const isDark = themeManager.isDark();
   const kiosks = spreadsheetService.loadKiosks();
 
+  // Dynamically extract unique block prefixes (Blok A, Blok B, etc.)
+  const uniqueBlockPrefixes = Array.from(
+    new Set(
+      kiosks.map(k => {
+        const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/, '');
+        const match = rawCode.match(/^[A-Za-z]+/);
+        return match ? match[0].toUpperCase() : null;
+      }).filter(Boolean)
+    )
+  ).sort();
+
   const cardBg = isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200 shadow-sm';
   const textPrimary = isDark ? 'text-slate-100' : 'text-slate-900';
   const textSecondary = isDark ? 'text-slate-400' : 'text-slate-600';
@@ -14,6 +25,7 @@ export function renderDaftarPedagangView(container) {
 
   // Active Filter States (Default: ALL)
   let currentZoneFilter = 'ALL';
+  let currentBlokFilter = 'ALL';
   let currentStatusFilter = 'ALL';
   let currentTipeFilter = 'ALL';
   let currentSearch = '';
@@ -37,17 +49,24 @@ export function renderDaftarPedagangView(container) {
         currentZoneFilter === 'ALL' ||
         k.zona === currentZoneFilter;
 
-      // 3. Status Bayar Match
+      // 3. Filter Blok Match
+      const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/, '');
+      const blockPrefix = rawCode.match(/^[A-Za-z]+/)?.[0]?.toUpperCase() || '';
+      const matchBlok = 
+        currentBlokFilter === 'ALL' ||
+        blockPrefix === currentBlokFilter.toUpperCase();
+
+      // 4. Status Bayar Match
       const matchStatus = 
         currentStatusFilter === 'ALL' ||
         (currentStatusFilter === 'kosong' ? (k.status === 'kosong' || k.pedagang === '-') : k.statusBayar === currentStatusFilter);
 
-      // 4. Tipe Unit Match
+      // 5. Tipe Unit Match
       const matchTipe = 
         currentTipeFilter === 'ALL' ||
         (k.tipeKios || '').toUpperCase().includes(currentTipeFilter.toUpperCase());
 
-      return matchSearch && matchZone && matchStatus && matchTipe;
+      return matchSearch && matchZone && matchBlok && matchStatus && matchTipe;
     });
   }
 
@@ -64,8 +83,6 @@ export function renderDaftarPedagangView(container) {
     const paginatedItems = filtered.slice(startIdx, endIdx);
 
     const tbody = container.querySelector('#pedagang-tbody');
-    const countBadge = container.querySelector('#filtered-count-badge');
-    if (countBadge) countBadge.innerText = `(${totalItems} Data)`;
 
     // Update Pagination Info UI
     const pageInfo = container.querySelector('#pagination-info');
@@ -259,16 +276,15 @@ export function renderDaftarPedagangView(container) {
   container.innerHTML = `
     <div class="p-6 space-y-4 overflow-y-auto h-full ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}">
       
-      <!-- Clean Title Bar & Global Search -->
+      <!-- Clean Title Bar (No (610 Data) text as requested) -->
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 class="text-xl font-extrabold ${textPrimary}">
             Daftar Pedagang Pasar
-            <span id="filtered-count-badge" class="text-xs font-normal ${textSecondary} ml-1.5"></span>
           </h1>
         </div>
 
-        <!-- Search Input -->
+        <!-- Global Search Input -->
         <div class="relative w-full md:w-72">
           <i data-lucide="search" class="w-4 h-4 ${textSecondary} absolute left-3 top-3"></i>
           <input 
@@ -284,7 +300,7 @@ export function renderDaftarPedagangView(container) {
         </div>
       </div>
 
-      <!-- FILTER PANEL (DROPDOWN ALL-IN-ONE) -->
+      <!-- FILTER PANEL (4-COLUMN DROPDOWN INCLUDING FILTER BLOK) -->
       <div class="${cardBg} border rounded-2xl p-4 space-y-3">
         <div class="flex items-center justify-between">
           <span class="text-xs font-extrabold ${textPrimary} flex items-center gap-2">
@@ -297,7 +313,7 @@ export function renderDaftarPedagangView(container) {
           </button>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <!-- Dropdown 1: Jenis Pasar -->
           <div>
             <label class="block text-[11px] font-bold ${textSecondary} mb-1">Jenis Pasar:</label>
@@ -308,7 +324,18 @@ export function renderDaftarPedagangView(container) {
             </select>
           </div>
 
-          <!-- Dropdown 2: Status Bayar -->
+          <!-- Dropdown 2: Filter Blok (Sebelah Kanan Jenis Pasar) -->
+          <div>
+            <label class="block text-[11px] font-bold ${textSecondary} mb-1">Filter Blok:</label>
+            <select id="filter-blok" class="w-full p-2.5 rounded-xl text-xs font-semibold border focus:outline-none focus:border-emerald-500 ${inputBg}">
+              <option value="ALL">Semua Blok</option>
+              ${uniqueBlockPrefixes.map(prefix => `
+                <option value="${prefix}">Blok ${prefix}</option>
+              `).join('')}
+            </select>
+          </div>
+
+          <!-- Dropdown 3: Status Bayar -->
           <div>
             <label class="block text-[11px] font-bold ${textSecondary} mb-1">Status Bayar:</label>
             <select id="filter-status-bayar" class="w-full p-2.5 rounded-xl text-xs font-semibold border focus:outline-none focus:border-emerald-500 ${inputBg}">
@@ -320,7 +347,7 @@ export function renderDaftarPedagangView(container) {
             </select>
           </div>
 
-          <!-- Dropdown 3: Tipe Unit -->
+          <!-- Dropdown 4: Tipe Unit -->
           <div>
             <label class="block text-[11px] font-bold ${textSecondary} mb-1">Tipe Unit:</label>
             <select id="filter-tipe-unit" class="w-full p-2.5 rounded-xl text-xs font-semibold border focus:outline-none focus:border-emerald-500 ${inputBg}">
@@ -497,6 +524,15 @@ export function renderDaftarPedagangView(container) {
     });
   }
 
+  const blokSelect = container.querySelector('#filter-blok');
+  if (blokSelect) {
+    blokSelect.addEventListener('change', (e) => {
+      currentBlokFilter = e.target.value;
+      currentPage = 1;
+      renderTableContent();
+    });
+  }
+
   const statusSelect = container.querySelector('#filter-status-bayar');
   if (statusSelect) {
     statusSelect.addEventListener('change', (e) => {
@@ -520,11 +556,13 @@ export function renderDaftarPedagangView(container) {
   if (resetBtn) {
     resetBtn.addEventListener('click', () => {
       currentZoneFilter = 'ALL';
+      currentBlokFilter = 'ALL';
       currentStatusFilter = 'ALL';
       currentTipeFilter = 'ALL';
       currentSearch = '';
 
       if (pasarSelect) pasarSelect.value = 'ALL';
+      if (blokSelect) blokSelect.value = 'ALL';
       if (statusSelect) statusSelect.value = 'ALL';
       if (tipeSelect) tipeSelect.value = 'ALL';
       if (searchInput) searchInput.value = '';
@@ -560,7 +598,6 @@ export function renderDaftarPedagangView(container) {
         let num1 = parseFloat(matches[1].replace(',', '.'));
         let num2 = parseFloat(matches[2].replace(',', '.'));
         
-        // If values are given in cm (e.g. 240 x 180), convert to meters (2.4 x 1.8)
         if (num1 > 20) num1 = num1 / 100;
         if (num2 > 20) num2 = num2 / 100;
 
