@@ -12,8 +12,10 @@ export function renderDaftarPedagangView(container) {
   const rowHover = isDark ? 'hover:bg-slate-900/80 border-slate-800/60' : 'hover:bg-slate-50 border-slate-200/80';
   const inputBg = isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900';
 
+  // Active Filter States (Default: ALL)
   let currentZoneFilter = 'ALL';
   let currentStatusFilter = 'ALL';
+  let currentTipeFilter = 'ALL';
   let currentSearch = '';
   
   // Pagination State
@@ -22,21 +24,30 @@ export function renderDaftarPedagangView(container) {
 
   function getFilteredKiosks() {
     return kiosks.filter(k => {
+      // 1. Search Query Match
       const matchSearch = 
+        !currentSearch ||
         k.id.toLowerCase().includes(currentSearch.toLowerCase()) ||
         k.pedagang.toLowerCase().includes(currentSearch.toLowerCase()) ||
         (k.alamat || '').toLowerCase().includes(currentSearch.toLowerCase()) ||
         (k.kategori || '').toLowerCase().includes(currentSearch.toLowerCase());
 
+      // 2. Jenis Pasar / Zona Match
       const matchZone = 
         currentZoneFilter === 'ALL' ||
         k.zona === currentZoneFilter;
 
+      // 3. Status Bayar Match
       const matchStatus = 
         currentStatusFilter === 'ALL' ||
         (currentStatusFilter === 'kosong' ? (k.status === 'kosong' || k.pedagang === '-') : k.statusBayar === currentStatusFilter);
 
-      return matchSearch && matchZone && matchStatus;
+      // 4. Tipe Unit Match
+      const matchTipe = 
+        currentTipeFilter === 'ALL' ||
+        (k.tipeKios || '').toUpperCase().includes(currentTipeFilter.toUpperCase());
+
+      return matchSearch && matchZone && matchStatus && matchTipe;
     });
   }
 
@@ -71,8 +82,8 @@ export function renderDaftarPedagangView(container) {
     if (paginatedItems.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="10" class="px-6 py-12 text-center ${textSecondary} text-xs">
-            Tidak ada data pedagang yang cocok dengan kriteria pencarian / filter
+          <td colspan="11" class="px-6 py-12 text-center ${textSecondary} text-xs">
+            Tidak ada data pedagang yang cocok dengan kombinasi filter yang dipilih
           </td>
         </tr>
       `;
@@ -120,18 +131,18 @@ export function renderDaftarPedagangView(container) {
           </td>
 
           <!-- Clean Nama Pedagang Column -->
-          <td class="px-3.5 py-3 ${textPrimary} font-semibold">
+          <td class="px-3.5 py-3 ${textPrimary} font-semibold whitespace-nowrap">
             <div class="flex items-center gap-2">
               <span class="w-6 h-6 rounded-full ${item.pedagang === '-' ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'} flex items-center justify-center font-bold text-[10px] shrink-0">
                 ${item.pedagang === '-' ? 'K' : item.pedagang.charAt(0)}
               </span>
-              <span class="${item.pedagang === '-' ? 'text-rose-500 italic' : textPrimary} whitespace-nowrap">
+              <span class="${item.pedagang === '-' ? 'text-rose-500 italic' : textPrimary}">
                 ${item.pedagang === '-' ? 'LAHAN KOSONG' : item.pedagang}
               </span>
             </div>
           </td>
 
-          <!-- Clean Scrollable Columns -->
+          <!-- Scrollable Columns -->
           <td class="px-3 py-3 ${textSecondary} whitespace-nowrap">${item.alamat || '-'}</td>
           <td class="px-3 py-3 whitespace-nowrap">
             <span class="px-2 py-0.5 rounded text-[11px] font-medium border ${isDark ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'}">
@@ -220,7 +231,6 @@ export function renderDaftarPedagangView(container) {
 
     containerEl.innerHTML = buttonsHtml;
 
-    // Bind Pagination listeners
     const prevBtn = containerEl.querySelector('#prev-page-btn');
     if (prevBtn) {
       prevBtn.addEventListener('click', () => {
@@ -249,17 +259,10 @@ export function renderDaftarPedagangView(container) {
     });
   }
 
-  // Count stats for Filter Pills
-  const countTotal = kiosks.length;
-  const countBelumBayar = kiosks.filter(k => k.pedagang !== '-' && (k.statusBayar === 'belum_bayar' || !k.statusBayar)).length;
-  const countLunas = kiosks.filter(k => k.statusBayar === 'lunas' && k.pedagang !== '-').length;
-  const countHampirHabis = kiosks.filter(k => (k.statusBayar === 'hampir_habis' || k.statusBayar === 'jatuh_tempo') && k.pedagang !== '-').length;
-  const countKosong = kiosks.filter(k => k.status === 'kosong' || k.pedagang === '-').length;
-
   container.innerHTML = `
     <div class="p-6 space-y-4 overflow-y-auto h-full ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}">
       
-      <!-- Clean Title & Search Bar -->
+      <!-- Clean Title Bar & Global Search -->
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 class="text-xl font-extrabold ${textPrimary}">
@@ -268,49 +271,70 @@ export function renderDaftarPedagangView(container) {
           </h1>
         </div>
 
-        <div class="flex items-center gap-3 flex-wrap">
-          <!-- Zone Filter Pills -->
-          <div class="flex items-center p-1 rounded-xl border text-xs font-semibold ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}">
-            <button data-zone="ALL" class="zone-pill-btn px-3 py-1.5 rounded-lg bg-emerald-600 text-white shadow-sm font-bold">Semua Kawasan</button>
-            <button data-zone="PASAR SANDANG" class="zone-pill-btn px-3 py-1.5 rounded-lg ${textSecondary} hover:text-emerald-500 font-bold">Sandang</button>
-            <button data-zone="PASAR SAYUR" class="zone-pill-btn px-3 py-1.5 rounded-lg ${textSecondary} hover:text-emerald-500 font-bold">Sayur</button>
-          </div>
-
-          <!-- Search Input -->
-          <div class="relative">
-            <i data-lucide="search" class="w-4 h-4 ${textSecondary} absolute left-3 top-3"></i>
-            <input 
-              type="text" 
-              id="search-input"
-              placeholder="Cari blok, nama, desa, usaha..." 
-              class="rounded-xl pl-9 pr-4 py-2.5 text-xs border transition-all ${
-                isDark 
-                  ? 'bg-slate-950 border-slate-800 text-slate-200 placeholder-slate-500 focus:border-emerald-500' 
-                  : 'bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:border-emerald-500 shadow-sm'
-              } w-60 focus:outline-none"
-            />
-          </div>
+        <!-- Search Input -->
+        <div class="relative w-full md:w-72">
+          <i data-lucide="search" class="w-4 h-4 ${textSecondary} absolute left-3 top-3"></i>
+          <input 
+            type="text" 
+            id="search-input"
+            placeholder="Cari blok, nama, desa, usaha..." 
+            class="w-full rounded-xl pl-9 pr-4 py-2 text-xs border transition-all ${
+              isDark 
+                ? 'bg-slate-950 border-slate-800 text-slate-200 placeholder-slate-500 focus:border-emerald-500' 
+                : 'bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:border-emerald-500 shadow-sm'
+            } focus:outline-none"
+          />
         </div>
       </div>
 
-      <!-- Real-World Payment Status Filter Chips -->
-      <div class="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-        <span class="text-[11px] font-bold ${textSecondary} mr-1 shrink-0">Filter Status:</span>
-        <button data-status="ALL" class="status-pill-btn px-3 py-1.5 rounded-xl border font-bold bg-slate-800 text-white border-slate-700 shadow-sm shrink-0">
-          Semua Data (${countTotal})
-        </button>
-        <button data-status="belum_bayar" class="status-pill-btn px-3 py-1.5 rounded-xl border font-bold ${isDark ? 'bg-slate-950 border-slate-800 text-rose-400' : 'bg-white border-slate-200 text-rose-600'} hover:border-rose-500 shrink-0">
-          🔴 Belum Bayar (${countBelumBayar})
-        </button>
-        <button data-status="lunas" class="status-pill-btn px-3 py-1.5 rounded-xl border font-bold ${isDark ? 'bg-slate-950 border-slate-800 text-emerald-400' : 'bg-white border-slate-200 text-emerald-600'} hover:border-emerald-500 shrink-0">
-          🟢 Lunas (${countLunas})
-        </button>
-        <button data-status="hampir_habis" class="status-pill-btn px-3 py-1.5 rounded-xl border font-bold ${isDark ? 'bg-slate-950 border-slate-800 text-amber-400' : 'bg-white border-slate-200 text-amber-600'} hover:border-amber-500 shrink-0">
-          🟡 Hampir Habis / Tenggat (${countHampirHabis})
-        </button>
-        <button data-status="kosong" class="status-pill-btn px-3 py-1.5 rounded-xl border font-bold ${isDark ? 'bg-slate-950 border-slate-800 text-slate-400' : 'bg-white border-slate-200 text-slate-500'} hover:border-slate-500 shrink-0">
-          ⚪ Kosong (${countKosong})
-        </button>
+      <!-- FILTER PANEL (DROPDOWN ALL-IN-ONE) -->
+      <div class="${cardBg} border rounded-2xl p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-extrabold ${textPrimary} flex items-center gap-2">
+            <i data-lucide="filter" class="w-4 h-4 text-emerald-500"></i>
+            FILTER DATA PEDAGANG
+          </span>
+          <button id="reset-filter-btn" class="text-xs font-semibold text-rose-500 hover:text-rose-600 flex items-center gap-1 transition-all">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+            <span>Reset Filter</span>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <!-- Dropdown 1: Jenis Pasar -->
+          <div>
+            <label class="block text-[11px] font-bold ${textSecondary} mb-1">Jenis Pasar:</label>
+            <select id="filter-jenis-pasar" class="w-full p-2.5 rounded-xl text-xs font-semibold border focus:outline-none focus:border-emerald-500 ${inputBg}">
+              <option value="ALL">Semua Jenis Pasar (612)</option>
+              <option value="PASAR SANDANG">Pasar Sandang (320)</option>
+              <option value="PASAR SAYUR">Pasar Sayur (292)</option>
+            </select>
+          </div>
+
+          <!-- Dropdown 2: Status Bayar -->
+          <div>
+            <label class="block text-[11px] font-bold ${textSecondary} mb-1">Status Bayar:</label>
+            <select id="filter-status-bayar" class="w-full p-2.5 rounded-xl text-xs font-semibold border focus:outline-none focus:border-emerald-500 ${inputBg}">
+              <option value="ALL">Semua Status Bayar</option>
+              <option value="belum_bayar">🔴 Belum Bayar</option>
+              <option value="lunas">🟢 Lunas</option>
+              <option value="hampir_habis">🟡 Hampir Habis / Tenggat</option>
+              <option value="kosong">⚪ Kosong (Siap Sewa)</option>
+            </select>
+          </div>
+
+          <!-- Dropdown 3: Tipe Unit -->
+          <div>
+            <label class="block text-[11px] font-bold ${textSecondary} mb-1">Tipe Unit:</label>
+            <select id="filter-tipe-unit" class="w-full p-2.5 rounded-xl text-xs font-semibold border focus:outline-none focus:border-emerald-500 ${inputBg}">
+              <option value="ALL">Semua Tipe Unit</option>
+              <option value="KIOS 1">Kios 1</option>
+              <option value="KIOS 2">Kios 2</option>
+              <option value="LOS">Los</option>
+              <option value="LEMPRAKAN">Lemprakan</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       <!-- Pro Data Table with Clean Formatting & Smooth Scroll -->
@@ -464,6 +488,53 @@ export function renderDaftarPedagangView(container) {
     });
   }
 
+  // Bind Dropdown Filters
+  const pasarSelect = container.querySelector('#filter-jenis-pasar');
+  if (pasarSelect) {
+    pasarSelect.addEventListener('change', (e) => {
+      currentZoneFilter = e.target.value;
+      currentPage = 1;
+      renderTableContent();
+    });
+  }
+
+  const statusSelect = container.querySelector('#filter-status-bayar');
+  if (statusSelect) {
+    statusSelect.addEventListener('change', (e) => {
+      currentStatusFilter = e.target.value;
+      currentPage = 1;
+      renderTableContent();
+    });
+  }
+
+  const tipeSelect = container.querySelector('#filter-tipe-unit');
+  if (tipeSelect) {
+    tipeSelect.addEventListener('change', (e) => {
+      currentTipeFilter = e.target.value;
+      currentPage = 1;
+      renderTableContent();
+    });
+  }
+
+  // Reset Filter Button
+  const resetBtn = container.querySelector('#reset-filter-btn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      currentZoneFilter = 'ALL';
+      currentStatusFilter = 'ALL';
+      currentTipeFilter = 'ALL';
+      currentSearch = '';
+
+      if (pasarSelect) pasarSelect.value = 'ALL';
+      if (statusSelect) statusSelect.value = 'ALL';
+      if (tipeSelect) tipeSelect.value = 'ALL';
+      if (searchInput) searchInput.value = '';
+
+      currentPage = 1;
+      renderTableContent();
+    });
+  }
+
   // Page Size Selector
   const pageSizeSelect = container.querySelector('#page-size-select');
   if (pageSizeSelect) {
@@ -473,32 +544,6 @@ export function renderDaftarPedagangView(container) {
       renderTableContent();
     });
   }
-
-  // Zone Filter listeners
-  container.querySelectorAll('.zone-pill-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      container.querySelectorAll('.zone-pill-btn').forEach(b => {
-        b.className = `zone-pill-btn px-3 py-1.5 rounded-lg ${textSecondary} hover:text-emerald-500 font-bold`;
-      });
-      btn.className = 'zone-pill-btn px-3 py-1.5 rounded-lg bg-emerald-600 text-white shadow-sm font-bold';
-      currentZoneFilter = btn.getAttribute('data-zone');
-      currentPage = 1;
-      renderTableContent();
-    });
-  });
-
-  // Status Filter listeners
-  container.querySelectorAll('.status-pill-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      container.querySelectorAll('.status-pill-btn').forEach(b => {
-        b.className = `status-pill-btn px-3 py-1.5 rounded-xl border font-bold ${isDark ? 'bg-slate-950 border-slate-800 text-slate-400' : 'bg-white border-slate-200 text-slate-600'} shrink-0`;
-      });
-      btn.className = 'status-pill-btn px-3 py-1.5 rounded-xl border font-bold bg-slate-800 text-white border-slate-700 shadow-sm shrink-0';
-      currentStatusFilter = btn.getAttribute('data-status');
-      currentPage = 1;
-      renderTableContent();
-    });
-  });
 
   function openEditModal(targetId) {
     const item = kiosks.find(k => k.id === targetId);
