@@ -5,7 +5,8 @@ import {
   API_SECURITY_TOKEN 
 } from '../utils/security.js';
 
-export const GOOGLE_API_URL = 'https://script.google.com/macros/s/AKfycbzGTU7gWu_FlR2NbWkuh4p2RL0XHnMa3szvQlZ2mO9LcbKITDuO8WF937rQ0lCKs_87/exec';
+// Hidden API Endpoint behind Vercel Edge Serverless Proxy
+export const GOOGLE_API_URL = '/api/proxy';
 
 class AuthService {
   constructor() {
@@ -65,7 +66,7 @@ class AuthService {
   }
 
   /**
-   * Secure Login via HTTP POST (Password is encrypted in payload, not exposed in GET URL)
+   * Secure Login via HTTP POST through Hidden Proxy
    */
   async login(username, password, remember = true) {
     const u = (username || '').trim();
@@ -76,7 +77,6 @@ class AuthService {
     }
 
     try {
-      // 1. Authenticate via Google Apps Script API using HTTP POST for zero GET URL leaks
       const res = await fetch(GOOGLE_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -99,7 +99,6 @@ class AuthService {
           role: rawUser.role || 'ADMIN'
         };
         
-        // Attach tamper-proof signature
         userObj.signature = generateSessionSignature(userObj);
 
         if (remember) {
@@ -114,7 +113,7 @@ class AuthService {
       console.warn('Google API Offline, checking local user database cache:', e);
     }
 
-    // 2. Offline Fallback Check using cached database users
+    // Offline Fallback Check
     const cachedUsers = this.getCachedUsers();
     const foundUser = cachedUsers.find(
       usr => String(usr.username).toLowerCase().trim() === u.toLowerCase() && String(usr.password).trim() === p
