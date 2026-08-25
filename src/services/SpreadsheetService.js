@@ -1,4 +1,3 @@
-import { initialInfrastructureData } from '../modules/denah/data/sampleData.js';
 import { GOOGLE_API_URL, authService } from './AuthService.js';
 
 /**
@@ -72,10 +71,6 @@ class SpreadsheetService {
     } finally {
       this.isFetchingRemote = false;
     }
-  }
-
-  loadInfrastructure() {
-    return JSON.parse(JSON.stringify(initialInfrastructureData));
   }
 
   saveKiosksLocally(data) {
