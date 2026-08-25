@@ -1,16 +1,33 @@
-import { initialKiosData, initialInfrastructureData } from '../modules/denah/data/sampleData.js';
+import { pasarMuktiMakmurData } from '../modules/denah/data/pasarMuktiMakmurData.js';
+import { initialInfrastructureData } from '../modules/denah/data/sampleData.js';
 
-/**
- * Service to manage Kiosk dataset integration with Spreadsheet / CSV format.
- */
 class SpreadsheetService {
   constructor() {
-    this.storageKey = 'pasar_kios_data_v2';
-    this.infraKey = 'pasar_infra_data_v2';
+    this.storageKey = 'pasar_mukti_makmur_active_sheet';
+    this.activeSheetName = localStorage.getItem(this.storageKey) || 'PASAR SANDANG';
+    this.listeners = [];
+  }
+
+  getAvailableSheets() {
+    return Object.keys(pasarMuktiMakmurData.sheets);
+  }
+
+  getActiveSheetName() {
+    return this.activeSheetName;
+  }
+
+  setActiveSheet(sheetName) {
+    if (pasarMuktiMakmurData.sheets[sheetName]) {
+      this.activeSheetName = sheetName;
+      localStorage.setItem(this.storageKey, sheetName);
+      window._kioskData = this.loadKiosks();
+      this.notify();
+    }
   }
 
   loadKiosks() {
-    const saved = localStorage.getItem(this.storageKey);
+    const customKey = `pasar_data_${this.activeSheetName.replace(/\s+/g, '_')}`;
+    const saved = localStorage.getItem(customKey);
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -18,67 +35,60 @@ class SpreadsheetService {
         console.error('Error parsing stored kiosk data:', e);
       }
     }
-    return JSON.parse(JSON.stringify(initialKiosData));
+    return JSON.parse(JSON.stringify(pasarMuktiMakmurData.sheets[this.activeSheetName] || []));
   }
 
   loadInfrastructure() {
-    const saved = localStorage.getItem(this.infraKey);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Error parsing stored infra data:', e);
-      }
-    }
     return JSON.parse(JSON.stringify(initialInfrastructureData));
   }
 
   saveKiosks(data) {
-    localStorage.setItem(this.storageKey, JSON.stringify(data));
+    const customKey = `pasar_data_${this.activeSheetName.replace(/\s+/g, '_')}`;
+    localStorage.setItem(customKey, JSON.stringify(data));
     window._kioskData = data;
+    this.notify();
   }
 
-  saveInfrastructure(data) {
-    localStorage.setItem(this.infraKey, JSON.stringify(data));
-    window._infraData = data;
+  subscribe(listener) {
+    this.listeners.push(listener);
+    return () => {
+      this.listeners = this.listeners.filter(l => l !== listener);
+    };
   }
 
-  /**
-   * Converts current Kiosk data into CSV string format suitable for Google Sheets import.
-   */
-  exportToCSV(data = null) {
-    const kiosks = data || this.loadKiosks();
+  notify() {
+    this.listeners.forEach(fn => fn(this.activeSheetName));
+  }
+
+  exportToCSV() {
+    const kiosks = this.loadKiosks();
     if (!kiosks || kiosks.length === 0) return '';
 
-    const headers = ['ID', 'Nama Kios', 'Tipe Bentuk', 'X', 'Y', 'Status', 'Pedagang', 'Kategori', 'Sewa Berakhir', 'Biaya Sewa', 'QR Code'];
+    const headers = ['BLOK', 'NAMA', 'NIK', 'ALAMAT', 'JENIS USAHA', 'LUAS', 'LUAS (M2)', 'KATEGORI', 'BIAYA SEWA', 'NOMOR HP'];
     
     const rows = kiosks.map(k => [
       `"${k.id || ''}"`,
-      `"${k.nama || ''}"`,
-      `"${k.shape_type || 'rect'}"`,
-      k.x || 0,
-      k.y || 0,
-      `"${k.status || ''}"`,
-      `"${k.pedagang || ''}"`,
+      `"${k.pedagang === '-' ? 'KOSONG' : k.pedagang}"`,
+      `"${k.nik || ''}"`,
+      `"${k.alamat || ''}"`,
       `"${k.kategori || ''}"`,
-      `"${k.sewaBerakhir || ''}"`,
+      `"${k.luasDimensi || ''}"`,
+      `"${k.luasM2 || ''}"`,
+      `"${k.tipeKios || ''}"`,
       `"${k.sewaBulanan || ''}"`,
-      `"${k.qrCode || ''}"`
+      `"${k.nomorHp || ''}"`
     ]);
 
     return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
   }
 
-  /**
-   * Download CSV file directly
-   */
   downloadCSV() {
     const csvContent = this.exportToCSV();
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `data_kios_pasar_${new Date().toISOString().slice(0,10)}.csv`);
+    link.setAttribute('download', `Pendataan_Pasar_Mukti_Makmur_${this.activeSheetName.replace(/\s+/g, '_')}_2026.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

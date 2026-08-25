@@ -2,6 +2,7 @@ import { registry } from './shell/ModuleRegistry.js';
 import { renderSidebar } from './shell/Sidebar.js';
 import { renderHeader } from './shell/Header.js';
 import { themeManager } from './shell/ThemeManager.js';
+import { spreadsheetService } from './services/SpreadsheetService.js';
 
 import { DashboardModule } from './modules/dashboard/index.js';
 import { PedagangModule } from './modules/pedagang/index.js';
@@ -58,8 +59,10 @@ function initApp() {
     }
   }
 
+  // Subscribe to registry, theme, and spreadsheet dataset changes
   registry.subscribe(updateUI);
   themeManager.subscribe(() => updateUI());
+  spreadsheetService.subscribe(() => updateUI());
 
   updateUI();
 }
