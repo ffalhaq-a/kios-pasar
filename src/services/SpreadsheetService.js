@@ -1,14 +1,19 @@
 import { pasarMuktiMakmurData } from '../modules/denah/data/pasarMuktiMakmurData.js';
 import { initialInfrastructureData } from '../modules/denah/data/sampleData.js';
+import { GOOGLE_API_URL, authService } from './AuthService.js';
 
 class SpreadsheetService {
   constructor() {
     this.storageKey = 'pasar_mukti_makmur_master_v4';
     this.listeners = [];
+    this.isFetchingRemote = false;
+
+    // Auto sync from Google Sheets on initialization
+    this.fetchRemoteKiosks();
   }
 
   /**
-   * Load Unified Master Dataset (612 Units = 320 Sandang + 292 Sayur)
+   * Load Master Dataset (Tries LocalStorage first for instant render, then fetches Google Sheets in background)
    */
   loadKiosks() {
     const saved = localStorage.getItem(this.storageKey);
@@ -24,8 +29,35 @@ class SpreadsheetService {
   }
 
   /**
-   * Reset data back to default official dataset with real-world default status: BELUM BAYAR
+   * Fetch latest kiosks from Google Sheets API
    */
+  async fetchRemoteKiosks() {
+    if (this.isFetchingRemote) return;
+    this.isFetchingRemote = true;
+
+    try {
+      const res = await fetch(`${GOOGLE_API_URL}?action=getKiosks`);
+      const json = await res.json();
+
+      if (json.status === 'success' && Array.isArray(json.data) && json.data.length > 0) {
+        const cleanedData = json.data.map(k => ({
+          ...k,
+          luasM2: String(k.luasM2 || ''),
+          sewaBulanan: String(k.sewaBulanan || ''),
+          tglPembayaran: String(k.tglPembayaran || '-'),
+          tglHabisSewa: String(k.tglHabisSewa || '2026-12-31'),
+          statusBayar: String(k.statusBayar || 'belum_bayar')
+        }));
+
+        this.saveKiosksLocally(cleanedData);
+      }
+    } catch (e) {
+      console.warn('Google Sheets API offline or unreachable, using local data:', e);
+    } finally {
+      this.isFetchingRemote = false;
+    }
+  }
+
   resetToDefaultData() {
     const sandangList = (pasarMuktiMakmurData.sheets['PASAR SANDANG'] || []).map(item => {
       const isKosong = item.status === 'kosong' || item.pedagang === '-';
@@ -56,7 +88,7 @@ class SpreadsheetService {
     });
 
     const masterData = [...sandangList, ...sayurList];
-    this.saveKiosks(masterData);
+    this.saveKiosksLocally(masterData);
     return masterData;
   }
 
@@ -64,19 +96,46 @@ class SpreadsheetService {
     return JSON.parse(JSON.stringify(initialInfrastructureData));
   }
 
-  saveKiosks(data) {
+  saveKiosksLocally(data) {
     localStorage.setItem(this.storageKey, JSON.stringify(data));
     window._kioskData = data;
     this.notify();
   }
 
-  updateKios(id, updatedFields) {
+  async updateKios(id, updatedFields) {
     const kiosks = this.loadKiosks();
     const idx = kiosks.findIndex(k => k.id === id);
     if (idx !== -1) {
-      kiosks[idx] = { ...kiosks[idx], ...updatedFields };
-      this.saveKiosks(kiosks);
-      return kiosks[idx];
+      const updatedItem = { ...kiosks[idx], ...updatedFields };
+      kiosks[idx] = updatedItem;
+      
+      // 1. Update Local Storage instantly
+      this.saveKiosksLocally(kiosks);
+
+      // 2. Sync to Google Sheets in background
+      const currentUser = authService.getCurrentUser();
+      const petugasName = currentUser ? `${currentUser.nama} (${currentUser.username})` : 'Sistem';
+
+      try {
+        fetch(GOOGLE_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'updateKios',
+            kiosk: updatedItem,
+            user: petugasName
+          }),
+          redirect: 'follow'
+        }).then(r => r.json()).then(res => {
+          console.log('Google Sheets Sync result:', res);
+        }).catch(err => {
+          console.warn('Google Sheets Sync background error:', err);
+        });
+      } catch (err) {
+        console.warn('Error triggering Google Sheets update:', err);
+      }
+
+      return updatedItem;
     }
     return null;
   }
