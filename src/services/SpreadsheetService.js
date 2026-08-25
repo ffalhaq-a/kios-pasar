@@ -1,4 +1,5 @@
 import { GOOGLE_API_URL, authService } from './AuthService.js';
+import { escapeHTML, sanitizeFormulaInput, API_SECURITY_TOKEN } from '../utils/security.js';
 
 /**
  * Format any date string or ISO timestamp into clean DD/MM/YYYY format without time
@@ -51,12 +52,16 @@ class SpreadsheetService {
     this.isFetchingRemote = true;
 
     try {
-      const res = await fetch(`${GOOGLE_API_URL}?action=getKiosks`);
+      const res = await fetch(`${GOOGLE_API_URL}?action=getKiosks&apiToken=${API_SECURITY_TOKEN}`);
       const json = await res.json();
 
       if (json.status === 'success' && Array.isArray(json.data) && json.data.length > 0) {
         const cleanedData = json.data.map(k => ({
           ...k,
+          pedagang: escapeHTML(k.pedagang || '-'),
+          nik: escapeHTML(k.nik || '-'),
+          alamat: escapeHTML(k.alamat || '-'),
+          kategori: escapeHTML(k.kategori || 'Umum'),
           luasM2: String(k.luasM2 || ''),
           sewaBulanan: String(k.sewaBulanan || ''),
           tglPembayaran: String(k.tglPembayaran || '-').split('T')[0],
@@ -83,8 +88,13 @@ class SpreadsheetService {
     const kiosks = this.loadKiosks();
     const idx = kiosks.findIndex(k => k.id === id);
     if (idx !== -1) {
+      // Security Hardening: Sanitize formula injection & escape HTML
       const cleanUpdated = {
         ...updatedFields,
+        pedagang: sanitizeFormulaInput(updatedFields.pedagang || '-'),
+        nik: sanitizeFormulaInput(updatedFields.nik || '-'),
+        alamat: sanitizeFormulaInput(updatedFields.alamat || '-'),
+        kategori: sanitizeFormulaInput(updatedFields.kategori || 'Umum'),
         tglPembayaran: updatedFields.tglPembayaran ? String(updatedFields.tglPembayaran).split('T')[0] : '-',
         tglHabisSewa: updatedFields.tglHabisSewa ? String(updatedFields.tglHabisSewa).split('T')[0] : '2026-12-31'
       };
@@ -104,7 +114,8 @@ class SpreadsheetService {
           body: JSON.stringify({
             action: 'updateKios',
             kiosk: updatedItem,
-            user: petugasName
+            user: petugasName,
+            apiToken: API_SECURITY_TOKEN
           }),
           redirect: 'follow'
         }).then(r => r.json()).then(res => {
@@ -172,18 +183,18 @@ class SpreadsheetService {
       `"${k.id || ''}"`,
       `"${k.zona || ''}"`,
       `"${k.blokKode || k.id || ''}"`,
-      `"${k.pedagang === '-' ? 'KOSONG' : k.pedagang}"`,
-      `"${k.nik || ''}"`,
-      `"${k.alamat || ''}"`,
-      `"${k.kategori || ''}"`,
+      `"${k.pedagang === '-' ? 'KOSONG' : sanitizeFormulaInput(k.pedagang)}"`,
+      `"${sanitizeFormulaInput(k.nik || '')}"`,
+      `"${sanitizeFormulaInput(k.alamat || '')}"`,
+      `"${sanitizeFormulaInput(k.kategori || '')}"`,
       `"${k.tipeKios || ''}"`,
       `"${k.luasM2 || ''}"`,
       `"${k.sewaBulanan || ''}"`,
       `"${formatDateDDMMYYYY(k.tglPembayaran)}"`,
       `"${formatDateDDMMYYYY(k.tglHabisSewa)}"`,
       `"${k.statusBayar || ''}"`,
-      `"${k.nomorHp || ''}"`,
-      `"${k.catatan || ''}"`
+      `"${sanitizeFormulaInput(k.nomorHp || '')}"`,
+      `"${sanitizeFormulaInput(k.catatan || '')}"`
     ]);
 
     return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');

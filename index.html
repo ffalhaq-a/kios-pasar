@@ -1,56 +1,29 @@
 <!DOCTYPE html>
-<html lang="id" class="dark">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Sistem Manajemen Kios Pasar Mukti Makmur 2026</title>
-  
-  <!-- PWA Meta Tags -->
-  <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#16a34a">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="KiosPasar">
-  
-  <!-- Typography: Plus Jakarta Sans -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- Security Hardening HTTP Headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="X-Frame-Options" content="SAMEORIGIN" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
 
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-          },
-          colors: {
-            brand: {
-              50: '#f0fdf4',
-              100: '#dcfce7',
-              500: '#22c55e',
-              600: '#16a34a',
-              700: '#15803d',
-              900: '#14532d',
-            }
-          }
-        }
-      }
-    }
-  </script>
-  <!-- Konva JS CDN -->
-  <script src="https://unpkg.com/konva@9.3.18/konva.min.js"></script>
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <link rel="stylesheet" href="/src/styles/main.css">
-</head>
-<body class="bg-slate-900 text-slate-100 font-sans antialiased h-screen overflow-hidden select-none">
-  <div id="app" class="flex h-full w-full">
-    <!-- Shell Layout dynamically mounted here -->
-  </div>
+    <title>Sistem Manajemen Kios Pasar Mukti Makmur Karangpucung 2026</title>
+    
+    <!-- Google Font: Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
-  <script type="module" src="/src/main.js"></script>
-</body>
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Tailwind CSS (Vite will bundle this) -->
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body class="bg-slate-900 text-slate-100 font-sans antialiased h-screen overflow-hidden">
+    <div id="app" class="h-full flex overflow-hidden"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
 </html>
