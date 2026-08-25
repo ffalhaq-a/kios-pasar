@@ -1,9 +1,17 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" class="dark">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Sistem Manajemen Kios Pasar - Modular</title>
+  
+  <!-- PWA Meta Tags -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#16a34a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="KiosPasar">
+  
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -30,9 +38,9 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <link rel="stylesheet" href="/src/styles/main.css">
 </head>
-<body class="bg-slate-900 text-slate-100 font-sans antialiased h-screen overflow-hidden">
+<body class="bg-slate-900 text-slate-100 font-sans antialiased h-screen overflow-hidden select-none">
   <div id="app" class="flex h-full w-full">
-    <!-- Shell Layout will be dynamically mounted here -->
+    <!-- Shell Layout dynamically mounted here -->
   </div>
 
   <script type="module" src="/src/main.js"></script>
