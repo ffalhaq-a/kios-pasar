@@ -7,7 +7,6 @@ import { spreadsheetService } from './services/SpreadsheetService.js';
 import { DashboardModule } from './modules/dashboard/index.js';
 import { PedagangModule } from './modules/pedagang/index.js';
 import { DenahModule } from './modules/denah/index.js';
-import { FieldModule } from './modules/field/index.js';
 
 window._navigate = (path) => registry.navigate(path);
 
@@ -16,11 +15,10 @@ function initApp() {
 
   themeManager.init();
 
-  // 1. Register All Modules
+  // 1. Register Modules (Dashboard, Pedagang, Denah 2D)
   registry.registerModule(DashboardModule);
   registry.registerModule(PedagangModule);
   registry.registerModule(DenahModule);
-  registry.registerModule(FieldModule);
 
   // 2. Render Base Shell Layout
   appContainer.innerHTML = `
