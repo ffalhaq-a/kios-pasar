@@ -6,19 +6,20 @@ import { themeManager } from './shell/ThemeManager.js';
 import { DashboardModule } from './modules/dashboard/index.js';
 import { PedagangModule } from './modules/pedagang/index.js';
 import { DenahModule } from './modules/denah/index.js';
+import { FieldModule } from './modules/field/index.js';
 
 window._navigate = (path) => registry.navigate(path);
 
 function initApp() {
   const appContainer = document.getElementById('app');
 
-  // Inisialisasi tema (Gelap/Terang)
   themeManager.init();
 
-  // 1. Register Modules
+  // 1. Register All Modules
   registry.registerModule(DashboardModule);
   registry.registerModule(PedagangModule);
   registry.registerModule(DenahModule);
+  registry.registerModule(FieldModule);
 
   // 2. Render Base Shell Layout
   appContainer.innerHTML = `
@@ -35,7 +36,6 @@ function initApp() {
   const headerContainer = document.getElementById('header-container');
   const contentContainer = document.getElementById('content-container');
 
-  // 3. Render function when route or theme changes
   function updateUI() {
     renderSidebar(sidebarContainer);
     renderHeader(headerContainer);
@@ -58,11 +58,9 @@ function initApp() {
     }
   }
 
-  // Subscribe to navigation & theme state changes
   registry.subscribe(updateUI);
   themeManager.subscribe(() => updateUI());
 
-  // Initial render
   updateUI();
 }
 
