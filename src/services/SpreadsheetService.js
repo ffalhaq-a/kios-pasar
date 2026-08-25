@@ -3,7 +3,7 @@ import { initialInfrastructureData } from '../modules/denah/data/sampleData.js';
 
 class SpreadsheetService {
   constructor() {
-    this.storageKey = 'pasar_mukti_makmur_master_v3';
+    this.storageKey = 'pasar_mukti_makmur_master_v4';
     this.listeners = [];
   }
 
@@ -24,30 +24,36 @@ class SpreadsheetService {
   }
 
   /**
-   * Reset data back to default official dataset
+   * Reset data back to default official dataset with real-world default status: BELUM BAYAR
    */
   resetToDefaultData() {
-    const sandangList = (pasarMuktiMakmurData.sheets['PASAR SANDANG'] || []).map(item => ({
-      ...item,
-      id: `SND-${item.id}`,
-      blokKode: item.id,
-      zona: 'PASAR SANDANG',
-      tglPembayaran: item.status === 'terisi' ? '2026-01-15' : '-',
-      tglHabisSewa: item.sewaBerakhir || '2026-12-31',
-      statusBayar: item.status === 'terisi' ? 'lunas' : 'kosong',
-      catatan: ''
-    }));
+    const sandangList = (pasarMuktiMakmurData.sheets['PASAR SANDANG'] || []).map(item => {
+      const isKosong = item.status === 'kosong' || item.pedagang === '-';
+      return {
+        ...item,
+        id: `SND-${item.id}`,
+        blokKode: item.id,
+        zona: 'PASAR SANDANG',
+        tglPembayaran: '-',
+        tglHabisSewa: item.sewaBerakhir || '2026-12-31',
+        statusBayar: isKosong ? 'kosong' : 'belum_bayar',
+        catatan: ''
+      };
+    });
 
-    const sayurList = (pasarMuktiMakmurData.sheets['PASAR SAYUR'] || []).map(item => ({
-      ...item,
-      id: `SYR-${item.id}`,
-      blokKode: item.id,
-      zona: 'PASAR SAYUR',
-      tglPembayaran: item.status === 'terisi' ? '2026-01-20' : '-',
-      tglHabisSewa: item.sewaBerakhir || '2026-12-31',
-      statusBayar: item.status === 'terisi' ? 'lunas' : 'kosong',
-      catatan: ''
-    }));
+    const sayurList = (pasarMuktiMakmurData.sheets['PASAR SAYUR'] || []).map(item => {
+      const isKosong = item.status === 'kosong' || item.pedagang === '-';
+      return {
+        ...item,
+        id: `SYR-${item.id}`,
+        blokKode: item.id,
+        zona: 'PASAR SAYUR',
+        tglPembayaran: '-',
+        tglHabisSewa: item.sewaBerakhir || '2026-12-31',
+        statusBayar: isKosong ? 'kosong' : 'belum_bayar',
+        catatan: ''
+      };
+    });
 
     const masterData = [...sandangList, ...sayurList];
     this.saveKiosks(masterData);
@@ -75,9 +81,6 @@ class SpreadsheetService {
     return null;
   }
 
-  /**
-   * Centralized helper method to compute stats for entire market or specific zone (Ponytail rule: reuse existing helper logic)
-   */
   getStats(zone = null) {
     let kiosks = this.loadKiosks();
     if (zone) {
@@ -85,10 +88,11 @@ class SpreadsheetService {
     }
 
     const total = kiosks.length;
-    const terisi = kiosks.filter(k => k.status === 'terisi' || (k.pedagang && k.pedagang !== '-')).length;
+    const terisi = kiosks.filter(k => k.pedagang && k.pedagang !== '-').length;
     const kosong = total - terisi;
     const sudahBayar = kiosks.filter(k => k.statusBayar === 'lunas' && k.pedagang !== '-').length;
-    const jatuhTempo = total - kosong - sudahBayar;
+    const belumBayar = kiosks.filter(k => k.statusBayar === 'belum_bayar' && k.pedagang !== '-').length;
+    const jatuhTempo = kiosks.filter(k => (k.statusBayar === 'jatuh_tempo' || k.statusBayar === 'hampir_habis') && k.pedagang !== '-').length;
 
     const totalSewa = kiosks.reduce((acc, curr) => {
       const num = parseInt((curr.sewaBulanan || '').replace(/[^0-9]/g, '')) || 225000;
@@ -100,6 +104,7 @@ class SpreadsheetService {
       terisi,
       kosong,
       sudahBayar,
+      belumBayar,
       jatuhTempo,
       okupansiPercent: total > 0 ? Math.round((terisi / total) * 100) : 0,
       totalSewaFormatted: `Rp ${totalSewa.toLocaleString('id-ID')}`
@@ -121,7 +126,7 @@ class SpreadsheetService {
     const kiosks = this.loadKiosks();
     if (!kiosks || kiosks.length === 0) return '';
 
-    const headers = ['ID UNIK', 'ZONA PASAR', 'BLOK', 'NAMA PEDAGANG', 'NIK', 'ALAMAT', 'JENIS USAHA', 'TIPE KIOS', 'LUAS (M2)', 'BIAYA SEWA', 'TGL PEMBAYARAN', 'TGL HABIS SEWA', 'STATUS BAYAR', 'NOMOR HP', 'CATATAN'];
+    const headers = ['ID UNIK', 'ZONA PASAR', 'BLOK', 'NAMA PEDAGANG', 'NIK', 'ALAMAT', 'JENIS USAHA', 'TIPE KIOS', 'LUAS (M2)', 'BIAYA SEWA TAHUNAN', 'TGL PEMBAYARAN', 'TGL HABIS SEWA', 'STATUS BAYAR', 'NOMOR HP', 'CATATAN'];
     
     const rows = kiosks.map(k => [
       `"${k.id || ''}"`,
