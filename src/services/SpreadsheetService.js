@@ -1,4 +1,3 @@
-import { pasarMuktiMakmurData } from '../modules/denah/data/pasarMuktiMakmurData.js';
 import { initialInfrastructureData } from '../modules/denah/data/sampleData.js';
 import { GOOGLE_API_URL, authService } from './AuthService.js';
 
@@ -10,15 +9,12 @@ import { GOOGLE_API_URL, authService } from './AuthService.js';
 export function formatDateDDMMYYYY(dateStr) {
   if (!dateStr || dateStr === '-' || dateStr === 'null' || dateStr === 'undefined') return '-';
   
-  // 1. Strip time portion if present (e.g. 2026-12-30T17:00:00.000Z -> 2026-12-30)
   const cleanStr = String(dateStr).split('T')[0].trim();
 
-  // 2. Check if already in DD/MM/YYYY format
   if (/^\d{2}\/\d{2}\/\d{4}$/.test(cleanStr)) {
     return cleanStr;
   }
 
-  // 3. If in YYYY-MM-DD format
   const parts = cleanStr.split('-');
   if (parts.length === 3 && parts[0].length === 4) {
     const [year, month, day] = parts;
@@ -48,7 +44,7 @@ class SpreadsheetService {
       }
     }
 
-    return this.resetToDefaultData();
+    return [];
   }
 
   async fetchRemoteKiosks() {
@@ -78,40 +74,6 @@ class SpreadsheetService {
     }
   }
 
-  resetToDefaultData() {
-    const sandangList = (pasarMuktiMakmurData.sheets['PASAR SANDANG'] || []).map(item => {
-      const isKosong = item.status === 'kosong' || item.pedagang === '-';
-      return {
-        ...item,
-        id: `SND-${item.id}`,
-        blokKode: item.id,
-        zona: 'PASAR SANDANG',
-        tglPembayaran: '-',
-        tglHabisSewa: item.sewaBerakhir || '2026-12-31',
-        statusBayar: isKosong ? 'kosong' : 'belum_bayar',
-        catatan: ''
-      };
-    });
-
-    const sayurList = (pasarMuktiMakmurData.sheets['PASAR SAYUR'] || []).map(item => {
-      const isKosong = item.status === 'kosong' || item.pedagang === '-';
-      return {
-        ...item,
-        id: `SYR-${item.id}`,
-        blokKode: item.id,
-        zona: 'PASAR SAYUR',
-        tglPembayaran: '-',
-        tglHabisSewa: item.sewaBerakhir || '2026-12-31',
-        statusBayar: isKosong ? 'kosong' : 'belum_bayar',
-        catatan: ''
-      };
-    });
-
-    const masterData = [...sandangList, ...sayurList];
-    this.saveKiosksLocally(masterData);
-    return masterData;
-  }
-
   loadInfrastructure() {
     return JSON.parse(JSON.stringify(initialInfrastructureData));
   }
@@ -126,7 +88,6 @@ class SpreadsheetService {
     const kiosks = this.loadKiosks();
     const idx = kiosks.findIndex(k => k.id === id);
     if (idx !== -1) {
-      // Ensure date fields are clean YYYY-MM-DD
       const cleanUpdated = {
         ...updatedFields,
         tglPembayaran: updatedFields.tglPembayaran ? String(updatedFields.tglPembayaran).split('T')[0] : '-',
