@@ -2,7 +2,7 @@ import { registry } from './ModuleRegistry.js';
 import { themeManager } from './ThemeManager.js';
 
 export function renderSidebar(container) {
-  const modules = registry.getModules();
+  const modules = registry.getModules().filter(m => m.id !== 'auth');
   const currentPath = registry.currentPath;
   const isDark = themeManager.isDark();
 
@@ -181,7 +181,6 @@ export function renderSidebar(container) {
   container.querySelectorAll('.submenu-toggle-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       if (isCollapsed) {
-        // Automatically expand sidebar when clicking submenu while collapsed
         localStorage.setItem('sidebar_collapsed', 'false');
         renderSidebar(container);
         if (window.lucide) window.lucide.createIcons();
@@ -197,21 +196,4 @@ export function renderSidebar(container) {
       if (window.lucide) window.lucide.createIcons();
     });
   });
-
-  // Shortcut Keyboard Ctrl+B or Cmd+B to Toggle Sidebar
-  if (!window._sidebarHotkeyBound) {
-    window._sidebarHotkeyBound = true;
-    window.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
-        e.preventDefault();
-        const current = localStorage.getItem('sidebar_collapsed') === 'true';
-        localStorage.setItem('sidebar_collapsed', current ? 'false' : 'true');
-        const sidebarEl = document.getElementById('sidebar-container');
-        if (sidebarEl) {
-          renderSidebar(sidebarEl);
-          if (window.lucide) window.lucide.createIcons();
-        }
-      }
-    });
-  }
 }

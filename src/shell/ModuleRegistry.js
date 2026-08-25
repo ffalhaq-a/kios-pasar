@@ -12,11 +12,6 @@ class ModuleRegistry {
   /**
    * Register a module with its configuration.
    * @param {Object} config
-   * @param {string} config.id - Unique ID (e.g. 'pedagang')
-   * @param {string} config.title - Display Title
-   * @param {string} config.icon - Lucide icon name
-   * @param {Array} config.menus - Array of menu items / sub-menus
-   * @param {Object} config.views - Map of path => render function
    */
   registerModule(config) {
     if (!config.id || !config.menus) {
@@ -55,18 +50,19 @@ class ModuleRegistry {
     for (const mod of this.modules.values()) {
       for (const menu of mod.menus) {
         if (menu.path === this.currentPath) {
-          return { module: mod, menu, render: mod.views[menu.path] };
+          const renderFn = (mod.views && mod.views[menu.path]) || menu.render;
+          return { module: mod, menu, render: renderFn };
         }
         if (menu.submenus) {
           for (const sub of menu.submenus) {
             if (sub.path === this.currentPath) {
-              return { module: mod, menu, submenu: sub, render: mod.views[sub.path] };
+              const renderFn = (mod.views && mod.views[sub.path]) || sub.render;
+              return { module: mod, menu, submenu: sub, render: renderFn };
             }
           }
         }
       }
     }
-    // Fallback to first available route
     return null;
   }
 }

@@ -8,8 +8,10 @@ export const AuthModule = {
     {
       id: 'login',
       label: 'Login',
-      path: '/login',
-      render: (container) => renderLoginView(container)
+      path: '/login'
     }
-  ]
+  ],
+  views: {
+    '/login': (container) => renderLoginView(container)
+  }
 };
