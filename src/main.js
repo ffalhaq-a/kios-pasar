@@ -1,16 +1,19 @@
 import { registry } from './shell/ModuleRegistry.js';
 import { renderSidebar } from './shell/Sidebar.js';
 import { renderHeader } from './shell/Header.js';
+import { themeManager } from './shell/ThemeManager.js';
 
 import { DashboardModule } from './modules/dashboard/index.js';
 import { PedagangModule } from './modules/pedagang/index.js';
 import { DenahModule } from './modules/denah/index.js';
 
-// Global helper for navigation
 window._navigate = (path) => registry.navigate(path);
 
 function initApp() {
   const appContainer = document.getElementById('app');
+
+  // Inisialisasi tema (Gelap/Terang)
+  themeManager.init();
 
   // 1. Register Modules
   registry.registerModule(DashboardModule);
@@ -20,9 +23,9 @@ function initApp() {
   // 2. Render Base Shell Layout
   appContainer.innerHTML = `
     <div id="sidebar-container" class="h-full"></div>
-    <div class="flex-1 flex flex-col h-full bg-slate-900 overflow-hidden">
+    <div class="flex-1 flex flex-col h-full overflow-hidden">
       <div id="header-container"></div>
-      <main id="content-container" class="flex-1 overflow-hidden relative bg-slate-900">
+      <main id="content-container" class="flex-1 overflow-hidden relative">
         <!-- Module Views render here -->
       </main>
     </div>
@@ -32,7 +35,7 @@ function initApp() {
   const headerContainer = document.getElementById('header-container');
   const contentContainer = document.getElementById('content-container');
 
-  // 3. Render function when route changes
+  // 3. Render function when route or theme changes
   function updateUI() {
     renderSidebar(sidebarContainer);
     renderHeader(headerContainer);
@@ -50,14 +53,14 @@ function initApp() {
       `;
     }
 
-    // Refresh Lucide Icons
     if (window.lucide) {
       window.lucide.createIcons();
     }
   }
 
-  // Subscribe to registry state changes
+  // Subscribe to navigation & theme state changes
   registry.subscribe(updateUI);
+  themeManager.subscribe(() => updateUI());
 
   // Initial render
   updateUI();
