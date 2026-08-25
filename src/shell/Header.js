@@ -1,7 +1,6 @@
 import { registry } from './ModuleRegistry.js';
 import { themeManager } from './ThemeManager.js';
 import { spreadsheetService } from '../services/SpreadsheetService.js';
-import { authService } from '../services/AuthService.js';
 
 export function renderHeader(container) {
   const route = registry.getCurrentRoute();
@@ -15,7 +14,6 @@ export function renderHeader(container) {
   }
 
   const isDark = themeManager.isDark();
-  const currentUser = authService.getCurrentUser();
 
   container.innerHTML = `
     <header class="h-16 border-b transition-colors duration-200 px-4 md:px-6 flex items-center justify-between shrink-0 ${
@@ -30,7 +28,7 @@ export function renderHeader(container) {
         <span class="text-emerald-500 font-bold">${title}</span>
       </div>
 
-      <!-- Right Actions: Export CSV, Theme & User Account Profile -->
+      <!-- Right Actions: Export CSV & Theme Toggle -->
       <div class="flex items-center gap-2 md:gap-3">
         <!-- Export CSV Button -->
         <button 
@@ -59,29 +57,6 @@ export function renderHeader(container) {
           <i data-lucide="${isDark ? 'sun' : 'moon'}" class="w-4 h-4"></i>
           <span class="hidden lg:inline">${isDark ? 'Mode Terang' : 'Mode Gelap'}</span>
         </button>
-
-        <!-- User Profile & Logout -->
-        ${currentUser ? `
-          <div class="flex items-center gap-2 pl-2 border-l ${isDark ? 'border-slate-800' : 'border-slate-200'}">
-            <div class="hidden sm:block text-right">
-              <span class="text-xs font-extrabold ${isDark ? 'text-slate-200' : 'text-slate-800'} block leading-tight">
-                ${currentUser.nama || currentUser.username}
-              </span>
-              <span class="text-[10px] font-bold text-emerald-500 uppercase tracking-wider block">
-                ${currentUser.role || 'USER'}
-              </span>
-            </div>
-
-            <button 
-              id="logout-btn" 
-              title="Keluar dari Sistem (Logout)"
-              class="p-2 rounded-xl text-rose-500 hover:bg-rose-500/10 border border-rose-500/20 transition-all flex items-center gap-1 text-xs font-bold"
-            >
-              <i data-lucide="log-out" class="w-4 h-4"></i>
-              <span class="hidden md:inline">Keluar</span>
-            </button>
-          </div>
-        ` : ''}
       </div>
     </header>
   `;
@@ -97,15 +72,6 @@ export function renderHeader(container) {
   if (themeBtn) {
     themeBtn.addEventListener('click', () => {
       themeManager.toggleTheme();
-    });
-  }
-
-  const logoutBtn = container.querySelector('#logout-btn');
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', () => {
-      if (confirm('Apakah Anda yakin ingin keluar dari sistem?')) {
-        authService.logout();
-      }
     });
   }
 }

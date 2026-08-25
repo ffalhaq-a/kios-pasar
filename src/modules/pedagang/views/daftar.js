@@ -1,4 +1,4 @@
-import { spreadsheetService } from '../../../services/SpreadsheetService.js';
+import { spreadsheetService, formatDateDDMMYYYY } from '../../../services/SpreadsheetService.js';
 import { themeManager } from '../../../shell/ThemeManager.js';
 
 export function renderDaftarPedagangView(container) {
@@ -140,6 +140,9 @@ export function renderDaftarPedagangView(container) {
         `;
       }
 
+      const formattedTglBayar = formatDateDDMMYYYY(item.tglPembayaran);
+      const formattedTglHabis = formatDateDDMMYYYY(item.tglHabisSewa);
+
       return `
         <tr class="border-b ${rowHover} transition-all text-xs">
           <td class="px-3.5 py-3 font-mono font-bold text-emerald-500 whitespace-nowrap">
@@ -178,8 +181,8 @@ export function renderDaftarPedagangView(container) {
             ${item.luasM2 ? `<span class="text-[10px] text-emerald-500 font-bold ml-1">(${item.luasM2} m²)</span>` : ''}
           </td>
           <td class="px-3 py-3 font-mono font-bold text-amber-500 whitespace-nowrap">${item.sewaBulanan}</td>
-          <td class="px-3 py-3 font-mono ${textSecondary} whitespace-nowrap">${item.tglPembayaran || '-'}</td>
-          <td class="px-3 py-3 font-mono font-semibold text-amber-500 whitespace-nowrap">${item.tglHabisSewa || '-'}</td>
+          <td class="px-3 py-3 font-mono ${textSecondary} whitespace-nowrap">${formattedTglBayar}</td>
+          <td class="px-3 py-3 font-mono font-bold text-amber-500 whitespace-nowrap">${formattedTglHabis}</td>
           <td class="px-3 py-3 whitespace-nowrap">${statusBadge}</td>
           <td class="px-3 py-3 text-right whitespace-nowrap">
             <button data-edit-id="${item.id}" class="edit-merchant-btn bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-[11px] font-bold shadow transition-all flex items-center gap-1 ml-auto">
@@ -276,7 +279,7 @@ export function renderDaftarPedagangView(container) {
   container.innerHTML = `
     <div class="p-6 space-y-4 overflow-y-auto h-full ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}">
       
-      <!-- Clean Title Bar (No (610 Data) text as requested) -->
+      <!-- Clean Title Bar -->
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 class="text-xl font-extrabold ${textPrimary}">
@@ -324,7 +327,7 @@ export function renderDaftarPedagangView(container) {
             </select>
           </div>
 
-          <!-- Dropdown 2: Filter Blok (Sebelah Kanan Jenis Pasar) -->
+          <!-- Dropdown 2: Filter Blok -->
           <div>
             <label class="block text-[11px] font-bold ${textSecondary} mb-1">Filter Blok:</label>
             <select id="filter-blok" class="w-full p-2.5 rounded-xl text-xs font-semibold border focus:outline-none focus:border-emerald-500 ${inputBg}">
@@ -640,8 +643,8 @@ export function renderDaftarPedagangView(container) {
     container.querySelector('#edit-usaha-input').value = item.kategori || '';
     container.querySelector('#edit-dimensi-input').value = item.luasDimensi || '';
     container.querySelector('#edit-luas-input').value = item.luasM2 || '';
-    container.querySelector('#edit-tgl-bayar-input').value = item.tglPembayaran === '-' ? '' : item.tglPembayaran;
-    container.querySelector('#edit-tgl-habis-input').value = item.tglHabisSewa === '-' ? '' : item.tglHabisSewa;
+    container.querySelector('#edit-tgl-bayar-input').value = item.tglPembayaran === '-' ? '' : String(item.tglPembayaran).split('T')[0];
+    container.querySelector('#edit-tgl-habis-input').value = item.tglHabisSewa === '-' ? '' : String(item.tglHabisSewa).split('T')[0];
     container.querySelector('#edit-status-bayar-input').value = item.statusBayar || 'belum_bayar';
     container.querySelector('#edit-hp-input').value = item.nomorHp || '';
 

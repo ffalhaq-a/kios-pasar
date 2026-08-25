@@ -1,10 +1,12 @@
 import { registry } from './ModuleRegistry.js';
 import { themeManager } from './ThemeManager.js';
+import { authService } from '../services/AuthService.js';
 
 export function renderSidebar(container) {
   const modules = registry.getModules().filter(m => m.id !== 'auth');
   const currentPath = registry.currentPath;
   const isDark = themeManager.isDark();
+  const currentUser = authService.getCurrentUser();
 
   if (!window._expandedMenus) {
     window._expandedMenus = new Set(['pedagang']);
@@ -51,7 +53,7 @@ export function renderSidebar(container) {
         ` : ''}
 
         <!-- Navigation Section -->
-        <div class="px-2 py-4 overflow-y-auto max-h-[calc(100vh-140px)]">
+        <div class="px-2 py-4 overflow-y-auto max-h-[calc(100vh-180px)]">
           ${!isCollapsed ? `
             <p class="text-[10px] font-bold tracking-widest uppercase px-3 mb-2 ${isDark ? 'text-slate-400' : 'text-slate-400'}">NAVIGASI SISTEM</p>
           ` : ''}
@@ -138,21 +140,41 @@ export function renderSidebar(container) {
         </div>
       </div>
 
-      <!-- Footer Info -->
+      <!-- Footer Info & User Profile Badge in Bottom Left Corner -->
       <div class="p-2.5 border-t ${isDark ? 'border-slate-800/80 bg-slate-950/50' : 'border-slate-200 bg-slate-50'}">
-        ${!isCollapsed ? `
-          <div class="rounded-xl p-2.5 border ${isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'}">
-            <div class="flex items-center justify-between text-[11px] font-semibold mb-0.5">
-              <span class="${isDark ? 'text-slate-300' : 'text-slate-700'}">Karangpucung</span>
-              <span class="text-emerald-500 font-mono text-[10px]">2026</span>
-            </div>
-            <p class="text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'} leading-tight">Desa Karangpucung, Cilacap</p>
+        ${currentUser ? `
+          <div class="rounded-xl p-2.5 border ${isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'} space-y-2">
+            ${!isCollapsed ? `
+              <div class="flex items-center justify-between">
+                <div class="overflow-hidden pr-1">
+                  <span class="text-xs font-extrabold ${isDark ? 'text-slate-200' : 'text-slate-800'} block truncate">
+                    ${currentUser.nama || currentUser.username}
+                  </span>
+                  <span class="text-[10px] font-bold text-emerald-500 uppercase tracking-wider block">
+                    ${currentUser.role || 'USER'}
+                  </span>
+                </div>
+                <button 
+                  id="sidebar-logout-btn" 
+                  title="Keluar dari Sistem (Logout)"
+                  class="p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10 border border-rose-500/20 transition-all shrink-0"
+                >
+                  <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            ` : `
+              <div class="flex justify-center">
+                <button 
+                  id="sidebar-logout-btn" 
+                  title="Keluar (${currentUser.nama || currentUser.username})"
+                  class="p-2 rounded-xl text-rose-500 hover:bg-rose-500/10 border border-rose-500/20 transition-all"
+                >
+                  <i data-lucide="log-out" class="w-4 h-4"></i>
+                </button>
+              </div>
+            `}
           </div>
-        ` : `
-          <div class="text-center text-[10px] font-mono text-emerald-500 font-bold" title="Karangpucung 2026">
-            2026
-          </div>
-        `}
+        ` : ''}
       </div>
     </aside>
   `;
@@ -196,4 +218,14 @@ export function renderSidebar(container) {
       if (window.lucide) window.lucide.createIcons();
     });
   });
+
+  // Logout Handler
+  const logoutBtn = container.querySelector('#sidebar-logout-btn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      if (confirm('Apakah Anda yakin ingin keluar dari sistem?')) {
+        authService.logout();
+      }
+    });
+  }
 }

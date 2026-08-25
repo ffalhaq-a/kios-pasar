@@ -2,6 +2,32 @@ import { pasarMuktiMakmurData } from '../modules/denah/data/pasarMuktiMakmurData
 import { initialInfrastructureData } from '../modules/denah/data/sampleData.js';
 import { GOOGLE_API_URL, authService } from './AuthService.js';
 
+/**
+ * Format any date string or ISO timestamp into clean DD/MM/YYYY format without time
+ * @param {string} dateStr - e.g. "2026-12-30T17:00:00.000Z", "2026-12-31", "31/12/2026"
+ * @returns {string} e.g. "30/12/2026" or "-"
+ */
+export function formatDateDDMMYYYY(dateStr) {
+  if (!dateStr || dateStr === '-' || dateStr === 'null' || dateStr === 'undefined') return '-';
+  
+  // 1. Strip time portion if present (e.g. 2026-12-30T17:00:00.000Z -> 2026-12-30)
+  const cleanStr = String(dateStr).split('T')[0].trim();
+
+  // 2. Check if already in DD/MM/YYYY format
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(cleanStr)) {
+    return cleanStr;
+  }
+
+  // 3. If in YYYY-MM-DD format
+  const parts = cleanStr.split('-');
+  if (parts.length === 3 && parts[0].length === 4) {
+    const [year, month, day] = parts;
+    return `${day}/${month}/${year}`;
+  }
+
+  return cleanStr;
+}
+
 class SpreadsheetService {
   constructor() {
     this.storageKey = 'pasar_mukti_makmur_master_v4';
@@ -12,9 +38,6 @@ class SpreadsheetService {
     this.fetchRemoteKiosks();
   }
 
-  /**
-   * Load Master Dataset (Tries LocalStorage first for instant render, then fetches Google Sheets in background)
-   */
   loadKiosks() {
     const saved = localStorage.getItem(this.storageKey);
     if (saved) {
@@ -28,9 +51,6 @@ class SpreadsheetService {
     return this.resetToDefaultData();
   }
 
-  /**
-   * Fetch latest kiosks from Google Sheets API
-   */
   async fetchRemoteKiosks() {
     if (this.isFetchingRemote) return;
     this.isFetchingRemote = true;
@@ -44,8 +64,8 @@ class SpreadsheetService {
           ...k,
           luasM2: String(k.luasM2 || ''),
           sewaBulanan: String(k.sewaBulanan || ''),
-          tglPembayaran: String(k.tglPembayaran || '-'),
-          tglHabisSewa: String(k.tglHabisSewa || '2026-12-31'),
+          tglPembayaran: String(k.tglPembayaran || '-').split('T')[0],
+          tglHabisSewa: String(k.tglHabisSewa || '2026-12-31').split('T')[0],
           statusBayar: String(k.statusBayar || 'belum_bayar')
         }));
 
@@ -106,13 +126,18 @@ class SpreadsheetService {
     const kiosks = this.loadKiosks();
     const idx = kiosks.findIndex(k => k.id === id);
     if (idx !== -1) {
-      const updatedItem = { ...kiosks[idx], ...updatedFields };
+      // Ensure date fields are clean YYYY-MM-DD
+      const cleanUpdated = {
+        ...updatedFields,
+        tglPembayaran: updatedFields.tglPembayaran ? String(updatedFields.tglPembayaran).split('T')[0] : '-',
+        tglHabisSewa: updatedFields.tglHabisSewa ? String(updatedFields.tglHabisSewa).split('T')[0] : '2026-12-31'
+      };
+
+      const updatedItem = { ...kiosks[idx], ...cleanUpdated };
       kiosks[idx] = updatedItem;
       
-      // 1. Update Local Storage instantly
       this.saveKiosksLocally(kiosks);
 
-      // 2. Sync to Google Sheets in background
       const currentUser = authService.getCurrentUser();
       const petugasName = currentUser ? `${currentUser.nama} (${currentUser.username})` : 'Sistem';
 
@@ -198,8 +223,8 @@ class SpreadsheetService {
       `"${k.tipeKios || ''}"`,
       `"${k.luasM2 || ''}"`,
       `"${k.sewaBulanan || ''}"`,
-      `"${k.tglPembayaran || ''}"`,
-      `"${k.tglHabisSewa || ''}"`,
+      `"${formatDateDDMMYYYY(k.tglPembayaran)}"`,
+      `"${formatDateDDMMYYYY(k.tglHabisSewa)}"`,
       `"${k.statusBayar || ''}"`,
       `"${k.nomorHp || ''}"`,
       `"${k.catatan || ''}"`
