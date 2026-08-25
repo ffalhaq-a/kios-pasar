@@ -1,10 +1,13 @@
 import { registry } from './ModuleRegistry.js';
 import { themeManager } from './ThemeManager.js';
+import { spreadsheetService } from '../services/SpreadsheetService.js';
 
 export function renderSidebar(container) {
   const modules = registry.getModules();
   const currentPath = registry.currentPath;
   const isDark = themeManager.isDark();
+  const activeSheet = spreadsheetService.getActiveSheetName();
+  const kiosks = spreadsheetService.loadKiosks();
 
   if (!window._expandedMenus) {
     window._expandedMenus = new Set(['pedagang']);
@@ -14,23 +17,34 @@ export function renderSidebar(container) {
     <aside class="w-64 border-r flex flex-col justify-between shrink-0 h-full transition-colors duration-200 ${
       isDark 
         ? 'bg-slate-950 border-slate-800 text-slate-100' 
-        : 'bg-white border-slate-200 text-slate-800 shadow-sm'
+        : 'bg-white border-slate-200 text-slate-900 shadow-sm'
     }">
-      <!-- App Header / Logo -->
       <div>
-        <div class="p-5 border-b flex items-center gap-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
-          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-lg shadow-emerald-900/30">
-            <i data-lucide="store" class="w-6 h-6"></i>
+        <!-- App Header / Logo -->
+        <div class="p-4 border-b flex items-center gap-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md shadow-emerald-900/30 shrink-0">
+            <i data-lucide="store" class="w-5 h-5"></i>
           </div>
-          <div>
-            <h1 class="font-bold text-sm tracking-wide ${isDark ? 'text-slate-100' : 'text-slate-900'}">PASAR MODULAR</h1>
-            <p class="text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}">Sistem Denah Kios v1.0</p>
+          <div class="overflow-hidden">
+            <h1 class="font-bold text-xs tracking-wider uppercase truncate ${isDark ? 'text-slate-100' : 'text-slate-900'}">PASAR MUKTI MAKMUR</h1>
+            <p class="text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'} truncate">Karangpucung • 2026</p>
+          </div>
+        </div>
+
+        <!-- Active Market Indicator Pill (Mobile / Small Screen Fallback) -->
+        <div class="p-3 border-b ${isDark ? 'border-slate-800/80 bg-slate-900/50' : 'border-slate-200 bg-slate-50'}">
+          <div class="flex items-center justify-between text-[11px] font-bold text-emerald-500">
+            <span class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>${activeSheet}</span>
+            </span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full ${isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}">${kiosks.length} Unit</span>
           </div>
         </div>
 
         <!-- Navigation Section -->
-        <div class="px-3 py-4">
-          <p class="text-[10px] font-semibold tracking-wider uppercase px-3 mb-2 ${isDark ? 'text-slate-400' : 'text-slate-400'}">Navigasi Utama</p>
+        <div class="px-3 py-3 overflow-y-auto max-h-[calc(100vh-200px)]">
+          <p class="text-[10px] font-bold tracking-widest uppercase px-3 mb-2 ${isDark ? 'text-slate-400' : 'text-slate-400'}">Navigasi Sistem</p>
           <nav class="space-y-1">
   `;
 
@@ -45,14 +59,17 @@ export function renderSidebar(container) {
         html += `
           <button 
             data-path="${menu.path}"
-            class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-all ${
+            class="nav-btn w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all ${
               isActive 
                 ? (isDark ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 font-semibold' : 'bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold')
                 : (isDark ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-900' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100')
             }"
           >
-            <i data-lucide="${menu.icon || mod.icon || 'circle'}" class="w-4 h-4 shrink-0"></i>
-            <span>${menu.label}</span>
+            <div class="flex items-center gap-3">
+              <i data-lucide="${menu.icon || mod.icon || 'circle'}" class="w-4 h-4 shrink-0"></i>
+              <span>${menu.label}</span>
+            </div>
+            ${isActive ? '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>' : ''}
           </button>
         `;
       } else {
@@ -108,13 +125,13 @@ export function renderSidebar(container) {
       </div>
 
       <!-- Footer Info -->
-      <div class="p-4 border-t ${isDark ? 'border-slate-800/80 bg-slate-950/50' : 'border-slate-200 bg-slate-50'}">
-        <div class="rounded-lg p-3 border ${isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'}">
-          <div class="flex items-center gap-2 mb-1">
-            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span class="text-[11px] font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}">Tema: ${isDark ? 'Dark Mode' : 'Light Mode'}</span>
+      <div class="p-3 border-t ${isDark ? 'border-slate-800/80 bg-slate-950/50' : 'border-slate-200 bg-slate-50'}">
+        <div class="rounded-lg p-2.5 border ${isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'}">
+          <div class="flex items-center justify-between text-[11px] font-semibold mb-1">
+            <span class="${isDark ? 'text-slate-300' : 'text-slate-700'}">Karangpucung</span>
+            <span class="text-emerald-500 font-mono text-[10px]">Tahun 2026</span>
           </div>
-          <p class="text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'} leading-tight">Mendukung saklar tema dinamis di seluruh modul.</p>
+          <p class="text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'} leading-tight">Desa Karangpucung, Kec. Karangpucung</p>
         </div>
       </div>
     </aside>
