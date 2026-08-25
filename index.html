@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistem Manajemen Kios Pasar - Modular</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+              900: '#14532d',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Konva JS CDN -->
+  <script src="https://unpkg.com/konva@9.3.18/konva.min.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans antialiased h-screen overflow-hidden">
+  <div id="app" class="flex h-full w-full">
+    <!-- Shell Layout will be dynamically mounted here -->
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
