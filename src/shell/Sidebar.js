@@ -6,7 +6,6 @@ export function renderSidebar(container) {
   const modules = registry.getModules();
   const currentPath = registry.currentPath;
   const isDark = themeManager.isDark();
-  const activeSheet = spreadsheetService.getActiveSheetName();
   const kiosks = spreadsheetService.loadKiosks();
 
   if (!window._expandedMenus) {
@@ -31,12 +30,12 @@ export function renderSidebar(container) {
           </div>
         </div>
 
-        <!-- Active Market Indicator Pill (Mobile / Small Screen Fallback) -->
+        <!-- Master Indicator Pill -->
         <div class="p-3 border-b ${isDark ? 'border-slate-800/80 bg-slate-900/50' : 'border-slate-200 bg-slate-50'}">
           <div class="flex items-center justify-between text-[11px] font-bold text-emerald-500">
             <span class="flex items-center gap-1.5">
               <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>${activeSheet}</span>
+              <span>Kawasan Master</span>
             </span>
             <span class="text-[10px] px-2 py-0.5 rounded-full ${isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}">${kiosks.length} Unit</span>
           </div>

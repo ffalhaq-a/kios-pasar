@@ -3,39 +3,49 @@ import { initialInfrastructureData } from '../modules/denah/data/sampleData.js';
 
 class SpreadsheetService {
   constructor() {
-    this.storageKey = 'pasar_mukti_makmur_active_sheet';
-    this.activeSheetName = localStorage.getItem(this.storageKey) || 'PASAR SANDANG';
+    this.storageKey = 'pasar_mukti_makmur_master_v3';
     this.listeners = [];
   }
 
-  getAvailableSheets() {
-    return Object.keys(pasarMuktiMakmurData.sheets);
-  }
-
-  getActiveSheetName() {
-    return this.activeSheetName;
-  }
-
-  setActiveSheet(sheetName) {
-    if (pasarMuktiMakmurData.sheets[sheetName]) {
-      this.activeSheetName = sheetName;
-      localStorage.setItem(this.storageKey, sheetName);
-      window._kioskData = this.loadKiosks();
-      this.notify();
-    }
-  }
-
+  /**
+   * Load Unified Master Dataset (612 Units = 320 Sandang + 292 Sayur)
+   */
   loadKiosks() {
-    const customKey = `pasar_data_${this.activeSheetName.replace(/\s+/g, '_')}`;
-    const saved = localStorage.getItem(customKey);
+    const saved = localStorage.getItem(this.storageKey);
     if (saved) {
       try {
         return JSON.parse(saved);
       } catch (e) {
-        console.error('Error parsing stored kiosk data:', e);
+        console.error('Error parsing stored master kiosk data:', e);
       }
     }
-    return JSON.parse(JSON.stringify(pasarMuktiMakmurData.sheets[this.activeSheetName] || []));
+
+    // Merge Pasar Sandang & Pasar Sayur into one master array
+    const sandangList = (pasarMuktiMakmurData.sheets['PASAR SANDANG'] || []).map(item => ({
+      ...item,
+      id: `SND-${item.id}`,
+      blokKode: item.id,
+      zona: 'PASAR SANDANG',
+      tglPembayaran: item.status === 'terisi' ? '2026-01-15' : '-',
+      tglHabisSewa: item.sewaBerakhir || '2026-12-31',
+      statusBayar: item.status === 'terisi' ? 'lunas' : 'kosong',
+      catatan: ''
+    }));
+
+    const sayurList = (pasarMuktiMakmurData.sheets['PASAR SAYUR'] || []).map(item => ({
+      ...item,
+      id: `SYR-${item.id}`,
+      blokKode: item.id,
+      zona: 'PASAR SAYUR',
+      tglPembayaran: item.status === 'terisi' ? '2026-01-20' : '-',
+      tglHabisSewa: item.sewaBerakhir || '2026-12-31',
+      statusBayar: item.status === 'terisi' ? 'lunas' : 'kosong',
+      catatan: ''
+    }));
+
+    const masterData = [...sandangList, ...sayurList];
+    this.saveKiosks(masterData);
+    return masterData;
   }
 
   loadInfrastructure() {
@@ -43,10 +53,23 @@ class SpreadsheetService {
   }
 
   saveKiosks(data) {
-    const customKey = `pasar_data_${this.activeSheetName.replace(/\s+/g, '_')}`;
-    localStorage.setItem(customKey, JSON.stringify(data));
+    localStorage.setItem(this.storageKey, JSON.stringify(data));
     window._kioskData = data;
     this.notify();
+  }
+
+  /**
+   * Update single Kiosk / Merchant Record by ID
+   */
+  updateKios(id, updatedFields) {
+    const kiosks = this.loadKiosks();
+    const idx = kiosks.findIndex(k => k.id === id);
+    if (idx !== -1) {
+      kiosks[idx] = { ...kiosks[idx], ...updatedFields };
+      this.saveKiosks(kiosks);
+      return kiosks[idx];
+    }
+    return null;
   }
 
   subscribe(listener) {
@@ -57,26 +80,31 @@ class SpreadsheetService {
   }
 
   notify() {
-    this.listeners.forEach(fn => fn(this.activeSheetName));
+    this.listeners.forEach(fn => fn());
   }
 
   exportToCSV() {
     const kiosks = this.loadKiosks();
     if (!kiosks || kiosks.length === 0) return '';
 
-    const headers = ['BLOK', 'NAMA', 'NIK', 'ALAMAT', 'JENIS USAHA', 'LUAS', 'LUAS (M2)', 'KATEGORI', 'BIAYA SEWA', 'NOMOR HP'];
+    const headers = ['ID UNIK', 'ZONA PASAR', 'BLOK', 'NAMA PEDAGANG', 'NIK', 'ALAMAT', 'JENIS USAHA', 'TIPE KIOS', 'LUAS (M2)', 'BIAYA SEWA', 'TGL PEMBAYARAN', 'TGL HABIS SEWA', 'STATUS BAYAR', 'NOMOR HP', 'CATATAN'];
     
     const rows = kiosks.map(k => [
       `"${k.id || ''}"`,
+      `"${k.zona || ''}"`,
+      `"${k.blokKode || k.id || ''}"`,
       `"${k.pedagang === '-' ? 'KOSONG' : k.pedagang}"`,
       `"${k.nik || ''}"`,
       `"${k.alamat || ''}"`,
       `"${k.kategori || ''}"`,
-      `"${k.luasDimensi || ''}"`,
-      `"${k.luasM2 || ''}"`,
       `"${k.tipeKios || ''}"`,
+      `"${k.luasM2 || ''}"`,
       `"${k.sewaBulanan || ''}"`,
-      `"${k.nomorHp || ''}"`
+      `"${k.tglPembayaran || ''}"`,
+      `"${k.tglHabisSewa || ''}"`,
+      `"${k.statusBayar || ''}"`,
+      `"${k.nomorHp || ''}"`,
+      `"${k.catatan || ''}"`
     ]);
 
     return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -88,7 +116,7 @@ class SpreadsheetService {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `Pendataan_Pasar_Mukti_Makmur_${this.activeSheetName.replace(/\s+/g, '_')}_2026.csv`);
+    link.setAttribute('download', `Pendataan_Master_Pasar_Mukti_Makmur_612_Unit_2026.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

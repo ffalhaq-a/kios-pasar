@@ -14,8 +14,7 @@ export function renderHeader(container) {
   }
 
   const isDark = themeManager.isDark();
-  const sheets = spreadsheetService.getAvailableSheets();
-  const activeSheet = spreadsheetService.getActiveSheetName();
+  const kiosks = spreadsheetService.loadKiosks();
 
   container.innerHTML = `
     <header class="h-16 border-b transition-colors duration-200 px-4 md:px-6 flex items-center justify-between shrink-0 ${
@@ -32,41 +31,33 @@ export function renderHeader(container) {
         </div>
       </div>
 
-      <!-- Center: Enterprise Segmented Market Switcher Pills -->
-      <div class="hidden md:flex items-center p-1 rounded-xl border ${
-        isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-slate-100/90 border-slate-200'
+      <!-- Center: Unified Master Location Title -->
+      <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-extrabold ${
+        isDark ? 'bg-slate-900/90 border-slate-800 text-emerald-400' : 'bg-slate-100/90 border-slate-200 text-emerald-700'
       }">
-        <button 
-          data-sheet="PASAR SANDANG"
-          class="market-pill-btn flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
-            activeSheet === 'PASAR SANDANG'
-              ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/30'
-              : (isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-600 hover:text-slate-900')
-          }"
-        >
-          <span>👕 PASAR SANDANG</span>
-          <span class="px-1.5 py-0.2 text-[10px] rounded-md ${
-            activeSheet === 'PASAR SANDANG' ? 'bg-emerald-700 text-emerald-100' : (isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-200 text-slate-600')
-          }">320</span>
-        </button>
-
-        <button 
-          data-sheet="PASAR SAYUR"
-          class="market-pill-btn flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
-            activeSheet === 'PASAR SAYUR'
-              ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/30'
-              : (isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-600 hover:text-slate-900')
-          }"
-        >
-          <span>🥬 PASAR SAYUR</span>
-          <span class="px-1.5 py-0.2 text-[10px] rounded-md ${
-            activeSheet === 'PASAR SAYUR' ? 'bg-emerald-700 text-emerald-100' : (isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-200 text-slate-600')
-          }">292</span>
-        </button>
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span>🏛️ PASAR MUKTI MAKMUR KARANGPUCUNG</span>
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${
+          isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'
+        }">${kiosks.length} UNIT GABUNGAN</span>
       </div>
 
-      <!-- Right Actions: Theme & User Avatar -->
-      <div class="flex items-center gap-3">
+      <!-- Right Actions: Export CSV, Theme & User Avatar -->
+      <div class="flex items-center gap-2 md:gap-3">
+        <!-- Export CSV Button -->
+        <button 
+          id="header-export-btn"
+          title="Download Master Dataset CSV"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+            isDark 
+              ? 'bg-slate-900 border-slate-800 text-slate-200 hover:bg-slate-800' 
+              : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-100 shadow-sm'
+          }"
+        >
+          <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-500"></i>
+          <span class="hidden lg:inline">Export CSV</span>
+        </button>
+
         <!-- Theme Toggle -->
         <button 
           id="theme-toggle-btn"
@@ -85,22 +76,20 @@ export function renderHeader(container) {
           isDark 
             ? 'bg-slate-800 border border-slate-700 text-slate-300' 
             : 'bg-slate-200 border border-slate-300 text-slate-700'
-        }" title="Petugas Karangpucung">
+        }" title="Pengelola Pasar Mukti Makmur">
           MM
         </div>
       </div>
     </header>
   `;
 
-  // Market pill button click listeners
-  container.querySelectorAll('.market-pill-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const sheetName = btn.getAttribute('data-sheet');
-      if (sheetName) {
-        spreadsheetService.setActiveSheet(sheetName);
-      }
+  // Header Export CSV handler
+  const exportBtn = container.querySelector('#header-export-btn');
+  if (exportBtn) {
+    exportBtn.addEventListener('click', () => {
+      spreadsheetService.downloadCSV();
     });
-  });
+  }
 
   // Theme toggle listener
   const themeBtn = container.querySelector('#theme-toggle-btn');

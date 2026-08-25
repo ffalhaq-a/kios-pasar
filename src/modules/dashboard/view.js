@@ -3,21 +3,21 @@ import { themeManager } from '../../shell/ThemeManager.js';
 
 export function renderDashboardView(container) {
   const isDark = themeManager.isDark();
-  const activeSheet = spreadsheetService.getActiveSheetName();
   const kiosks = spreadsheetService.loadKiosks();
 
   const totalKios = kiosks.length;
-  const terisi = kiosks.filter(k => k.status === 'terisi').length;
-  const kosong = kiosks.filter(k => k.status === 'kosong').length;
+  const terisi = kiosks.filter(k => k.status === 'terisi' || (k.pedagang && k.pedagang !== '-')).length;
+  const kosong = totalKios - terisi;
   const okupansi = totalKios > 0 ? Math.round((terisi / totalKios) * 100) : 0;
 
-  // Breakdown Tipe Unit
-  const countKios1 = kiosks.filter(k => (k.tipeKios || '').toUpperCase().includes('KIOS 1')).length;
-  const countKios2 = kiosks.filter(k => (k.tipeKios || '').toUpperCase().includes('KIOS 2')).length;
-  const countLos = kiosks.filter(k => (k.tipeKios || '').toUpperCase().includes('LOS')).length;
-  const countLemprakan = kiosks.filter(k => (k.tipeKios || '').toUpperCase().includes('LEMPRAKAN')).length;
+  // Zone Breakdown
+  const sandangKiosks = kiosks.filter(k => k.zona === 'PASAR SANDANG');
+  const sayurKiosks = kiosks.filter(k => k.zona === 'PASAR SAYUR');
 
-  // Total Nilai Sewa Tahunan Potensial
+  const sandangTerisi = sandangKiosks.filter(k => k.status === 'terisi' || (k.pedagang && k.pedagang !== '-')).length;
+  const sayurTerisi = sayurKiosks.filter(k => k.status === 'terisi' || (k.pedagang && k.pedagang !== '-')).length;
+
+  // Total Revenue Calculation
   const totalNilaiSewa = kiosks.reduce((acc, curr) => {
     const num = parseInt((curr.sewaBulanan || '').replace(/[^0-9]/g, '')) || 225000;
     return acc + num;
@@ -39,15 +39,15 @@ export function renderDashboardView(container) {
             <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
               PENDATAAN PASAR MUKTI MAKMUR 2026
             </span>
-            <span class="text-xs font-bold text-emerald-500">${activeSheet}</span>
+            <span class="text-xs font-bold text-emerald-500">MASTER KAWASAN PASAR</span>
           </div>
-          <h2 class="text-xl font-bold ${textPrimary}">Ringkasan Eksekutif ${activeSheet}</h2>
+          <h2 class="text-xl font-bold ${textPrimary}">Ringkasan Eksekutif Kawasan Pasar</h2>
           <p class="text-xs ${textSecondary}">Desa Karangpucung, Kecamatan Karangpucung • Kabupaten Cilacap</p>
         </div>
 
         <button id="export-excel-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-emerald-900/30 transition-all w-fit">
           <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
-          <span>Download Laporan CSV</span>
+          <span>Download Master Dataset CSV</span>
         </button>
       </div>
 
@@ -62,7 +62,7 @@ export function renderDashboardView(container) {
             </div>
           </div>
           <p class="text-2xl font-extrabold ${textPrimary}">${totalKios} Unit</p>
-          <p class="text-[11px] ${textSecondary} mt-1">Data Resmi ${activeSheet}</p>
+          <p class="text-[11px] ${textSecondary} mt-1">Gabungan Sandang & Sayur</p>
         </div>
 
         <!-- Terisi -->
@@ -98,63 +98,71 @@ export function renderDashboardView(container) {
             </div>
           </div>
           <p class="text-xl font-extrabold text-amber-500 font-mono">${formattedPotensiSewa}</p>
-          <p class="text-[11px] ${textSecondary} mt-1">Total Nilai Sewa Tahunan</p>
+          <p class="text-[11px] ${textSecondary} mt-1">Total Retribusi Sewa Tahunan</p>
         </div>
       </div>
 
-      <!-- Unit Classification Breakdown Cards -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div class="${cardBg} border rounded-xl p-4 flex items-center gap-3">
-          <div class="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-500 font-bold text-xs">K1</div>
-          <div>
-            <p class="text-xs ${textSecondary}">KIOS TIPE 1</p>
-            <p class="text-lg font-bold ${textPrimary}">${countKios1} Unit</p>
+      <!-- Side-by-Side Zone Cards (Pasar Sandang vs Pasar Sayur) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Pasar Sandang Card -->
+        <div class="${cardBg} border rounded-2xl p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-lg">👕</span>
+              <div>
+                <h3 class="text-sm font-bold ${textPrimary}">ZONA PASAR SANDANG</h3>
+                <p class="text-[10px] ${textSecondary}">Pakaian, Sepatu, Tas, Warung Makan</p>
+              </div>
+            </div>
+            <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-500 border border-blue-500/30">
+              320 Unit
+            </span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 text-xs pt-1">
+            <div class="p-2.5 rounded-xl ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'} border">
+              <span class="${textSecondary}">Terisi Beroperasi:</span>
+              <p class="text-sm font-bold text-emerald-500 mt-0.5">${sandangTerisi} Unit</p>
+            </div>
+            <div class="p-2.5 rounded-xl ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'} border">
+              <span class="${textSecondary}">Kosong Tersedia:</span>
+              <p class="text-sm font-bold text-rose-500 mt-0.5">${320 - sandangTerisi} Unit</p>
+            </div>
+          </div>
+
+          <div class="w-full ${progressBg} rounded-full h-2 overflow-hidden border flex">
+            <div class="bg-emerald-500 h-full" style="width: ${(sandangTerisi/320)*100}%"></div>
           </div>
         </div>
 
-        <div class="${cardBg} border rounded-xl p-4 flex items-center gap-3">
-          <div class="p-2.5 rounded-lg bg-teal-500/10 text-teal-500 font-bold text-xs">K2</div>
-          <div>
-            <p class="text-xs ${textSecondary}">KIOS TIPE 2</p>
-            <p class="text-lg font-bold ${textPrimary}">${countKios2} Unit</p>
+        <!-- Pasar Sayur Card -->
+        <div class="${cardBg} border rounded-2xl p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-lg">🥬</span>
+              <div>
+                <h3 class="text-sm font-bold ${textPrimary}">ZONA PASAR SAYUR</h3>
+                <p class="text-[10px] ${textSecondary}">Sayuran, Sembako, Daging, Tempe</p>
+              </div>
+            </div>
+            <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
+              292 Unit
+            </span>
           </div>
-        </div>
 
-        <div class="${cardBg} border rounded-xl p-4 flex items-center gap-3">
-          <div class="p-2.5 rounded-lg bg-blue-500/10 text-blue-500 font-bold text-xs">LOS</div>
-          <div>
-            <p class="text-xs ${textSecondary}">PETAK LOS</p>
-            <p class="text-lg font-bold ${textPrimary}">${countLos} Unit</p>
+          <div class="grid grid-cols-2 gap-2 text-xs pt-1">
+            <div class="p-2.5 rounded-xl ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'} border">
+              <span class="${textSecondary}">Terisi Beroperasi:</span>
+              <p class="text-sm font-bold text-emerald-500 mt-0.5">${sayurTerisi} Unit</p>
+            </div>
+            <div class="p-2.5 rounded-xl ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'} border">
+              <span class="${textSecondary}">Kosong Tersedia:</span>
+              <p class="text-sm font-bold text-rose-500 mt-0.5">${292 - sayurTerisi} Unit</p>
+            </div>
           </div>
-        </div>
 
-        <div class="${cardBg} border rounded-xl p-4 flex items-center gap-3">
-          <div class="p-2.5 rounded-lg bg-indigo-500/10 text-indigo-500 font-bold text-xs">LMP</div>
-          <div>
-            <p class="text-xs ${textSecondary}">LEMPRAKAN</p>
-            <p class="text-lg font-bold ${textPrimary}">${countLemprakan} Unit</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Occupancy Progress & Bar -->
-      <div class="${cardBg} border rounded-2xl p-6 space-y-3">
-        <div class="flex items-center justify-between">
-          <h3 class="text-sm font-bold ${textPrimary}">Tingkat Okupansi Pasar (${activeSheet})</h3>
-          <span class="text-xs font-bold text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/30">${okupansi}% Okupansi</span>
-        </div>
-        <div class="w-full ${progressBg} rounded-full h-3.5 overflow-hidden border flex">
-          <div class="bg-emerald-500 h-full transition-all" style="width: ${(terisi/totalKios)*100}%" title="Terisi: ${terisi}"></div>
-          <div class="bg-rose-500/40 h-full transition-all" style="width: ${(kosong/totalKios)*100}%" title="Kosong: ${kosong}"></div>
-        </div>
-        <div class="flex items-center gap-6 text-xs ${textSecondary} pt-1">
-          <div class="flex items-center gap-2">
-            <span class="w-3 h-3 rounded-sm bg-emerald-500"></span>
-            <span>Terisi Beroperasi (${terisi} Unit)</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="w-3 h-3 rounded-sm bg-rose-500/40"></span>
-            <span>Kosong Tersedia (${kosong} Unit)</span>
+          <div class="w-full ${progressBg} rounded-full h-2 overflow-hidden border flex">
+            <div class="bg-emerald-500 h-full" style="width: ${(sayurTerisi/292)*100}%"></div>
           </div>
         </div>
       </div>

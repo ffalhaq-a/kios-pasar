@@ -3,7 +3,6 @@ import { themeManager } from '../../../shell/ThemeManager.js';
 
 export function renderFloorplanView(container) {
   const isDark = themeManager.isDark();
-  const activeSheet = spreadsheetService.getActiveSheetName();
   const kiosks = spreadsheetService.loadKiosks();
   const infraList = spreadsheetService.loadInfrastructure();
 
@@ -11,8 +10,7 @@ export function renderFloorplanView(container) {
   let stage = null;
   let infraLayer = null;
   let kioskLayer = null;
-  let currentUnitFilter = 'ALL';
-  let searchQuery = '';
+  let currentZoneFilter = 'ALL';
 
   const textPrimary = isDark ? 'text-slate-100' : 'text-slate-900';
   const textSecondary = isDark ? 'text-slate-400' : 'text-slate-600';
@@ -27,43 +25,27 @@ export function renderFloorplanView(container) {
         <div>
           <div class="flex items-center gap-2 mb-1">
             <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
-              ${activeSheet}
+              PASAR MUKTI MAKMUR 2026
             </span>
-            <span class="text-xs font-bold ${textSecondary}">Denah 2D Interaktif</span>
+            <span class="text-xs font-bold ${textSecondary}">Unified Master Map (612 Unit)</span>
           </div>
-          <h2 class="text-xl font-bold ${textPrimary}">Pemetaan Denah Kios & Los Pasar</h2>
+          <h2 class="text-xl font-bold ${textPrimary}">Pemetaan Denah Kawasan Pasar</h2>
         </div>
 
         <div class="flex items-center gap-2 flex-wrap">
-          <!-- Unit Type Filter Pills -->
+          <!-- Zone Filter Pills -->
           <div class="flex items-center p-1 rounded-xl border text-xs font-semibold ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}">
-            <button data-unit="ALL" class="unit-filter-btn px-2.5 py-1 rounded-lg bg-emerald-600 text-white shadow-sm">Semua</button>
-            <button data-unit="KIOS 1" class="unit-filter-btn px-2.5 py-1 rounded-lg ${textSecondary} hover:text-emerald-500">Kios 1</button>
-            <button data-unit="KIOS 2" class="unit-filter-btn px-2.5 py-1 rounded-lg ${textSecondary} hover:text-emerald-500">Kios 2</button>
-            <button data-unit="LOS" class="unit-filter-btn px-2.5 py-1 rounded-lg ${textSecondary} hover:text-emerald-500">Los</button>
-            <button data-unit="LEMPRAKAN" class="unit-filter-btn px-2.5 py-1 rounded-lg ${textSecondary} hover:text-emerald-500">Lemprakan</button>
+            <button data-zone="ALL" class="zone-filter-btn px-2.5 py-1 rounded-lg bg-emerald-600 text-white shadow-sm">Semua Kawasan (612)</button>
+            <button data-zone="PASAR SANDANG" class="zone-filter-btn px-2.5 py-1 rounded-lg ${textSecondary} hover:text-emerald-500">👕 Zona Sandang (320)</button>
+            <button data-zone="PASAR SAYUR" class="zone-filter-btn px-2.5 py-1 rounded-lg ${textSecondary} hover:text-emerald-500">🥬 Zona Sayur (292)</button>
           </div>
 
-          <!-- Controls -->
+          <!-- Mode Edit Button -->
           <button id="toggle-mode-btn" class="${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-white hover:bg-slate-100 text-slate-800 border-slate-300 shadow-sm'} px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 border transition-all">
             <i data-lucide="edit-3" class="w-4 h-4 text-emerald-500"></i>
             <span id="mode-text">Mode Edit: OFF</span>
           </button>
         </div>
-      </div>
-
-      <!-- Editor Add Buttons (Shown in Edit Mode) -->
-      <div id="editor-tools" class="hidden flex items-center gap-2 p-2 rounded-xl border ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200'}">
-        <span class="text-xs font-bold text-emerald-500 mr-2">Tambah Objek Denah:</span>
-        <button id="add-rect-btn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 font-medium">
-          <i data-lucide="square" class="w-3.5 h-3.5"></i> Kios Kotak
-        </button>
-        <button id="add-trapezoid-btn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 font-medium">
-          <i data-lucide="pentagon" class="w-3.5 h-3.5"></i> Trapesium
-        </button>
-        <button id="add-triangle-btn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 font-medium">
-          <i data-lucide="triangle" class="w-3.5 h-3.5"></i> Segitiga Hook
-        </button>
       </div>
 
       <!-- Canvas Container -->
@@ -97,7 +79,7 @@ export function renderFloorplanView(container) {
             </div>
             <div>
               <h3 id="modal-kios-nama" class="text-lg font-bold ${textPrimary}">Blok A1</h3>
-              <p id="modal-kios-id" class="text-xs ${textSecondary} font-mono">ID: A1</p>
+              <p id="modal-kios-id" class="text-xs ${textSecondary} font-mono">ID: SND-A1</p>
             </div>
           </div>
 
@@ -105,10 +87,6 @@ export function renderFloorplanView(container) {
             <div class="flex justify-between border-b ${isDark ? 'border-slate-800/80' : 'border-slate-200'} pb-2">
               <span class="${textSecondary}">Penyewa:</span>
               <span id="modal-pedagang" class="font-bold ${textPrimary}">NAPSIYAH</span>
-            </div>
-            <div class="flex justify-between border-b ${isDark ? 'border-slate-800/80' : 'border-slate-200'} pb-2">
-              <span class="${textSecondary}">NIK:</span>
-              <span id="modal-nik" class="font-mono ${textPrimary}">-</span>
             </div>
             <div class="flex justify-between border-b ${isDark ? 'border-slate-800/80' : 'border-slate-200'} pb-2">
               <span class="${textSecondary}">Alamat Desa:</span>
@@ -119,12 +97,16 @@ export function renderFloorplanView(container) {
               <span id="modal-kategori" class="${textPrimary}">Pakaian</span>
             </div>
             <div class="flex justify-between border-b ${isDark ? 'border-slate-800/80' : 'border-slate-200'} pb-2">
-              <span class="${textSecondary}">Tipe & Luas:</span>
-              <span id="modal-tipe-luas" class="font-bold text-emerald-500">KIOS 2 (4.32 m²)</span>
+              <span class="${textSecondary}">Tgl Pembayaran:</span>
+              <span id="modal-tgl-bayar" class="font-mono ${textPrimary}">2026-01-15</span>
+            </div>
+            <div class="flex justify-between border-b ${isDark ? 'border-slate-800/80' : 'border-slate-200'} pb-2">
+              <span class="${textSecondary}">Tgl Habis Sewa:</span>
+              <span id="modal-tgl-habis" class="font-mono font-bold text-amber-500">2026-12-31</span>
             </div>
             <div class="flex justify-between">
               <span class="${textSecondary}">Nilai Sewa Tahunan:</span>
-              <span id="modal-sewa" class="font-mono font-bold text-amber-500">Rp 250.000/thn</span>
+              <span id="modal-sewa" class="font-mono font-bold text-emerald-500">Rp 250.000/thn</span>
             </div>
           </div>
 
@@ -184,7 +166,6 @@ export function renderFloorplanView(container) {
     // Mode Toggle
     const modeBtn = container.querySelector('#toggle-mode-btn');
     const modeText = container.querySelector('#mode-text');
-    const editorTools = container.querySelector('#editor-tools');
 
     modeBtn.addEventListener('click', () => {
       isEditMode = !isEditMode;
@@ -192,36 +173,19 @@ export function renderFloorplanView(container) {
       modeBtn.className = isEditMode
         ? 'bg-emerald-600 text-white px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg transition-all'
         : (isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-white hover:bg-slate-100 text-slate-800 border-slate-300 shadow-sm') + ' px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 border transition-all';
-      
-      if (isEditMode) {
-        editorTools.classList.remove('hidden');
-      } else {
-        editorTools.classList.add('hidden');
-      }
       renderKiosks();
     });
 
-    // Unit Filter Buttons
-    container.querySelectorAll('.unit-filter-btn').forEach(btn => {
+    // Zone Filter Buttons
+    container.querySelectorAll('.zone-filter-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        container.querySelectorAll('.unit-filter-btn').forEach(b => {
-          b.className = `unit-filter-btn px-2.5 py-1 rounded-lg ${textSecondary} hover:text-emerald-500`;
+        container.querySelectorAll('.zone-filter-btn').forEach(b => {
+          b.className = `zone-filter-btn px-2.5 py-1 rounded-lg ${textSecondary} hover:text-emerald-500`;
         });
-        btn.className = 'unit-filter-btn px-2.5 py-1 rounded-lg bg-emerald-600 text-white shadow-sm';
-        currentUnitFilter = btn.getAttribute('data-unit');
+        btn.className = 'zone-filter-btn px-2.5 py-1 rounded-lg bg-emerald-600 text-white shadow-sm';
+        currentZoneFilter = btn.getAttribute('data-zone');
         renderKiosks();
       });
-    });
-
-    // Add shapes
-    container.querySelector('#add-rect-btn').addEventListener('click', () => {
-      const newId = `X${kiosks.length + 1}`;
-      kiosks.push({
-        id: newId, nama: `Blok ${newId}`, shape_type: 'rect', x: 100, y: 280, width: 100, height: 80,
-        status: 'kosong', pedagang: '-', kategori: 'Umum', tipeKios: 'LOS', sewaBulanan: 'Rp 225.000/thn'
-      });
-      spreadsheetService.saveKiosks(kiosks);
-      renderKiosks();
     });
 
     // Modal Close
@@ -269,8 +233,8 @@ export function renderFloorplanView(container) {
     kioskLayer.destroyChildren();
 
     const filteredKiosks = kiosks.filter(k => {
-      if (currentUnitFilter === 'ALL') return true;
-      return (k.tipeKios || '').toUpperCase().includes(currentUnitFilter);
+      if (currentZoneFilter === 'ALL') return true;
+      return k.zona === currentZoneFilter;
     });
 
     filteredKiosks.forEach(k => {
@@ -304,7 +268,7 @@ export function renderFloorplanView(container) {
       });
 
       const titleText = new Konva.Text({
-        text: `Blok ${k.id}`,
+        text: `Blok ${k.blokKode || k.id}`,
         fontSize: 11,
         fontStyle: 'bold',
         fill: '#ffffff',
@@ -367,13 +331,13 @@ export function renderFloorplanView(container) {
 
   function openModal(kiosk) {
     const modal = container.querySelector('#kiosk-modal');
-    container.querySelector('#modal-kios-nama').innerText = `Blok ${kiosk.id}`;
-    container.querySelector('#modal-kios-id').innerText = `ID: ${kiosk.id} (QR: ${kiosk.qrCode || 'N/A'})`;
+    container.querySelector('#modal-kios-nama').innerText = `Blok ${kiosk.blokKode || kiosk.id}`;
+    container.querySelector('#modal-kios-id').innerText = `ID: ${kiosk.id} • Zona: ${kiosk.zona}`;
     container.querySelector('#modal-pedagang').innerText = kiosk.pedagang === '-' ? 'LAHAN KOSONG' : kiosk.pedagang;
-    container.querySelector('#modal-nik').innerText = kiosk.nik || '-';
     container.querySelector('#modal-alamat').innerText = kiosk.alamat || '-';
     container.querySelector('#modal-kategori').innerText = kiosk.kategori || '-';
-    container.querySelector('#modal-tipe-luas').innerText = `${kiosk.tipeKios || 'LOS'} (${kiosk.luasM2 ? kiosk.luasM2 + ' m²' : kiosk.luasDimensi})`;
+    container.querySelector('#modal-tgl-bayar').innerText = kiosk.tglPembayaran || '-';
+    container.querySelector('#modal-tgl-habis').innerText = kiosk.tglHabisSewa || '-';
     container.querySelector('#modal-sewa').innerText = kiosk.sewaBulanan;
 
     modal.classList.remove('hidden');
