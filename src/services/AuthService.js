@@ -3,6 +3,7 @@ export const GOOGLE_API_URL = 'https://script.google.com/macros/s/AKfycbzGTU7gWu
 class AuthService {
   constructor() {
     this.sessionKey = 'pasar_user_session';
+    this.usersCacheKey = 'pasar_users_cache_v1';
     this.listeners = [];
   }
 
@@ -20,6 +21,25 @@ class AuthService {
 
   isAuthenticated() {
     return this.getCurrentUser() !== null;
+  }
+
+  getCachedUsers() {
+    const saved = localStorage.getItem(this.usersCacheKey);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return [
+      { username: 'admin', password: 'admin123', nama: 'Kepala Pasar Karangpucung', role: 'ADMIN' },
+      { username: 'petugas', password: 'petugas123', nama: 'Petugas Penagihan Lapangan', role: 'PETUGAS' }
+    ];
+  }
+
+  saveUsersCache(users) {
+    if (Array.isArray(users) && users.length > 0) {
+      localStorage.setItem(this.usersCacheKey, JSON.stringify(users));
+    }
   }
 
   async login(username, password, remember = true) {
@@ -46,20 +66,21 @@ class AuthService {
         return { success: true, user: userObj };
       }
     } catch (e) {
-      console.warn('API Offline or error, checking fallback accounts:', e);
+      console.warn('Google API Offline, checking local user database cache:', e);
     }
 
-    // 2. Fallback Account Check (Admin & Petugas)
-    if (u.toLowerCase() === 'admin' && p === 'admin123') {
-      const userObj = { username: 'admin', nama: 'Kepala Pasar Karangpucung', role: 'ADMIN' };
-      if (remember) localStorage.setItem(this.sessionKey, JSON.stringify(userObj));
-      else sessionStorage.setItem(this.sessionKey, JSON.stringify(userObj));
-      this.notify();
-      return { success: true, user: userObj };
-    }
+    // 2. Offline Fallback Check using cached database users
+    const cachedUsers = this.getCachedUsers();
+    const foundUser = cachedUsers.find(
+      usr => String(usr.username).toLowerCase().trim() === u.toLowerCase() && String(usr.password).trim() === p
+    );
 
-    if (u.toLowerCase() === 'petugas' && p === 'petugas123') {
-      const userObj = { username: 'petugas', nama: 'Petugas Penagihan Lapangan', role: 'PETUGAS' };
+    if (foundUser) {
+      const userObj = {
+        username: foundUser.username,
+        nama: foundUser.nama || foundUser.username,
+        role: foundUser.role || 'ADMIN'
+      };
       if (remember) localStorage.setItem(this.sessionKey, JSON.stringify(userObj));
       else sessionStorage.setItem(this.sessionKey, JSON.stringify(userObj));
       this.notify();

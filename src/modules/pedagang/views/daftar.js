@@ -5,6 +5,11 @@ export function renderDaftarPedagangView(container) {
   const isDark = themeManager.isDark();
   const kiosks = spreadsheetService.loadKiosks();
 
+  // Dynamic counts for dropdown labels
+  const totalCount = kiosks.length;
+  const sandangCount = kiosks.filter(k => k.zona === 'PASAR SANDANG').length;
+  const sayurCount = kiosks.filter(k => k.zona === 'PASAR SAYUR').length;
+
   // Dynamically extract unique block prefixes (Blok A, Blok B, etc.)
   const uniqueBlockPrefixes = Array.from(
     new Set(
@@ -303,7 +308,7 @@ export function renderDaftarPedagangView(container) {
         </div>
       </div>
 
-      <!-- FILTER PANEL (4-COLUMN DROPDOWN INCLUDING FILTER BLOK) -->
+      <!-- FILTER PANEL (4-COLUMN DROPDOWN WITH DYNAMIC DATABASE COUNTS) -->
       <div class="${cardBg} border rounded-2xl p-4 space-y-3">
         <div class="flex items-center justify-between">
           <span class="text-xs font-extrabold ${textPrimary} flex items-center gap-2">
@@ -317,13 +322,13 @@ export function renderDaftarPedagangView(container) {
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <!-- Dropdown 1: Jenis Pasar -->
+          <!-- Dropdown 1: Jenis Pasar (Dynamic Counts from Database) -->
           <div>
             <label class="block text-[11px] font-bold ${textSecondary} mb-1">Jenis Pasar:</label>
             <select id="filter-jenis-pasar" class="w-full p-2.5 rounded-xl text-xs font-semibold border focus:outline-none focus:border-emerald-500 ${inputBg}">
-              <option value="ALL">Semua Jenis Pasar (612)</option>
-              <option value="PASAR SANDANG">Pasar Sandang (320)</option>
-              <option value="PASAR SAYUR">Pasar Sayur (292)</option>
+              <option value="ALL">Semua Jenis Pasar (${totalCount})</option>
+              <option value="PASAR SANDANG">Pasar Sandang (${sandangCount})</option>
+              <option value="PASAR SAYUR">Pasar Sayur (${sayurCount})</option>
             </select>
           </div>
 

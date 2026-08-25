@@ -1,10 +1,14 @@
-import { spreadsheetService } from '../../../services/SpreadsheetService.js';
+import { spreadsheetService, formatDateDDMMYYYY } from '../../../services/SpreadsheetService.js';
 import { themeManager } from '../../../shell/ThemeManager.js';
 
 export function renderFloorplanView(container) {
   const isDark = themeManager.isDark();
   const kiosks = spreadsheetService.loadKiosks();
   const infraList = spreadsheetService.loadInfrastructure();
+
+  const totalCount = kiosks.length;
+  const sandangCount = kiosks.filter(k => k.zona === 'PASAR SANDANG').length;
+  const sayurCount = kiosks.filter(k => k.zona === 'PASAR SAYUR').length;
 
   let isEditMode = false;
   let stage = null;
@@ -27,17 +31,17 @@ export function renderFloorplanView(container) {
             <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
               PASAR MUKTI MAKMUR 2026
             </span>
-            <span class="text-xs font-bold ${textSecondary}">Unified Master Map (612 Unit)</span>
+            <span class="text-xs font-bold ${textSecondary}">Unified Master Map (${totalCount} Unit)</span>
           </div>
           <h1 class="text-xl font-extrabold ${textPrimary}">Pemetaan Denah Kawasan Pasar</h1>
         </div>
 
         <div class="flex items-center gap-2 flex-wrap">
-          <!-- Zone Filter Pills -->
+          <!-- Zone Filter Pills (Dynamic Counts from Database) -->
           <div class="flex items-center p-1 rounded-xl border text-xs font-semibold ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}">
-            <button data-zone="ALL" class="zone-filter-btn px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white shadow-sm font-bold">Semua Kawasan (612)</button>
-            <button data-zone="PASAR SANDANG" class="zone-filter-btn px-2.5 py-1.5 rounded-lg ${textSecondary} hover:text-emerald-500 font-bold">👕 Zona Sandang (320)</button>
-            <button data-zone="PASAR SAYUR" class="zone-filter-btn px-2.5 py-1.5 rounded-lg ${textSecondary} hover:text-emerald-500 font-bold">🥬 Zona Sayur (292)</button>
+            <button data-zone="ALL" class="zone-filter-btn px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white shadow-sm font-bold">Semua Kawasan (${totalCount})</button>
+            <button data-zone="PASAR SANDANG" class="zone-filter-btn px-2.5 py-1.5 rounded-lg ${textSecondary} hover:text-emerald-500 font-bold">👕 Zona Sandang (${sandangCount})</button>
+            <button data-zone="PASAR SAYUR" class="zone-filter-btn px-2.5 py-1.5 rounded-lg ${textSecondary} hover:text-emerald-500 font-bold">🥬 Zona Sayur (${sayurCount})</button>
           </div>
 
           <!-- Mode Edit Button -->
@@ -98,15 +102,15 @@ export function renderFloorplanView(container) {
             </div>
             <div class="flex justify-between border-b ${isDark ? 'border-slate-800/80' : 'border-slate-200'} pb-2">
               <span class="${textSecondary}">Tgl Pembayaran:</span>
-              <span id="modal-tgl-bayar" class="font-mono ${textPrimary}">2026-01-15</span>
+              <span id="modal-tgl-bayar" class="font-mono ${textPrimary}">-</span>
             </div>
             <div class="flex justify-between border-b ${isDark ? 'border-slate-800/80' : 'border-slate-200'} pb-2">
               <span class="${textSecondary}">Tgl Habis Sewa:</span>
-              <span id="modal-tgl-habis" class="font-mono font-bold text-amber-500">2026-12-31</span>
+              <span id="modal-tgl-habis" class="font-mono font-bold text-amber-500">-</span>
             </div>
             <div class="flex justify-between">
               <span class="${textSecondary}">Nilai Sewa Tahunan:</span>
-              <span id="modal-sewa" class="font-mono font-bold text-emerald-500">Rp 250.000/thn</span>
+              <span id="modal-sewa" class="font-mono font-bold text-emerald-500">-</span>
             </div>
           </div>
 
@@ -197,7 +201,6 @@ export function renderFloorplanView(container) {
   function drawInfrastructure() {
     infraLayer.destroyChildren();
 
-    // Subtle Grid background (Taste rule: subtle & intentional grid lines)
     const gridGroup = new Konva.Group({ listening: false });
     const gridSize = 40;
     const gridColor = isDark ? '#1e293b' : '#e2e8f0';
@@ -329,7 +332,7 @@ export function renderFloorplanView(container) {
       group.on('dragend', () => {
         k.x = group.x();
         k.y = group.y();
-        spreadsheetService.saveKiosks(kiosks);
+        spreadsheetService.saveKiosksLocally(kiosks);
       });
 
       group.on('mouseenter', () => {
@@ -361,9 +364,9 @@ export function renderFloorplanView(container) {
     container.querySelector('#modal-pedagang').innerText = kiosk.pedagang === '-' ? 'LAHAN KOSONG' : kiosk.pedagang;
     container.querySelector('#modal-alamat').innerText = kiosk.alamat || '-';
     container.querySelector('#modal-kategori').innerText = kiosk.kategori || '-';
-    container.querySelector('#modal-tgl-bayar').innerText = kiosk.tglPembayaran || '-';
-    container.querySelector('#modal-tgl-habis').innerText = kiosk.tglHabisSewa || '-';
-    container.querySelector('#modal-sewa').innerText = kiosk.sewaBulanan;
+    container.querySelector('#modal-tgl-bayar').innerText = formatDateDDMMYYYY(kiosk.tglPembayaran);
+    container.querySelector('#modal-tgl-habis').innerText = formatDateDDMMYYYY(kiosk.tglHabisSewa);
+    container.querySelector('#modal-sewa').innerText = kiosk.sewaBulanan || 'Rp 225.000/thn';
 
     modal.classList.remove('hidden');
     if (window.lucide) window.lucide.createIcons();
