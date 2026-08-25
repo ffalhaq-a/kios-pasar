@@ -44,7 +44,7 @@ export function renderDashboardView(container) {
   container.innerHTML = `
     <div class="p-6 space-y-6 overflow-y-auto h-full ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}">
       
-      <!-- Title Bar (Clean Title ONLY - Subtitle Removed as Requested) -->
+      <!-- Title Bar -->
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 class="text-xl font-extrabold ${textPrimary}">Ringkasan Utama & Status Pembayaran</h1>
@@ -119,50 +119,54 @@ export function renderDashboardView(container) {
         </div>
       </div>
 
-      <!-- 2. BARIS KE-2: 4 KARTU BREAKDOWN TIPE UNIT (WARNA PENUH SELURUH KARTU - NO HEADER TEXT) -->
+      <!-- 2. BARIS KE-2: 4 KARTU BREAKDOWN TIPE UNIT (GAYA & WARNA PERSIS BARIS ATAS - NO RED BADGES) -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <!-- KIOS 1 (Full Solid Emerald Card) -->
-        <div class="rounded-2xl p-4 flex items-center justify-between bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-md">
-          <div>
-            <span class="text-xs font-extrabold uppercase opacity-90 tracking-wider">KIOS 1</span>
-            <p class="text-2xl font-black mt-1">${countKios1} <span class="text-xs font-medium opacity-80">Unit</span></p>
+        <!-- KIOS 1 -->
+        <div class="${cardBg} border rounded-2xl p-4 relative overflow-hidden">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold ${textSecondary}">KIOS 1</span>
+            <div class="p-1.5 bg-emerald-500/10 text-emerald-500 rounded-lg">
+              <i data-lucide="store" class="w-4 h-4"></i>
+            </div>
           </div>
-          <div class="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center font-black text-sm">
-            K1
-          </div>
+          <p class="text-2xl font-extrabold ${textPrimary}">${countKios1}</p>
+          <p class="text-[10px] ${textSecondary} mt-0.5">Total Unit Kios 1</p>
         </div>
 
-        <!-- KIOS 2 (Full Solid Teal Card) -->
-        <div class="rounded-2xl p-4 flex items-center justify-between bg-gradient-to-br from-teal-600 to-cyan-700 text-white shadow-md">
-          <div>
-            <span class="text-xs font-extrabold uppercase opacity-90 tracking-wider">KIOS 2</span>
-            <p class="text-2xl font-black mt-1">${countKios2} <span class="text-xs font-medium opacity-80">Unit</span></p>
+        <!-- KIOS 2 -->
+        <div class="${cardBg} border rounded-2xl p-4 relative overflow-hidden">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold ${textSecondary}">KIOS 2</span>
+            <div class="p-1.5 bg-teal-500/10 text-teal-500 rounded-lg">
+              <i data-lucide="store" class="w-4 h-4"></i>
+            </div>
           </div>
-          <div class="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center font-black text-sm">
-            K2
-          </div>
+          <p class="text-2xl font-extrabold ${textPrimary}">${countKios2}</p>
+          <p class="text-[10px] ${textSecondary} mt-0.5">Total Unit Kios 2</p>
         </div>
 
-        <!-- LOS (Full Solid Blue Card) -->
-        <div class="rounded-2xl p-4 flex items-center justify-between bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-md">
-          <div>
-            <span class="text-xs font-extrabold uppercase opacity-90 tracking-wider">LOS</span>
-            <p class="text-2xl font-black mt-1">${countLos} <span class="text-xs font-medium opacity-80">Unit</span></p>
+        <!-- LOS -->
+        <div class="${cardBg} border rounded-2xl p-4 relative overflow-hidden">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold ${textSecondary}">LOS</span>
+            <div class="p-1.5 bg-blue-500/10 text-blue-500 rounded-lg">
+              <i data-lucide="layout-grid" class="w-4 h-4"></i>
+            </div>
           </div>
-          <div class="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center font-black text-sm">
-            LOS
-          </div>
+          <p class="text-2xl font-extrabold ${textPrimary}">${countLos}</p>
+          <p class="text-[10px] ${textSecondary} mt-0.5">Total Unit Los</p>
         </div>
 
-        <!-- LEMPRAKAN (Full Solid Purple Card) -->
-        <div class="rounded-2xl p-4 flex items-center justify-between bg-gradient-to-br from-purple-600 to-violet-700 text-white shadow-md">
-          <div>
-            <span class="text-xs font-extrabold uppercase opacity-90 tracking-wider">LEMPRAKAN</span>
-            <p class="text-2xl font-black mt-1">${countLemprakan} <span class="text-xs font-medium opacity-80">Unit</span></p>
+        <!-- LEMPRAKAN -->
+        <div class="${cardBg} border rounded-2xl p-4 relative overflow-hidden">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold ${textSecondary}">LEMPRAKAN</span>
+            <div class="p-1.5 bg-purple-500/10 text-purple-500 rounded-lg">
+              <i data-lucide="layers" class="w-4 h-4"></i>
+            </div>
           </div>
-          <div class="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center font-black text-sm">
-            LMP
-          </div>
+          <p class="text-2xl font-extrabold ${textPrimary}">${countLemprakan}</p>
+          <p class="text-[10px] ${textSecondary} mt-0.5">Total Unit Lemprakan</p>
         </div>
       </div>
 
@@ -206,7 +210,7 @@ export function renderDashboardView(container) {
         </div>
       </div>
 
-      <!-- 3. STATISTIK PASAR SANDANG (CLEAN TITLE & FULL SOLID CARD KIRI) -->
+      <!-- 3. STATISTIK PASAR SANDANG -->
       <div class="${cardBg} border rounded-2xl p-5 space-y-4">
         <div class="border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
           <h3 class="text-base font-extrabold ${textPrimary}">Statistik Pasar Sandang</h3>
@@ -268,7 +272,7 @@ export function renderDashboardView(container) {
         </div>
       </div>
 
-      <!-- 4. STATISTIK PASAR SAYUR (CLEAN TITLE & FULL SOLID CARD KIRI) -->
+      <!-- 4. STATISTIK PASAR SAYUR -->
       <div class="${cardBg} border rounded-2xl p-5 space-y-4">
         <div class="border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
           <h3 class="text-base font-extrabold ${textPrimary}">Statistik Pasar Sayur</h3>
