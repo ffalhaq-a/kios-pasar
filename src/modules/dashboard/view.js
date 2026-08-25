@@ -44,11 +44,10 @@ export function renderDashboardView(container) {
   container.innerHTML = `
     <div class="p-6 space-y-6 overflow-y-auto h-full ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}">
       
-      <!-- Title Bar (Clean & Direct) -->
+      <!-- Title Bar (Clean Title ONLY - Subtitle Removed as Requested) -->
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 class="text-xl font-extrabold ${textPrimary}">Ringkasan Utama & Status Pembayaran</h1>
-          <p class="text-xs ${textSecondary} mt-0.5">Sistem Manajemen Kios Pasar Mukti Makmur Karangpucung 2026</p>
         </div>
 
         <button id="export-excel-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 shadow-lg shadow-emerald-900/30 transition-all w-fit">
@@ -57,7 +56,7 @@ export function renderDashboardView(container) {
         </button>
       </div>
 
-      <!-- 1. BARIS ATAS: 5 KARTU STATISTIK UTAMA (Jumlah Unit, Terisi, Kosong, Sudah Bayar, Jatuh Tempo/Belum) -->
+      <!-- 1. BARIS ATAS: 5 KARTU STATISTIK UTAMA -->
       <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
         <!-- Total Unit -->
         <div class="${cardBg} border rounded-2xl p-4 relative overflow-hidden">
@@ -107,7 +106,7 @@ export function renderDashboardView(container) {
           <p class="text-[10px] text-teal-600 dark:text-teal-400 font-semibold mt-0.5">Sewa Lunas Aktif</p>
         </div>
 
-        <!-- Belum Bayar / Jatuh Tempo -->
+        <!-- Belum Bayar -->
         <div class="${cardBg} border rounded-2xl p-4 relative overflow-hidden">
           <div class="flex items-center justify-between mb-2">
             <span class="text-xs font-bold ${textSecondary}">Belum Bayar</span>
@@ -120,57 +119,54 @@ export function renderDashboardView(container) {
         </div>
       </div>
 
-      <!-- 2. BARIS KE-2: 4 KARTU BREAKDOWN TIPE UNIT (KIOS 1, KIOS 2, LOS, LEMPRAKAN) -->
-      <div>
-        <h2 class="text-xs font-bold uppercase tracking-widest ${textSecondary} mb-2.5">Rincian Tipe Unit Kios</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <!-- KIOS 1 -->
-          <div class="${cardBg} border rounded-2xl p-4 flex items-center justify-between border-l-4 border-l-emerald-500">
-            <div>
-              <span class="text-xs font-bold ${textSecondary}">KIOS 1</span>
-              <p class="text-xl font-extrabold ${textPrimary} mt-0.5">${countKios1} <span class="text-xs font-normal ${textSecondary}">Unit</span></p>
-            </div>
-            <div class="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold text-xs">
-              K1
-            </div>
+      <!-- 2. BARIS KE-2: 4 KARTU BREAKDOWN TIPE UNIT (WARNA PENUH SELURUH KARTU - NO HEADER TEXT) -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <!-- KIOS 1 (Full Solid Emerald Card) -->
+        <div class="rounded-2xl p-4 flex items-center justify-between bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-md">
+          <div>
+            <span class="text-xs font-extrabold uppercase opacity-90 tracking-wider">KIOS 1</span>
+            <p class="text-2xl font-black mt-1">${countKios1} <span class="text-xs font-medium opacity-80">Unit</span></p>
           </div>
-
-          <!-- KIOS 2 -->
-          <div class="${cardBg} border rounded-2xl p-4 flex items-center justify-between border-l-4 border-l-teal-500">
-            <div>
-              <span class="text-xs font-bold ${textSecondary}">KIOS 2</span>
-              <p class="text-xl font-extrabold ${textPrimary} mt-0.5">${countKios2} <span class="text-xs font-normal ${textSecondary}">Unit</span></p>
-            </div>
-            <div class="w-9 h-9 rounded-xl bg-teal-500/10 text-teal-500 flex items-center justify-center font-bold text-xs">
-              K2
-            </div>
+          <div class="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center font-black text-sm">
+            K1
           </div>
+        </div>
 
-          <!-- LOS -->
-          <div class="${cardBg} border rounded-2xl p-4 flex items-center justify-between border-l-4 border-l-blue-500">
-            <div>
-              <span class="text-xs font-bold ${textSecondary}">LOS</span>
-              <p class="text-xl font-extrabold ${textPrimary} mt-0.5">${countLos} <span class="text-xs font-normal ${textSecondary}">Unit</span></p>
-            </div>
-            <div class="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-xs">
-              LOS
-            </div>
+        <!-- KIOS 2 (Full Solid Teal Card) -->
+        <div class="rounded-2xl p-4 flex items-center justify-between bg-gradient-to-br from-teal-600 to-cyan-700 text-white shadow-md">
+          <div>
+            <span class="text-xs font-extrabold uppercase opacity-90 tracking-wider">KIOS 2</span>
+            <p class="text-2xl font-black mt-1">${countKios2} <span class="text-xs font-medium opacity-80">Unit</span></p>
           </div>
+          <div class="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center font-black text-sm">
+            K2
+          </div>
+        </div>
 
-          <!-- LEMPRAKAN -->
-          <div class="${cardBg} border rounded-2xl p-4 flex items-center justify-between border-l-4 border-l-purple-500">
-            <div>
-              <span class="text-xs font-bold ${textSecondary}">LEMPRAKAN</span>
-              <p class="text-xl font-extrabold ${textPrimary} mt-0.5">${countLemprakan} <span class="text-xs font-normal ${textSecondary}">Unit</span></p>
-            </div>
-            <div class="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold text-xs">
-              LMP
-            </div>
+        <!-- LOS (Full Solid Blue Card) -->
+        <div class="rounded-2xl p-4 flex items-center justify-between bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-md">
+          <div>
+            <span class="text-xs font-extrabold uppercase opacity-90 tracking-wider">LOS</span>
+            <p class="text-2xl font-black mt-1">${countLos} <span class="text-xs font-medium opacity-80">Unit</span></p>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center font-black text-sm">
+            LOS
+          </div>
+        </div>
+
+        <!-- LEMPRAKAN (Full Solid Purple Card) -->
+        <div class="rounded-2xl p-4 flex items-center justify-between bg-gradient-to-br from-purple-600 to-violet-700 text-white shadow-md">
+          <div>
+            <span class="text-xs font-extrabold uppercase opacity-90 tracking-wider">LEMPRAKAN</span>
+            <p class="text-2xl font-black mt-1">${countLemprakan} <span class="text-xs font-medium opacity-80">Unit</span></p>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center font-black text-sm">
+            LMP
           </div>
         </div>
       </div>
 
-      <!-- PERINGATAN MASA SEWA KIOS (EXPIRATION ALERTS BANNER) -->
+      <!-- PERINGATAN PENAGIHAN SEWA KIOS -->
       <div class="border rounded-2xl p-5 ${isDark ? 'bg-amber-950/30 border-amber-800/60' : 'bg-amber-50 border-amber-200'}">
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-2">
@@ -210,18 +206,10 @@ export function renderDashboardView(container) {
         </div>
       </div>
 
-      <!-- 3. STATISTIK PASAR SANDANG (KOTAK BESAR DI KIRI & 4 CARD STATISTIK DI KANAN) -->
+      <!-- 3. STATISTIK PASAR SANDANG (CLEAN TITLE & FULL SOLID CARD KIRI) -->
       <div class="${cardBg} border rounded-2xl p-5 space-y-4">
-        <div class="flex items-center justify-between border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-lg">
-              👕
-            </div>
-            <h3 class="text-base font-extrabold ${textPrimary}">Statistik Pasar Sandang</h3>
-          </div>
-          <span class="px-3 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-500 border border-blue-500/30">
-            ZONA SANDANG
-          </span>
+        <div class="border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
+          <h3 class="text-base font-extrabold ${textPrimary}">Statistik Pasar Sandang</h3>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -237,7 +225,6 @@ export function renderDashboardView(container) {
               <p class="text-4xl font-black">${sandangKiosks.length}</p>
               <p class="text-sm font-semibold opacity-90 mt-1">Total Jumlah Unit</p>
             </div>
-            <p class="text-[11px] opacity-75 mt-4">Kios, Los, & Lemprakan Pakaian/Jasa</p>
           </div>
 
           <!-- 4 CARD GRID STATISTIK (KANAN) -->
@@ -269,7 +256,7 @@ export function renderDashboardView(container) {
               <p class="text-2xl font-extrabold text-teal-500">${sandangSudahBayar} <span class="text-xs font-normal ${textSecondary}">Unit</span></p>
             </div>
 
-            <!-- Belum Bayar / Jatuh Tempo -->
+            <!-- Belum Bayar -->
             <div class="p-4 rounded-xl border flex flex-col justify-between ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'}">
               <div class="flex items-center justify-between mb-2">
                 <span class="${textSecondary} font-semibold">Belum Bayar</span>
@@ -281,18 +268,10 @@ export function renderDashboardView(container) {
         </div>
       </div>
 
-      <!-- 4. STATISTIK PASAR SAYUR (KOTAK BESAR DI KIRI & 4 CARD STATISTIK DI KANAN) -->
+      <!-- 4. STATISTIK PASAR SAYUR (CLEAN TITLE & FULL SOLID CARD KIRI) -->
       <div class="${cardBg} border rounded-2xl p-5 space-y-4">
-        <div class="flex items-center justify-between border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold text-lg">
-              🥬
-            </div>
-            <h3 class="text-base font-extrabold ${textPrimary}">Statistik Pasar Sayur</h3>
-          </div>
-          <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
-            ZONA SAYUR
-          </span>
+        <div class="border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
+          <h3 class="text-base font-extrabold ${textPrimary}">Statistik Pasar Sayur</h3>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -308,7 +287,6 @@ export function renderDashboardView(container) {
               <p class="text-4xl font-black">${sayurKiosks.length}</p>
               <p class="text-sm font-semibold opacity-90 mt-1">Total Jumlah Unit</p>
             </div>
-            <p class="text-[11px] opacity-75 mt-4">Kios, Los, & Lemprakan Sayuran/Sembako</p>
           </div>
 
           <!-- 4 CARD GRID STATISTIK (KANAN) -->
@@ -340,7 +318,7 @@ export function renderDashboardView(container) {
               <p class="text-2xl font-extrabold text-teal-500">${sayurSudahBayar} <span class="text-xs font-normal ${textSecondary}">Unit</span></p>
             </div>
 
-            <!-- Belum Bayar / Jatuh Tempo -->
+            <!-- Belum Bayar -->
             <div class="p-4 rounded-xl border flex flex-col justify-between ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'}">
               <div class="flex items-center justify-between mb-2">
                 <span class="${textSecondary} font-semibold">Belum Bayar</span>
