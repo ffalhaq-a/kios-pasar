@@ -125,12 +125,10 @@ export function renderDaftarPedagangView(container) {
 
       return `
         <tr class="border-b ${rowHover} transition-all text-xs">
-          <!-- Clean Blok Column -->
           <td class="px-3.5 py-3 font-mono font-bold text-emerald-500 whitespace-nowrap">
             ${item.blokKode || item.id}
           </td>
 
-          <!-- Clean Nama Pedagang Column -->
           <td class="px-3.5 py-3 ${textPrimary} font-semibold whitespace-nowrap">
             <div class="flex items-center gap-2">
               <span class="w-6 h-6 rounded-full ${item.pedagang === '-' ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'} flex items-center justify-center font-bold text-[10px] shrink-0">
@@ -142,7 +140,6 @@ export function renderDaftarPedagangView(container) {
             </div>
           </td>
 
-          <!-- Scrollable Columns -->
           <td class="px-3 py-3 ${textSecondary} whitespace-nowrap">${item.alamat || '-'}</td>
           <td class="px-3 py-3 whitespace-nowrap">
             <span class="px-2 py-0.5 rounded text-[11px] font-medium border ${isDark ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'}">
@@ -425,6 +422,7 @@ export function renderDaftarPedagangView(container) {
               </div>
             </div>
 
+            <!-- Dimensi & Luas dengan Auto Calculate Listener -->
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="block font-semibold mb-1 ${textSecondary}">Ukuran Dimensi:</label>
@@ -436,6 +434,7 @@ export function renderDaftarPedagangView(container) {
               </div>
             </div>
 
+            <!-- Tanggal Pembayaran & Tanggal Habis Sewa dengan Auto Date (+1 Year) & Auto Status (Lunas) -->
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="block font-semibold mb-1 ${textSecondary}">Tanggal Pembayaran:</label>
@@ -542,6 +541,51 @@ export function renderDaftarPedagangView(container) {
       pageSize = parseInt(e.target.value) || 10;
       currentPage = 1;
       renderTableContent();
+    });
+  }
+
+  // Bind Modal Input Auto-Calculations
+  const dimensiInput = container.querySelector('#edit-dimensi-input');
+  const luasInput = container.querySelector('#edit-luas-input');
+  const tglBayarInput = container.querySelector('#edit-tgl-bayar-input');
+  const tglHabisInput = container.querySelector('#edit-tgl-habis-input');
+  const statusBayarInput = container.querySelector('#edit-status-bayar-input');
+
+  // 1. Auto Calculate Luas (m²) when Ukuran Dimensi is entered
+  if (dimensiInput && luasInput) {
+    dimensiInput.addEventListener('input', (e) => {
+      const val = e.target.value;
+      const matches = val.match(/(\d+(?:[\.,]\d+)?)\s*[*xX,\s]\s*(\d+(?:[\.,]\d+)?)/);
+      if (matches) {
+        let num1 = parseFloat(matches[1].replace(',', '.'));
+        let num2 = parseFloat(matches[2].replace(',', '.'));
+        
+        // If values are given in cm (e.g. 240 x 180), convert to meters (2.4 x 1.8)
+        if (num1 > 20) num1 = num1 / 100;
+        if (num2 > 20) num2 = num2 / 100;
+
+        const area = num1 * num2;
+        if (!isNaN(area) && area > 0) {
+          luasInput.value = Number.isInteger(area) ? area.toString() : area.toFixed(2).replace(/\.?0+$/, '');
+        }
+      }
+    });
+  }
+
+  // 2. Auto Calculate Tanggal Habis Sewa (+1 Year) & Auto Set Status to LUNAS when Tanggal Pembayaran is set
+  if (tglBayarInput && tglHabisInput && statusBayarInput) {
+    tglBayarInput.addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (val) {
+        const payDate = new Date(val);
+        if (!isNaN(payDate.getTime())) {
+          payDate.setFullYear(payDate.getFullYear() + 1);
+          const nextYearStr = payDate.toISOString().slice(0, 10);
+          
+          tglHabisInput.value = nextYearStr;
+          statusBayarInput.value = 'lunas';
+        }
+      }
     });
   }
 
