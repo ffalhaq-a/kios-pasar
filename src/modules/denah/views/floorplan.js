@@ -29,19 +29,19 @@ export function renderFloorplanView(container) {
             </span>
             <span class="text-xs font-bold ${textSecondary}">Unified Master Map (612 Unit)</span>
           </div>
-          <h2 class="text-xl font-bold ${textPrimary}">Pemetaan Denah Kawasan Pasar</h2>
+          <h1 class="text-xl font-extrabold ${textPrimary}">Pemetaan Denah Kawasan Pasar</h1>
         </div>
 
         <div class="flex items-center gap-2 flex-wrap">
           <!-- Zone Filter Pills -->
           <div class="flex items-center p-1 rounded-xl border text-xs font-semibold ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}">
-            <button data-zone="ALL" class="zone-filter-btn px-2.5 py-1 rounded-lg bg-emerald-600 text-white shadow-sm">Semua Kawasan (612)</button>
-            <button data-zone="PASAR SANDANG" class="zone-filter-btn px-2.5 py-1 rounded-lg ${textSecondary} hover:text-emerald-500">👕 Zona Sandang (320)</button>
-            <button data-zone="PASAR SAYUR" class="zone-filter-btn px-2.5 py-1 rounded-lg ${textSecondary} hover:text-emerald-500">🥬 Zona Sayur (292)</button>
+            <button data-zone="ALL" class="zone-filter-btn px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white shadow-sm font-bold">Semua Kawasan (612)</button>
+            <button data-zone="PASAR SANDANG" class="zone-filter-btn px-2.5 py-1.5 rounded-lg ${textSecondary} hover:text-emerald-500 font-bold">👕 Zona Sandang (320)</button>
+            <button data-zone="PASAR SAYUR" class="zone-filter-btn px-2.5 py-1.5 rounded-lg ${textSecondary} hover:text-emerald-500 font-bold">🥬 Zona Sayur (292)</button>
           </div>
 
           <!-- Mode Edit Button -->
-          <button id="toggle-mode-btn" class="${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-white hover:bg-slate-100 text-slate-800 border-slate-300 shadow-sm'} px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 border transition-all">
+          <button id="toggle-mode-btn" class="${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-white hover:bg-slate-100 text-slate-800 border-slate-300 shadow-sm'} px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 border transition-all">
             <i data-lucide="edit-3" class="w-4 h-4 text-emerald-500"></i>
             <span id="mode-text">Mode Edit: OFF</span>
           </button>
@@ -54,13 +54,13 @@ export function renderFloorplanView(container) {
 
         <!-- Zoom Controls Overlay -->
         <div class="absolute bottom-4 right-4 border backdrop-blur rounded-xl p-1 flex items-center gap-1 shadow-lg ${isDark ? 'bg-slate-900/90 border-slate-800 text-slate-300' : 'bg-white/90 border-slate-300 text-slate-700'}">
-          <button id="zoom-in" class="p-1.5 hover:bg-slate-800/20 rounded-lg" title="Zoom In">
+          <button id="zoom-in" class="p-2 hover:bg-slate-800/20 rounded-lg" title="Zoom In">
             <i data-lucide="zoom-in" class="w-4 h-4"></i>
           </button>
-          <button id="zoom-out" class="p-1.5 hover:bg-slate-800/20 rounded-lg" title="Zoom Out">
+          <button id="zoom-out" class="p-2 hover:bg-slate-800/20 rounded-lg" title="Zoom Out">
             <i data-lucide="zoom-out" class="w-4 h-4"></i>
           </button>
-          <button id="zoom-reset" class="p-1.5 hover:bg-slate-800/20 rounded-lg text-xs font-bold px-2" title="Reset View">
+          <button id="zoom-reset" class="p-2 hover:bg-slate-800/20 rounded-lg text-xs font-bold px-2.5" title="Reset View">
             100%
           </button>
         </div>
@@ -111,7 +111,7 @@ export function renderFloorplanView(container) {
           </div>
 
           <div class="flex justify-end gap-2 pt-2">
-            <button id="modal-close-action" class="${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-200 hover:bg-slate-300 text-slate-800'} text-xs px-4 py-2 rounded-xl font-bold transition-all">
+            <button id="modal-close-action" class="${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-200 hover:bg-slate-300 text-slate-800'} text-xs px-4 py-2.5 rounded-xl font-bold transition-all">
               Tutup
             </button>
           </div>
@@ -171,8 +171,8 @@ export function renderFloorplanView(container) {
       isEditMode = !isEditMode;
       modeText.innerText = isEditMode ? 'Mode Edit: AKTIF' : 'Mode Edit: OFF';
       modeBtn.className = isEditMode
-        ? 'bg-emerald-600 text-white px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg transition-all'
-        : (isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-white hover:bg-slate-100 text-slate-800 border-slate-300 shadow-sm') + ' px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 border transition-all';
+        ? 'bg-emerald-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg transition-all'
+        : (isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-white hover:bg-slate-100 text-slate-800 border-slate-300 shadow-sm') + ' px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 border transition-all';
       renderKiosks();
     });
 
@@ -180,9 +180,9 @@ export function renderFloorplanView(container) {
     container.querySelectorAll('.zone-filter-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         container.querySelectorAll('.zone-filter-btn').forEach(b => {
-          b.className = `zone-filter-btn px-2.5 py-1 rounded-lg ${textSecondary} hover:text-emerald-500`;
+          b.className = `zone-filter-btn px-2.5 py-1.5 rounded-lg ${textSecondary} hover:text-emerald-500 font-bold`;
         });
-        btn.className = 'zone-filter-btn px-2.5 py-1 rounded-lg bg-emerald-600 text-white shadow-sm';
+        btn.className = 'zone-filter-btn px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white shadow-sm font-bold';
         currentZoneFilter = btn.getAttribute('data-zone');
         renderKiosks();
       });
@@ -196,6 +196,31 @@ export function renderFloorplanView(container) {
 
   function drawInfrastructure() {
     infraLayer.destroyChildren();
+
+    // Subtle Grid background (Taste rule: subtle & intentional grid lines)
+    const gridGroup = new Konva.Group({ listening: false });
+    const gridSize = 40;
+    const gridColor = isDark ? '#1e293b' : '#e2e8f0';
+
+    for (let i = 0; i < 2000; i += gridSize) {
+      gridGroup.add(new Konva.Line({
+        points: [i, 0, i, 2000],
+        stroke: gridColor,
+        strokeWidth: 1,
+        opacity: 0.25,
+        dash: [4, 4]
+      }));
+    }
+    for (let j = 0; j < 2000; j += gridSize) {
+      gridGroup.add(new Konva.Line({
+        points: [0, j, 2000, j],
+        stroke: gridColor,
+        strokeWidth: 1,
+        opacity: 0.25,
+        dash: [4, 4]
+      }));
+    }
+    infraLayer.add(gridGroup);
 
     infraList.forEach(item => {
       if (item.type === 'polygon' && item.points) {

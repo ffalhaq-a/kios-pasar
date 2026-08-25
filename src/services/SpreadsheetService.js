@@ -20,7 +20,13 @@ class SpreadsheetService {
       }
     }
 
-    // Merge Pasar Sandang & Pasar Sayur into one master array
+    return this.resetToDefaultData();
+  }
+
+  /**
+   * Reset data back to default official dataset
+   */
+  resetToDefaultData() {
     const sandangList = (pasarMuktiMakmurData.sheets['PASAR SANDANG'] || []).map(item => ({
       ...item,
       id: `SND-${item.id}`,
@@ -58,9 +64,6 @@ class SpreadsheetService {
     this.notify();
   }
 
-  /**
-   * Update single Kiosk / Merchant Record by ID
-   */
   updateKios(id, updatedFields) {
     const kiosks = this.loadKiosks();
     const idx = kiosks.findIndex(k => k.id === id);
@@ -70,6 +73,37 @@ class SpreadsheetService {
       return kiosks[idx];
     }
     return null;
+  }
+
+  /**
+   * Centralized helper method to compute stats for entire market or specific zone (Ponytail rule: reuse existing helper logic)
+   */
+  getStats(zone = null) {
+    let kiosks = this.loadKiosks();
+    if (zone) {
+      kiosks = kiosks.filter(k => k.zona === zone);
+    }
+
+    const total = kiosks.length;
+    const terisi = kiosks.filter(k => k.status === 'terisi' || (k.pedagang && k.pedagang !== '-')).length;
+    const kosong = total - terisi;
+    const sudahBayar = kiosks.filter(k => k.statusBayar === 'lunas' && k.pedagang !== '-').length;
+    const jatuhTempo = total - kosong - sudahBayar;
+
+    const totalSewa = kiosks.reduce((acc, curr) => {
+      const num = parseInt((curr.sewaBulanan || '').replace(/[^0-9]/g, '')) || 225000;
+      return acc + num;
+    }, 0);
+
+    return {
+      total,
+      terisi,
+      kosong,
+      sudahBayar,
+      jatuhTempo,
+      okupansiPercent: total > 0 ? Math.round((terisi / total) * 100) : 0,
+      totalSewaFormatted: `Rp ${totalSewa.toLocaleString('id-ID')}`
+    };
   }
 
   subscribe(listener) {
