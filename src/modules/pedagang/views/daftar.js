@@ -10,15 +10,18 @@ export function renderDaftarPedagangView(container) {
   const textSecondary = isDark ? 'text-slate-400' : 'text-slate-600';
   const headerBg = isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200';
   const rowHover = isDark ? 'hover:bg-slate-900/80 border-slate-800/60' : 'hover:bg-slate-50 border-slate-200/80';
-  const stickyBg = isDark ? 'bg-slate-950' : 'bg-white';
   const inputBg = isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900';
 
   let currentZoneFilter = 'ALL';
   let currentStatusFilter = 'ALL';
   let currentSearch = '';
+  
+  // Pagination State
+  let currentPage = 1;
+  let pageSize = 10;
 
-  function renderTableContent() {
-    let filtered = kiosks.filter(k => {
+  function getFilteredKiosks() {
+    return kiosks.filter(k => {
       const matchSearch = 
         k.id.toLowerCase().includes(currentSearch.toLowerCase()) ||
         k.pedagang.toLowerCase().includes(currentSearch.toLowerCase()) ||
@@ -35,17 +38,40 @@ export function renderDaftarPedagangView(container) {
 
       return matchSearch && matchZone && matchStatus;
     });
+  }
+
+  function renderTableContent() {
+    const filtered = getFilteredKiosks();
+    const totalItems = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+
+    const startIdx = (currentPage - 1) * pageSize;
+    const endIdx = Math.min(startIdx + pageSize, totalItems);
+    const paginatedItems = filtered.slice(startIdx, endIdx);
 
     const tbody = container.querySelector('#pedagang-tbody');
     const countBadge = container.querySelector('#filtered-count-badge');
-    if (countBadge) countBadge.innerText = `(${filtered.length} Data)`;
+    if (countBadge) countBadge.innerText = `(${totalItems} Data)`;
+
+    // Update Pagination Info UI
+    const pageInfo = container.querySelector('#pagination-info');
+    if (pageInfo) {
+      pageInfo.innerText = totalItems > 0 
+        ? `Menampilkan ${startIdx + 1} - ${endIdx} dari ${totalItems} data`
+        : 'Menampilkan 0 data';
+    }
+
+    renderPaginationControls(totalPages);
 
     if (!tbody) return;
 
-    if (filtered.length === 0) {
+    if (paginatedItems.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="12" class="px-6 py-12 text-center ${textSecondary} text-xs">
+          <td colspan="10" class="px-6 py-12 text-center ${textSecondary} text-xs">
             Tidak ada data pedagang yang cocok dengan kriteria pencarian / filter
           </td>
         </tr>
@@ -53,7 +79,7 @@ export function renderDaftarPedagangView(container) {
       return;
     }
 
-    tbody.innerHTML = filtered.map((item) => {
+    tbody.innerHTML = paginatedItems.map((item) => {
       let statusBadge = `
         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-rose-500/10 text-rose-500 border border-rose-500/30">
           BELUM BAYAR
@@ -75,7 +101,7 @@ export function renderDaftarPedagangView(container) {
       } else if (item.statusBayar === 'hampir_habis') {
         statusBadge = `
           <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-500/10 text-amber-500 border border-amber-500/30">
-            HAMPIR HABIS SEWA
+            HAMPIR HABIS
           </span>
         `;
       } else if (item.statusBayar === 'jatuh_tempo') {
@@ -87,32 +113,32 @@ export function renderDaftarPedagangView(container) {
       }
 
       return `
-        <tr class="border-b ${rowHover} transition-all text-xs group">
-          <!-- Sticky Column 1: Blok -->
-          <td class="px-3 py-3 font-mono font-bold text-emerald-500 sticky left-0 z-10 ${stickyBg} group-hover:bg-slate-100 dark:group-hover:bg-slate-900 border-r ${isDark ? 'border-slate-800' : 'border-slate-200'}">
+        <tr class="border-b ${rowHover} transition-all text-xs">
+          <!-- Clean Blok Column -->
+          <td class="px-3.5 py-3 font-mono font-bold text-emerald-500 whitespace-nowrap">
             ${item.blokKode || item.id}
           </td>
 
-          <!-- Sticky Column 2: Nama Pedagang -->
-          <td class="px-3 py-3 ${textPrimary} font-semibold sticky left-[70px] z-10 ${stickyBg} group-hover:bg-slate-100 dark:group-hover:bg-slate-900 border-r ${isDark ? 'border-slate-800' : 'border-slate-200'} min-w-[170px]">
+          <!-- Clean Nama Pedagang Column -->
+          <td class="px-3.5 py-3 ${textPrimary} font-semibold">
             <div class="flex items-center gap-2">
               <span class="w-6 h-6 rounded-full ${item.pedagang === '-' ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'} flex items-center justify-center font-bold text-[10px] shrink-0">
                 ${item.pedagang === '-' ? 'K' : item.pedagang.charAt(0)}
               </span>
-              <span class="${item.pedagang === '-' ? 'text-rose-500 italic' : textPrimary} truncate">
+              <span class="${item.pedagang === '-' ? 'text-rose-500 italic' : textPrimary} whitespace-nowrap">
                 ${item.pedagang === '-' ? 'LAHAN KOSONG' : item.pedagang}
               </span>
             </div>
           </td>
 
-          <!-- Scrollable Columns -->
-          <td class="px-3 py-3 ${textSecondary} min-w-[130px]">${item.alamat || '-'}</td>
-          <td class="px-3 py-3 min-w-[140px]">
+          <!-- Clean Scrollable Columns -->
+          <td class="px-3 py-3 ${textSecondary} whitespace-nowrap">${item.alamat || '-'}</td>
+          <td class="px-3 py-3 whitespace-nowrap">
             <span class="px-2 py-0.5 rounded text-[11px] font-medium border ${isDark ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'}">
               ${item.kategori || 'Umum'}
             </span>
           </td>
-          <td class="px-3 py-3 min-w-[100px]">
+          <td class="px-3 py-3 whitespace-nowrap">
             <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${
               (item.tipeKios || '').includes('KIOS 1') ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/30' :
               (item.tipeKios || '').includes('KIOS 2') ? 'bg-teal-500/10 text-teal-500 border border-teal-500/30' :
@@ -122,16 +148,15 @@ export function renderDaftarPedagangView(container) {
               ${item.tipeKios || 'LOS'}
             </span>
           </td>
-          <td class="px-3 py-3 font-mono ${textSecondary} min-w-[130px]">
+          <td class="px-3 py-3 font-mono ${textSecondary} whitespace-nowrap">
             ${item.luasDimensi ? `<span class="font-medium">${item.luasDimensi}</span>` : ''}
             ${item.luasM2 ? `<span class="text-[10px] text-emerald-500 font-bold ml-1">(${item.luasM2} m²)</span>` : ''}
           </td>
-          <td class="px-3 py-3 font-mono font-bold text-amber-500 min-w-[140px]">${item.sewaBulanan}</td>
-          <td class="px-3 py-3 font-mono ${textSecondary} min-w-[110px]">${item.tglPembayaran || '-'}</td>
-          <td class="px-3 py-3 font-mono font-semibold text-amber-500 min-w-[110px]">${item.tglHabisSewa || '-'}</td>
-          <td class="px-3 py-3 min-w-[140px]">${statusBadge}</td>
-          <td class="px-3 py-3 ${textSecondary} min-w-[120px] font-mono">${item.nomorHp || '-'}</td>
-          <td class="px-3 py-3 text-right sticky right-0 z-10 ${stickyBg} group-hover:bg-slate-100 dark:group-hover:bg-slate-900 border-l ${isDark ? 'border-slate-800' : 'border-slate-200'}">
+          <td class="px-3 py-3 font-mono font-bold text-amber-500 whitespace-nowrap">${item.sewaBulanan}</td>
+          <td class="px-3 py-3 font-mono ${textSecondary} whitespace-nowrap">${item.tglPembayaran || '-'}</td>
+          <td class="px-3 py-3 font-mono font-semibold text-amber-500 whitespace-nowrap">${item.tglHabisSewa || '-'}</td>
+          <td class="px-3 py-3 whitespace-nowrap">${statusBadge}</td>
+          <td class="px-3 py-3 text-right whitespace-nowrap">
             <button data-edit-id="${item.id}" class="edit-merchant-btn bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-[11px] font-bold shadow transition-all flex items-center gap-1 ml-auto">
               <i data-lucide="edit-2" class="w-3 h-3"></i>
               <span>Edit</span>
@@ -149,6 +174,81 @@ export function renderDaftarPedagangView(container) {
     });
   }
 
+  function renderPaginationControls(totalPages) {
+    const containerEl = container.querySelector('#pagination-buttons');
+    if (!containerEl) return;
+
+    let buttonsHtml = `
+      <button id="prev-page-btn" ${currentPage === 1 ? 'disabled' : ''} class="px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${
+        currentPage === 1 
+          ? (isDark ? 'bg-slate-900 border-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed')
+          : (isDark ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-100 shadow-sm')
+      }">
+        &larr; Sebelumnya
+      </button>
+    `;
+
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage < maxVisiblePages - 1) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let p = startPage; p <= endPage; p++) {
+      buttonsHtml += `
+        <button data-page="${p}" class="page-num-btn px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${
+          p === currentPage
+            ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
+            : (isDark ? 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-100 shadow-sm')
+        }">
+          ${p}
+        </button>
+      `;
+    }
+
+    buttonsHtml += `
+      <button id="next-page-btn" ${currentPage === totalPages ? 'disabled' : ''} class="px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${
+        currentPage === totalPages 
+          ? (isDark ? 'bg-slate-900 border-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed')
+          : (isDark ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-100 shadow-sm')
+      }">
+        Selanjutnya &rarr;
+      </button>
+    `;
+
+    containerEl.innerHTML = buttonsHtml;
+
+    // Bind Pagination listeners
+    const prevBtn = containerEl.querySelector('#prev-page-btn');
+    if (prevBtn) {
+      prevBtn.addEventListener('click', () => {
+        if (currentPage > 1) {
+          currentPage--;
+          renderTableContent();
+        }
+      });
+    }
+
+    const nextBtn = containerEl.querySelector('#next-page-btn');
+    if (nextBtn) {
+      nextBtn.addEventListener('click', () => {
+        if (currentPage < totalPages) {
+          currentPage++;
+          renderTableContent();
+        }
+      });
+    }
+
+    containerEl.querySelectorAll('.page-num-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentPage = parseInt(btn.getAttribute('data-page')) || 1;
+        renderTableContent();
+      });
+    });
+  }
+
   // Count stats for Filter Pills
   const countTotal = kiosks.length;
   const countBelumBayar = kiosks.filter(k => k.pedagang !== '-' && (k.statusBayar === 'belum_bayar' || !k.statusBayar)).length;
@@ -159,7 +259,7 @@ export function renderDaftarPedagangView(container) {
   container.innerHTML = `
     <div class="p-6 space-y-4 overflow-y-auto h-full ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}">
       
-      <!-- Clean Title & Filter Bar -->
+      <!-- Clean Title & Search Bar -->
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 class="text-xl font-extrabold ${textPrimary}">
@@ -213,17 +313,14 @@ export function renderDaftarPedagangView(container) {
         </button>
       </div>
 
-      <!-- Pro Horizontal Scrollable Table with Sticky Columns -->
-      <div class="${cardBg} border rounded-2xl overflow-hidden shadow-lg">
-        <div class="overflow-x-auto max-h-[calc(100vh-250px)]">
-          <table class="w-full text-left border-collapse min-w-[1200px]">
-            <thead class="sticky top-0 z-20">
+      <!-- Pro Data Table with Clean Formatting & Smooth Scroll -->
+      <div class="${cardBg} border rounded-2xl overflow-hidden shadow-lg flex flex-col">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse min-w-[1000px]">
+            <thead>
               <tr class="${headerBg} border-b text-[11px] font-bold ${textSecondary} uppercase tracking-wider">
-                <!-- Sticky Headers -->
-                <th class="px-3 py-3.5 sticky left-0 z-30 ${headerBg} border-r ${isDark ? 'border-slate-800' : 'border-slate-200'}">Blok</th>
-                <th class="px-3 py-3.5 sticky left-[70px] z-30 ${headerBg} border-r ${isDark ? 'border-slate-800' : 'border-slate-200'}">Nama Pedagang</th>
-                
-                <!-- Scrollable Headers -->
+                <th class="px-3.5 py-3.5">Blok</th>
+                <th class="px-3.5 py-3.5">Nama Pedagang</th>
                 <th class="px-3 py-3.5">Alamat Desa</th>
                 <th class="px-3 py-3.5">Jenis Usaha</th>
                 <th class="px-3 py-3.5">Tipe Unit</th>
@@ -232,14 +329,33 @@ export function renderDaftarPedagangView(container) {
                 <th class="px-3 py-3.5">Tgl Bayar</th>
                 <th class="px-3 py-3.5">Tgl Habis Sewa</th>
                 <th class="px-3 py-3.5">Status Bayar</th>
-                <th class="px-3 py-3.5">No. HP / WA</th>
-                <th class="px-3 py-3.5 text-right sticky right-0 z-30 ${headerBg} border-l ${isDark ? 'border-slate-800' : 'border-slate-200'}">Aksi</th>
+                <th class="px-3 py-3.5 text-right">Aksi</th>
               </tr>
             </thead>
             <tbody id="pedagang-tbody">
               <!-- Rendered dynamically -->
             </tbody>
           </table>
+        </div>
+
+        <!-- PAGINASI FOOTER (PAGINATION BAR) -->
+        <div class="p-4 border-t flex flex-col sm:flex-row items-center justify-between gap-4 ${headerBg}">
+          <div class="flex items-center gap-3">
+            <span id="pagination-info" class="text-xs font-semibold ${textSecondary}"></span>
+            
+            <!-- Page Size Selector Dropdown -->
+            <select id="page-size-select" class="p-1.5 rounded-lg text-xs font-bold border ${inputBg}">
+              <option value="10" ${pageSize === 10 ? 'selected' : ''}>10 Data / Halaman</option>
+              <option value="25" ${pageSize === 25 ? 'selected' : ''}>25 Data / Halaman</option>
+              <option value="50" ${pageSize === 50 ? 'selected' : ''}>50 Data / Halaman</option>
+              <option value="100" ${pageSize === 100 ? 'selected' : ''}>100 Data / Halaman</option>
+            </select>
+          </div>
+
+          <!-- Pagination Buttons -->
+          <div id="pagination-buttons" class="flex items-center gap-1.5">
+            <!-- Buttons injected dynamically -->
+          </div>
         </div>
       </div>
 
@@ -343,6 +459,17 @@ export function renderDaftarPedagangView(container) {
   if (searchInput) {
     searchInput.addEventListener('input', (e) => {
       currentSearch = e.target.value;
+      currentPage = 1;
+      renderTableContent();
+    });
+  }
+
+  // Page Size Selector
+  const pageSizeSelect = container.querySelector('#page-size-select');
+  if (pageSizeSelect) {
+    pageSizeSelect.addEventListener('change', (e) => {
+      pageSize = parseInt(e.target.value) || 10;
+      currentPage = 1;
       renderTableContent();
     });
   }
@@ -355,6 +482,7 @@ export function renderDaftarPedagangView(container) {
       });
       btn.className = 'zone-pill-btn px-3 py-1.5 rounded-lg bg-emerald-600 text-white shadow-sm font-bold';
       currentZoneFilter = btn.getAttribute('data-zone');
+      currentPage = 1;
       renderTableContent();
     });
   });
@@ -367,11 +495,11 @@ export function renderDaftarPedagangView(container) {
       });
       btn.className = 'status-pill-btn px-3 py-1.5 rounded-xl border font-bold bg-slate-800 text-white border-slate-700 shadow-sm shrink-0';
       currentStatusFilter = btn.getAttribute('data-status');
+      currentPage = 1;
       renderTableContent();
     });
   });
 
-  // Modal open
   function openEditModal(targetId) {
     const item = kiosks.find(k => k.id === targetId);
     if (!item) return;
@@ -405,7 +533,6 @@ export function renderDaftarPedagangView(container) {
     const statusVal = container.querySelector('#edit-status-bayar-input').value;
     let tglBayarVal = container.querySelector('#edit-tgl-bayar-input').value;
 
-    // Auto set payment date to today if set to lunas and empty
     if (statusVal === 'lunas' && (!tglBayarVal || tglBayarVal === '-')) {
       tglBayarVal = new Date().toISOString().slice(0, 10);
     }
