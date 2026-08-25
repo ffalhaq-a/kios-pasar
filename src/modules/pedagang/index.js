@@ -1,5 +1,4 @@
 import { renderDaftarPedagangView } from './views/daftar.js';
-import { renderKategoriPedagangView } from './views/kategori.js';
 
 export const PedagangModule = {
   id: 'pedagang',
@@ -7,25 +6,13 @@ export const PedagangModule = {
   icon: 'users',
   menus: [
     {
-      label: 'Kelola Pedagang',
+      id: 'daftar-pedagang',
+      label: 'Daftar Pedagang',
       icon: 'users',
-      submenus: [
-        {
-          label: 'Daftar Pedagang',
-          icon: 'list',
-          path: '/pedagang/daftar'
-        },
-        {
-          label: 'Kategori Usaha',
-          icon: 'tag',
-          path: '/pedagang/kategori'
-        }
-      ]
+      path: '/pedagang/daftar'
     }
   ],
   views: {
-    '/pedagang': renderDaftarPedagangView,
-    '/pedagang/daftar': renderDaftarPedagangView,
-    '/pedagang/kategori': renderKategoriPedagangView
+    '/pedagang/daftar': (container) => renderDaftarPedagangView(container)
   }
 };
