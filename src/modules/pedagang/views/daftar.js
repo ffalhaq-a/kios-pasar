@@ -104,7 +104,7 @@ export function renderDaftarPedagangView(container) {
     if (paginatedItems.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="11" class="px-6 py-12 text-center ${textSecondary} text-xs">
+          <td colspan="12" class="px-6 py-12 text-center ${textSecondary} text-xs">
             Tidak ada data pedagang yang cocok dengan kombinasi filter yang dipilih
           </td>
         </tr>
@@ -113,6 +113,11 @@ export function renderDaftarPedagangView(container) {
     }
 
     tbody.innerHTML = paginatedItems.map((item) => {
+      const isSayur = (item.zona || '').toUpperCase().includes('SAYUR') || String(item.id || '').toUpperCase().startsWith('SYR');
+      const zonaBadge = isSayur
+        ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 whitespace-nowrap">Sayur</span>`
+        : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/30 whitespace-nowrap">Sandang</span>`;
+
       let statusBadge = `
         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-rose-500/10 text-rose-500 border border-rose-500/30">
           BELUM BAYAR
@@ -152,6 +157,10 @@ export function renderDaftarPedagangView(container) {
 
       return `
         <tr class="border-b ${rowHover} transition-all text-xs">
+          <td class="px-3.5 py-3 whitespace-nowrap">
+            ${zonaBadge}
+          </td>
+
           <td class="px-3.5 py-3 font-mono font-bold text-emerald-500 whitespace-nowrap">
             ${cleanBlok}
           </td>
@@ -384,6 +393,7 @@ export function renderDaftarPedagangView(container) {
           <table class="w-full text-left border-collapse min-w-[1000px]">
             <thead>
               <tr class="${headerBg} border-b text-[11px] font-bold ${textSecondary} uppercase tracking-wider">
+                <th class="px-3.5 py-3.5">Pasar</th>
                 <th class="px-3.5 py-3.5">Blok</th>
                 <th class="px-3.5 py-3.5">Nama Pedagang</th>
                 <th class="px-3 py-3.5">Alamat Desa</th>
