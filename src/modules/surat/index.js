@@ -1,4 +1,5 @@
 import { renderSuratView } from './view.js';
+import { renderTemplateEditorView } from './views/template.js';
 
 export const SuratModule = {
   id: 'surat',
@@ -17,6 +18,12 @@ export const SuratModule = {
           path: '/surat/pemberitahuan'
         },
         {
+          id: 'surat-template',
+          label: 'Pengaturan Template',
+          icon: 'sliders',
+          path: '/surat/template'
+        },
+        {
           id: 'surat-perjanjian',
           label: 'Surat Perjanjian',
           icon: 'file-signature',
@@ -32,6 +39,9 @@ export const SuratModule = {
       const initialKiosId = urlParams.get('kiosId') || window._selectedKiosIdForSurat || null;
       window._selectedKiosIdForSurat = null;
       renderSuratView(container, initialKiosId);
+    },
+    '/surat/template': (container) => {
+      renderTemplateEditorView(container);
     },
     '/surat/perjanjian': (container) => {
       container.innerHTML = `

@@ -52,16 +52,22 @@ export function renderSuratView(container, targetKiosId = null) {
         </div>
 
         <div class="flex items-center gap-2">
+          <!-- Tombol Ke Pengaturan Template -->
+          <button id="btn-goto-template" class="border px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${cardBg} ${textPrimary} hover:border-emerald-500 shadow-sm">
+            <i data-lucide="sliders" class="w-3.5 h-3.5 text-emerald-500"></i>
+            <span>Edit Template Surat</span>
+          </button>
+
           <!-- Tombol Upload Logo -->
           <label class="cursor-pointer border px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${cardBg} ${textPrimary} hover:border-emerald-500 shadow-sm">
             <i data-lucide="image" class="w-3.5 h-3.5 text-emerald-500"></i>
-            <span>Upload File Logo PNG</span>
+            <span>Upload Logo PNG</span>
             <input type="file" id="upload-logo-input" accept="image/png,image/jpeg" class="hidden" />
           </label>
 
           <span class="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 flex items-center gap-1.5 shadow-sm">
             <i data-lucide="zap" class="w-3.5 h-3.5"></i>
-            <span>Client-Side 0.2s</span>
+            <span>Instan 0.2s</span>
           </span>
         </div>
       </div>
@@ -234,6 +240,13 @@ export function renderSuratView(container, targetKiosId = null) {
   const inputSifat = container.querySelector('#input-sifat');
   const uploadLogoInput = container.querySelector('#upload-logo-input');
   
+  const btnGotoTemplate = container.querySelector('#btn-goto-template');
+  if (btnGotoTemplate) {
+    btnGotoTemplate.addEventListener('click', () => {
+      if (window._navigate) window._navigate('/surat/template');
+    });
+  }
+
   const btnGenerateInstant = container.querySelector('#btn-generate-instant');
   const btnPreviewInstant = container.querySelector('#btn-preview-instant');
   const btnBatchGenerate = container.querySelector('#btn-batch-generate');
