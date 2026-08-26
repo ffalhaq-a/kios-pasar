@@ -4,6 +4,8 @@ const STORAGE_KEY = 'pasar_pdf_settings_2026';
 
 const DEFAULT_SETTINGS = {
   logoBase64: null,
+  logoAspectRatio: 0.833, // Default 20/24 ~ 0.833
+  lockAspect: true,
   logoX: 22,
   logoY: 12,
   logoWidth: 20,
@@ -13,7 +15,7 @@ const DEFAULT_SETTINGS = {
 
 /**
  * Official PDF Generator Engine for Pasar Mukti Makmur Karangpucung 2026
- * Supports in-app logo uploads, margin controls, and real-time customizer settings.
+ * Supports proportional auto-scaling, in-app logo uploads, and margin controls.
  */
 export class PdfService {
   constructor() {
@@ -115,8 +117,17 @@ export class PdfService {
     
     const logoX = Number(cfg.logoX) || 22;
     const logoY = Number(cfg.logoY) || 12;
-    const logoWidth = Number(cfg.logoWidth) || 20;
-    const logoHeight = Number(cfg.logoHeight) || 24;
+    let logoWidth = Number(cfg.logoWidth) || 20;
+    let logoHeight = Number(cfg.logoHeight) || 24;
+
+    // Ensure maximum safe height so it never collides with double border line at 40.5mm
+    const maxSafeHeight = 27;
+    if (logoHeight > maxSafeHeight) {
+      if (cfg.lockAspect && cfg.logoAspectRatio) {
+        logoWidth = maxSafeHeight * cfg.logoAspectRatio;
+      }
+      logoHeight = maxSafeHeight;
+    }
 
     if (cfg.logoBase64) {
       try {
@@ -321,10 +332,11 @@ export class PdfService {
     doc.text('CILACAP', logoX + (logoWidth / 2), logoY + 4.5, { align: 'center' });
 
     // Inner shield colors (Yellow & Blue monument motif)
+    const innerH = logoHeight - 8;
     doc.setFillColor(220, 38, 38);
-    doc.rect(logoX + 2, logoY + 6.5, logoWidth - 4, (logoHeight - 8) / 2, 'F');
+    doc.rect(logoX + 2, logoY + 6.5, logoWidth - 4, innerH / 2, 'F');
     doc.setFillColor(2, 132, 199);
-    doc.rect(logoX + 2, logoY + 6.5 + (logoHeight - 8) / 2, logoWidth - 4, (logoHeight - 8) / 2, 'F');
+    doc.rect(logoX + 2, logoY + 6.5 + innerH / 2, logoWidth - 4, innerH / 2, 'F');
 
     // Center Monument/Tower
     doc.setFillColor(250, 204, 21);

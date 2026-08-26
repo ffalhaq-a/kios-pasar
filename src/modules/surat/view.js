@@ -282,10 +282,16 @@ export function renderSuratView(container, initialKiosId = null) {
 
               <div class="space-y-2 flex-1">
                 <input type="file" id="logo-file-input" accept="image/png,image/jpeg,image/svg+xml" class="hidden" />
-                <button type="button" id="trigger-upload-btn" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow">
-                  <i data-lucide="upload" class="w-3.5 h-3.5"></i>
-                  <span>Unggah Gambar Logo</span>
-                </button>
+                <div class="flex flex-wrap gap-2">
+                  <button type="button" id="trigger-upload-btn" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow">
+                    <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                    <span>Unggah Gambar Logo</span>
+                  </button>
+                  <button type="button" id="auto-fit-logo-btn" class="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-slate-700 hover:border-emerald-500 text-slate-300 flex items-center gap-1">
+                    <i data-lucide="maximize-2" class="w-3 h-3 text-emerald-500"></i>
+                    <span>Auto-Fit Ukuran</span>
+                  </button>
+                </div>
                 <button type="button" id="reset-logo-btn" class="text-[11px] text-slate-400 hover:text-red-400 block underline">
                   Gunakan Logo Vektor Standar
                 </button>
@@ -293,9 +299,18 @@ export function renderSuratView(container, initialKiosId = null) {
             </div>
           </div>
 
-          <!-- SECTION 2: POSISI & UKURAN LOGO -->
+          <!-- SECTION 2: POSISI & UKURAN LOGO + PROPORSI OTOMATIS -->
           <div class="space-y-3">
-            <label class="text-xs font-bold ${textSecondary}">2. Posisi & Ukuran Logo (dalam Milimeter):</label>
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold ${textSecondary}">2. Posisi & Ukuran Logo (Milimeter):</label>
+              
+              <!-- Checkbox Kunci Proporsi -->
+              <label class="flex items-center gap-1.5 text-xs text-emerald-400 font-bold cursor-pointer select-none">
+                <input type="checkbox" id="lock-aspect-ratio" class="rounded text-emerald-600 focus:ring-emerald-500" checked />
+                <span>🔒 Kunci Proporsi Otomatis</span>
+              </label>
+            </div>
+
             <div class="grid grid-cols-2 gap-3">
               <div class="space-y-1">
                 <span class="text-[11px] ${textSecondary}">Posisi X (Kiri/Kanan):</span>
@@ -311,7 +326,7 @@ export function renderSuratView(container, initialKiosId = null) {
               </div>
               <div class="space-y-1">
                 <span class="text-[11px] ${textSecondary}">Tinggi Logo (Height):</span>
-                <input type="number" id="setting-logo-h" class="w-full p-2 rounded-lg text-xs font-mono border ${inputBg}" min="10" max="50" value="24" />
+                <input type="number" id="setting-logo-h" class="w-full p-2 rounded-lg text-xs font-mono border ${inputBg}" min="10" max="40" value="24" />
               </div>
             </div>
           </div>
@@ -378,9 +393,11 @@ export function renderSuratView(container, initialKiosId = null) {
 
     const logoFileInput = container.querySelector('#logo-file-input');
     const triggerUploadBtn = container.querySelector('#trigger-upload-btn');
+    const autoFitLogoBtn = container.querySelector('#auto-fit-logo-btn');
     const resetLogoBtn = container.querySelector('#reset-logo-btn');
     const logoPreviewImg = container.querySelector('#logo-preview-img');
     const logoPreviewFallback = container.querySelector('#logo-preview-fallback');
+    const lockAspectCheckbox = container.querySelector('#lock-aspect-ratio');
 
     const inputLogoX = container.querySelector('#setting-logo-x');
     const inputLogoY = container.querySelector('#setting-logo-y');
@@ -392,11 +409,15 @@ export function renderSuratView(container, initialKiosId = null) {
     const btnResetAll = container.querySelector('#reset-all-settings-btn');
 
     let currentLogoBase64 = pdfService.getSettings().logoBase64 || null;
+    let currentAspectRatio = pdfService.getSettings().logoAspectRatio || 0.833; // W / H
 
     // Load Settings to Modal inputs
     function syncModalWithSettings() {
       const cfg = pdfService.getSettings();
       currentLogoBase64 = cfg.logoBase64 || null;
+      currentAspectRatio = cfg.logoAspectRatio || 0.833;
+      lockAspectCheckbox.checked = cfg.lockAspect !== false;
+
       inputLogoX.value = cfg.logoX || 22;
       inputLogoY.value = cfg.logoY || 12;
       inputLogoW.value = cfg.logoWidth || 20;
@@ -412,6 +433,27 @@ export function renderSuratView(container, initialKiosId = null) {
         logoPreviewFallback.classList.remove('hidden');
       }
     }
+
+    // PROPORTIONAL RESIZING LISTENERS
+    inputLogoW.addEventListener('input', () => {
+      if (lockAspectCheckbox.checked && currentAspectRatio > 0) {
+        const w = Number(inputLogoW.value);
+        if (w > 0) {
+          const computedH = Math.round((w / currentAspectRatio) * 10) / 10;
+          inputLogoH.value = Math.min(computedH, 27); // Safe max height
+        }
+      }
+    });
+
+    inputLogoH.addEventListener('input', () => {
+      if (lockAspectCheckbox.checked && currentAspectRatio > 0) {
+        const h = Number(inputLogoH.value);
+        if (h > 0) {
+          const computedW = Math.round((h * currentAspectRatio) * 10) / 10;
+          inputLogoW.value = computedW;
+        }
+      }
+    });
 
     btnOpenSettings.addEventListener('click', () => {
       syncModalWithSettings();
@@ -436,13 +478,39 @@ export function renderSuratView(container, initialKiosId = null) {
         logoPreviewImg.src = currentLogoBase64;
         logoPreviewImg.classList.remove('hidden');
         logoPreviewFallback.classList.add('hidden');
+
+        // Extract actual image natural dimensions to set aspect ratio
+        const img = new Image();
+        img.onload = () => {
+          if (img.naturalHeight > 0) {
+            currentAspectRatio = img.naturalWidth / img.naturalHeight;
+            // Auto calculate proportional dimensions
+            const safeW = 20;
+            const safeH = Math.min(Math.round((safeW / currentAspectRatio) * 10) / 10, 27);
+            inputLogoW.value = safeW;
+            inputLogoH.value = safeH;
+          }
+        };
+        img.src = currentLogoBase64;
       };
       reader.readAsDataURL(file);
     });
 
+    autoFitLogoBtn.addEventListener('click', () => {
+      if (currentAspectRatio > 0) {
+        const safeW = 20;
+        const safeH = Math.min(Math.round((safeW / currentAspectRatio) * 10) / 10, 27);
+        inputLogoW.value = safeW;
+        inputLogoH.value = safeH;
+      }
+    });
+
     resetLogoBtn.addEventListener('click', () => {
       currentLogoBase64 = null;
+      currentAspectRatio = 0.833;
       logoFileInput.value = '';
+      inputLogoW.value = 20;
+      inputLogoH.value = 24;
       logoPreviewImg.classList.add('hidden');
       logoPreviewFallback.classList.remove('hidden');
     });
@@ -450,6 +518,8 @@ export function renderSuratView(container, initialKiosId = null) {
     btnSaveSettings.addEventListener('click', () => {
       pdfService.saveSettings({
         logoBase64: currentLogoBase64,
+        logoAspectRatio: currentAspectRatio,
+        lockAspect: lockAspectCheckbox.checked,
         logoX: Number(inputLogoX.value) || 22,
         logoY: Number(inputLogoY.value) || 12,
         logoWidth: Number(inputLogoW.value) || 20,
@@ -458,7 +528,7 @@ export function renderSuratView(container, initialKiosId = null) {
       });
 
       settingsModal.classList.add('hidden');
-      alert('Pengaturan Logo & Margin Kop Surat Berhasil Disimpan!');
+      alert('Pengaturan Logo Proporsional & Margin Berhasil Disimpan!');
     });
 
     btnResetAll.addEventListener('click', () => {
