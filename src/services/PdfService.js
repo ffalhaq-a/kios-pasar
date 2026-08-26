@@ -1,61 +1,77 @@
 import { jsPDF } from 'jspdf';
 
+const STORAGE_KEY = 'pasar_pdf_settings_2026';
+
+const DEFAULT_SETTINGS = {
+  logoBase64: null,
+  logoX: 22,
+  logoY: 12,
+  logoWidth: 20,
+  logoHeight: 24,
+  margin: 20
+};
+
 /**
  * Official PDF Generator Engine for Pasar Mukti Makmur Karangpucung 2026
- * Supports custom logo image (PNG/JPG/Base64) with vector fallback.
+ * Supports in-app logo uploads, margin controls, and real-time customizer settings.
  */
-
-// Cache for loaded logo image
-let cachedLogoImage = null;
-
-// Function to preload logo
-export async function preloadLogo(url = '/assets/logo_cilacap.png') {
-  if (cachedLogoImage) return cachedLogoImage;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        cachedLogoImage = reader.result;
-        resolve(cachedLogoImage);
-      };
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch (err) {
-    return null;
-  }
-}
-
 export class PdfService {
-  /**
-   * Set custom logo base64 directly
-   */
-  setCustomLogo(base64Data) {
-    cachedLogoImage = base64Data;
+  constructor() {
+    this.settings = this.loadSettings();
+  }
+
+  loadSettings() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+      }
+    } catch (err) {
+      console.warn('Failed to load PDF settings from localStorage', err);
+    }
+    return { ...DEFAULT_SETTINGS };
+  }
+
+  saveSettings(newSettings) {
+    this.settings = { ...this.settings, ...newSettings };
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.settings));
+    } catch (err) {
+      console.error('Failed to save PDF settings to localStorage', err);
+    }
+    return this.settings;
+  }
+
+  resetSettings() {
+    this.settings = { ...DEFAULT_SETTINGS };
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (err) {}
+    return this.settings;
+  }
+
+  getSettings() {
+    return { ...this.settings };
   }
 
   /**
    * Generates a single official notice PDF
    */
-  generateSingleNotice(data, customLogo = null) {
+  generateSingleNotice(data) {
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
       format: 'a4'
     });
 
-    const logo = customLogo || cachedLogoImage;
-    this.renderNoticePage(doc, data, logo);
+    this.renderNoticePage(doc, data);
     return doc;
   }
 
   /**
    * Generates a bundled multi-page PDF for a whole block in ~1 second
    */
-  generateBatchNotice(kiosksList, globalParams, onProgress = null, customLogo = null) {
+  generateBatchNotice(kiosksList, globalParams, onProgress = null) {
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
@@ -63,7 +79,6 @@ export class PdfService {
     });
 
     const total = kiosksList.length;
-    const logo = customLogo || cachedLogoImage;
 
     kiosksList.forEach((kiosk, index) => {
       if (index > 0) {
@@ -75,7 +90,7 @@ export class PdfService {
         ...kiosk
       };
 
-      this.renderNoticePage(doc, mergedData, logo);
+      this.renderNoticePage(doc, mergedData);
 
       if (onProgress) {
         onProgress(Math.round(((index + 1) / total) * 100), index + 1, total);
@@ -88,35 +103,34 @@ export class PdfService {
   /**
    * Renders exact 1-to-1 match of Google Docs template on A4 page
    */
-  renderNoticePage(doc, data, logoImage = null) {
+  renderNoticePage(doc, data) {
+    const cfg = this.settings;
     const pageWidth = 210;
-    const margin = 20;
-    const contentWidth = pageWidth - (margin * 2); // 170mm
+    const margin = Number(cfg.margin) || 20;
+    const contentWidth = pageWidth - (margin * 2); // 170mm default
 
     // ==========================================
     // 1. KOP SURAT RESMI (DENGAN LOGO CILACAP)
     // ==========================================
     
-    // PENGATURAN POSISI & UKURAN LOGO CILACAP
-    const logoX = margin + 2;      // Jarak dari tepi kiri (mm)
-    const logoY = 12;              // Jarak dari tepi atas (mm)
-    const logoWidth = 20;          // Lebar logo (mm)
-    const logoHeight = 24;         // Tinggi logo (mm)
+    const logoX = Number(cfg.logoX) || 22;
+    const logoY = Number(cfg.logoY) || 12;
+    const logoWidth = Number(cfg.logoWidth) || 20;
+    const logoHeight = Number(cfg.logoHeight) || 24;
 
-    if (logoImage) {
-      // Jika ada file gambar PNG/JPG logo resmi
+    if (cfg.logoBase64) {
       try {
-        doc.addImage(logoImage, 'PNG', logoX, logoY, logoWidth, logoHeight);
+        doc.addImage(cfg.logoBase64, 'PNG', logoX, logoY, logoWidth, logoHeight);
       } catch (err) {
-        this.drawVectorLogo(doc, logoX, logoY);
+        this.drawVectorLogo(doc, logoX, logoY, logoWidth, logoHeight);
       }
     } else {
-      // Vector Emblem Cilacap Presisi Bawaan
-      this.drawVectorLogo(doc, logoX, logoY);
+      this.drawVectorLogo(doc, logoX, logoY, logoWidth, logoHeight);
     }
 
     // Kop Text Header (Centered)
-    const headerCenterX = margin + 22 + (contentWidth - 22) / 2;
+    const headerLeftBound = logoX + logoWidth + 2;
+    const headerCenterX = headerLeftBound + (pageWidth - margin - headerLeftBound) / 2;
 
     doc.setFont('times', 'bold');
     doc.setFontSize(11.5);
@@ -293,28 +307,28 @@ export class PdfService {
   /**
    * Vector Logo Cilacap Fallback
    */
-  drawVectorLogo(doc, logoX, logoY) {
+  drawVectorLogo(doc, logoX, logoY, logoWidth = 20, logoHeight = 24) {
     doc.setDrawColor(20, 20, 20);
     doc.setFillColor(235, 240, 248);
-    doc.roundedRect(logoX, logoY, 20, 24, 2, 2, 'FD');
+    doc.roundedRect(logoX, logoY, logoWidth, logoHeight, 2, 2, 'FD');
 
     // Inner top black banner
     doc.setFillColor(15, 23, 42);
-    doc.rect(logoX + 1, logoY + 1, 18, 5, 'F');
+    doc.rect(logoX + 1, logoY + 1, logoWidth - 2, 5, 'F');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(6.5);
     doc.setTextColor(255, 255, 255);
-    doc.text('CILACAP', logoX + 10, logoY + 4.5, { align: 'center' });
+    doc.text('CILACAP', logoX + (logoWidth / 2), logoY + 4.5, { align: 'center' });
 
     // Inner shield colors (Yellow & Blue monument motif)
     doc.setFillColor(220, 38, 38);
-    doc.rect(logoX + 2, logoY + 6.5, 16, 7.5, 'F');
+    doc.rect(logoX + 2, logoY + 6.5, logoWidth - 4, (logoHeight - 8) / 2, 'F');
     doc.setFillColor(2, 132, 199);
-    doc.rect(logoX + 2, logoY + 14, 16, 8, 'F');
+    doc.rect(logoX + 2, logoY + 6.5 + (logoHeight - 8) / 2, logoWidth - 4, (logoHeight - 8) / 2, 'F');
 
     // Center Monument/Tower
     doc.setFillColor(250, 204, 21);
-    doc.rect(logoX + 8.5, logoY + 7.5, 3, 12, 'F');
+    doc.rect(logoX + (logoWidth / 2) - 1.5, logoY + 7.5, 3, logoHeight - 12, 'F');
   }
 }
 

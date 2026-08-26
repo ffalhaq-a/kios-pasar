@@ -86,8 +86,8 @@ export function renderSuratView(container, initialKiosId = null) {
           <h1 class="text-xl font-extrabold ${textPrimary}">Penerbitan Surat Pemberitahuan Retribusi Sewa</h1>
         </div>
 
-        <!-- RIGHT ACTION BUTTONS IN SINGLE HORIZONTAL ROW -->
-        <div class="flex items-center gap-2 flex-wrap">
+        <!-- RIGHT ACTION BUTTONS -->
+        <div class="flex items-center gap-2.5 flex-wrap">
           
           <!-- Mode Switcher Pill -->
           <div class="flex items-center p-1 rounded-xl border ${cardBg}">
@@ -101,7 +101,13 @@ export function renderSuratView(container, initialKiosId = null) {
             </button>
           </div>
 
-          <!-- Refresh Button beside Cetak Massal -->
+          <!-- Settings Button -->
+          <button id="open-settings-btn" title="Pengaturan Logo & Margin Surat" class="px-3.5 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${cardBg} ${textPrimary} hover:border-emerald-500 shadow-sm">
+            <i data-lucide="settings" class="w-3.5 h-3.5 text-emerald-500"></i>
+            <span>Pengaturan Logo & Margin</span>
+          </button>
+
+          <!-- Refresh Button -->
           <button id="refresh-data-btn" class="px-3.5 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${cardBg} ${textPrimary} hover:border-emerald-500 shadow-sm">
             <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-emerald-500"></i>
             <span>Refresh</span>
@@ -251,6 +257,86 @@ export function renderSuratView(container, initialKiosId = null) {
 
       </div>
 
+      <!-- MODAL PENGATURAN LOGO & MARGIN SURAT -->
+      <div id="settings-modal-backdrop" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="border rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl ${cardBg} ${textPrimary} relative max-h-[90vh] overflow-y-auto">
+          
+          <div class="flex items-center justify-between border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
+            <h3 class="text-sm font-bold flex items-center gap-2">
+              <i data-lucide="settings" class="w-4 h-4 text-emerald-500"></i>
+              <span>Pengaturan Kop, Logo & Margin PDF</span>
+            </h3>
+            <button id="close-settings-btn" class="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-100">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <!-- SECTION 1: UPLOAD LOGO -->
+          <div class="space-y-3">
+            <label class="text-xs font-bold ${textSecondary}">1. Gambar Logo Kop Surat:</label>
+            <div class="flex items-center gap-4 p-3.5 rounded-xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'}">
+              <div id="logo-preview-box" class="w-16 h-20 rounded-lg border flex items-center justify-center overflow-hidden bg-white/10 shrink-0">
+                <img id="logo-preview-img" src="" class="w-full h-full object-contain hidden" alt="Logo" />
+                <span id="logo-preview-fallback" class="text-[10px] font-bold text-center text-slate-400">Logo Vektor Bawaan</span>
+              </div>
+
+              <div class="space-y-2 flex-1">
+                <input type="file" id="logo-file-input" accept="image/png,image/jpeg,image/svg+xml" class="hidden" />
+                <button type="button" id="trigger-upload-btn" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow">
+                  <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                  <span>Unggah Gambar Logo</span>
+                </button>
+                <button type="button" id="reset-logo-btn" class="text-[11px] text-slate-400 hover:text-red-400 block underline">
+                  Gunakan Logo Vektor Standar
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION 2: POSISI & UKURAN LOGO -->
+          <div class="space-y-3">
+            <label class="text-xs font-bold ${textSecondary}">2. Posisi & Ukuran Logo (dalam Milimeter):</label>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="space-y-1">
+                <span class="text-[11px] ${textSecondary}">Posisi X (Kiri/Kanan):</span>
+                <input type="number" id="setting-logo-x" class="w-full p-2 rounded-lg text-xs font-mono border ${inputBg}" min="5" max="50" value="22" />
+              </div>
+              <div class="space-y-1">
+                <span class="text-[11px] ${textSecondary}">Posisi Y (Atas/Bawah):</span>
+                <input type="number" id="setting-logo-y" class="w-full p-2 rounded-lg text-xs font-mono border ${inputBg}" min="5" max="40" value="12" />
+              </div>
+              <div class="space-y-1">
+                <span class="text-[11px] ${textSecondary}">Lebar Logo (Width):</span>
+                <input type="number" id="setting-logo-w" class="w-full p-2 rounded-lg text-xs font-mono border ${inputBg}" min="10" max="50" value="20" />
+              </div>
+              <div class="space-y-1">
+                <span class="text-[11px] ${textSecondary}">Tinggi Logo (Height):</span>
+                <input type="number" id="setting-logo-h" class="w-full p-2 rounded-lg text-xs font-mono border ${inputBg}" min="10" max="50" value="24" />
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION 3: MARGIN KERTAS -->
+          <div class="space-y-2">
+            <label class="text-xs font-bold ${textSecondary}">3. Margin Kiri & Kanan Kertas (mm):</label>
+            <input type="number" id="setting-margin" class="w-full p-2 rounded-lg text-xs font-mono border ${inputBg}" min="10" max="35" value="20" />
+          </div>
+
+          <!-- MODAL ACTIONS -->
+          <div class="flex items-center justify-between pt-3 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}">
+            <button id="reset-all-settings-btn" type="button" class="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-red-400 border border-slate-700">
+              Reset ke Standar
+            </button>
+            
+            <button id="save-settings-btn" type="button" class="px-4 py-2 rounded-xl text-xs font-extrabold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow">
+              <i data-lucide="check" class="w-4 h-4"></i>
+              <span>Simpan Pengaturan</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
     </div>
   `;
 
@@ -280,11 +366,107 @@ export function renderSuratView(container, initialKiosId = null) {
     const progressBarFill = container.querySelector('#progress-bar-fill');
     const progressPercent = container.querySelector('#progress-percent');
     const progressStatusText = container.querySelector('#progress-status-text');
-    const progressSubtext = container.querySelector('#progress-subtext');
 
     const resultCard = container.querySelector('#result-status-card');
     const resultFileName = container.querySelector('#result-file-name');
     const btnViewPdf = container.querySelector('#btn-view-pdf');
+
+    // SETTINGS MODAL ELEMENTS
+    const btnOpenSettings = container.querySelector('#open-settings-btn');
+    const btnCloseSettings = container.querySelector('#close-settings-btn');
+    const settingsModal = container.querySelector('#settings-modal-backdrop');
+
+    const logoFileInput = container.querySelector('#logo-file-input');
+    const triggerUploadBtn = container.querySelector('#trigger-upload-btn');
+    const resetLogoBtn = container.querySelector('#reset-logo-btn');
+    const logoPreviewImg = container.querySelector('#logo-preview-img');
+    const logoPreviewFallback = container.querySelector('#logo-preview-fallback');
+
+    const inputLogoX = container.querySelector('#setting-logo-x');
+    const inputLogoY = container.querySelector('#setting-logo-y');
+    const inputLogoW = container.querySelector('#setting-logo-w');
+    const inputLogoH = container.querySelector('#setting-logo-h');
+    const inputMargin = container.querySelector('#setting-margin');
+
+    const btnSaveSettings = container.querySelector('#save-settings-btn');
+    const btnResetAll = container.querySelector('#reset-all-settings-btn');
+
+    let currentLogoBase64 = pdfService.getSettings().logoBase64 || null;
+
+    // Load Settings to Modal inputs
+    function syncModalWithSettings() {
+      const cfg = pdfService.getSettings();
+      currentLogoBase64 = cfg.logoBase64 || null;
+      inputLogoX.value = cfg.logoX || 22;
+      inputLogoY.value = cfg.logoY || 12;
+      inputLogoW.value = cfg.logoWidth || 20;
+      inputLogoH.value = cfg.logoHeight || 24;
+      inputMargin.value = cfg.margin || 20;
+
+      if (currentLogoBase64) {
+        logoPreviewImg.src = currentLogoBase64;
+        logoPreviewImg.classList.remove('hidden');
+        logoPreviewFallback.classList.add('hidden');
+      } else {
+        logoPreviewImg.classList.add('hidden');
+        logoPreviewFallback.classList.remove('hidden');
+      }
+    }
+
+    btnOpenSettings.addEventListener('click', () => {
+      syncModalWithSettings();
+      settingsModal.classList.remove('hidden');
+    });
+
+    btnCloseSettings.addEventListener('click', () => {
+      settingsModal.classList.add('hidden');
+    });
+
+    triggerUploadBtn.addEventListener('click', () => {
+      logoFileInput.click();
+    });
+
+    logoFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        currentLogoBase64 = ev.target.result;
+        logoPreviewImg.src = currentLogoBase64;
+        logoPreviewImg.classList.remove('hidden');
+        logoPreviewFallback.classList.add('hidden');
+      };
+      reader.readAsDataURL(file);
+    });
+
+    resetLogoBtn.addEventListener('click', () => {
+      currentLogoBase64 = null;
+      logoFileInput.value = '';
+      logoPreviewImg.classList.add('hidden');
+      logoPreviewFallback.classList.remove('hidden');
+    });
+
+    btnSaveSettings.addEventListener('click', () => {
+      pdfService.saveSettings({
+        logoBase64: currentLogoBase64,
+        logoX: Number(inputLogoX.value) || 22,
+        logoY: Number(inputLogoY.value) || 12,
+        logoWidth: Number(inputLogoW.value) || 20,
+        logoHeight: Number(inputLogoH.value) || 24,
+        margin: Number(inputMargin.value) || 20
+      });
+
+      settingsModal.classList.add('hidden');
+      alert('Pengaturan Logo & Margin Kop Surat Berhasil Disimpan!');
+    });
+
+    btnResetAll.addEventListener('click', () => {
+      if (confirm('Kembalikan semua pengaturan logo dan margin ke standar desa?')) {
+        pdfService.resetSettings();
+        syncModalWithSettings();
+      }
+    });
 
     // Switch to SATUAN Mode
     btnModeSatuan.addEventListener('click', () => {
