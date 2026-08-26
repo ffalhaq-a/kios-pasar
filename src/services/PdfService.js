@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 
-// Official Default Template Configuration
+// Official Default Template Configuration with Alinea, Ruler, & Alignment
 export const DEFAULT_TEMPLATE_SETTINGS = {
   // 1. KOP SURAT
   kopKabupaten: 'PEMERINTAH KABUPATEN CILACAP',
@@ -17,10 +17,18 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
   halSurat: 'Pemberitahuan Pembayaran Sewa Tahunan Pasar Mukti Makmur',
   tujuanSurat: 'Yth. Bapak/Ibu Penyewa Kios/Los/Lemprakan\nPasar Mukti Makmur Desa Karangpucung\ndi\nTempat',
 
-  // 3. PARAGRAF PEMBUKA
+  // 3. PARAGRAF PEMBUKA & ALINEA
   paragrafPembuka: 'Berdasarkan Peraturan Desa (Perdes) Karangpucung Nomor 3 Tahun 2026 tentang Aset Desa, bersama ini kami beritahukan bahwa Pemerintah Desa Karangpucung akan melaksanakan penarikan sewa tahunan untuk fasilitas Kios/Los/Lemprakan di lingkungan Pasar Mukti Makmur Desa Karangpucung.\nAdapun rincian tagihan sewa tahunan Saudara/i adalah sebagai berikut:',
+  firstLineIndent: 12.7, // mm (0.5 inch standard alinea)
+  textAlign: 'justify',  // justify | left
+  lineSpacing: 1.35,
 
-  // 4. METODE PEMBAYARAN
+  // 4. TABEL RINCIAN & PENJAJARAN TITIK DUA (RULER POSITIONS)
+  tableColonLeft: 36,   // mm from left margin to colon
+  tableCol2Offset: 80,  // mm from left margin to 2nd column
+  tableColonRight: 24,  // mm from 2nd col to colon
+
+  // 5. METODE PEMBAYARAN
   paragrafPembayaran: 'Pembayaran sewa tahunan tersebut dapat dilakukan pada batas waktu pembayaran mulai tanggal 31 Agustus 2026 sampai dengan selambat-lambatnya 7 September 2026, melalui metode berikut:',
   bankNama: 'Bank Jawa Tengah',
   bankRekening: '12345xxxx',
@@ -28,28 +36,29 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
   bankCatatan: '(Mohon menyertakan bukti pembayaran setelah melakukan transfer)',
   tunaiKeterangan: 'Datang langsung ke Balai Desa Karangpucung pada hari dan jam kerja.',
 
-  // 5. PENUTUP
+  // 6. PENUTUP
   paragrafPenutup: 'Demikian surat pemberitahuan ini kami sampaikan. Atas kerja sama dan partisipasi Bapak/Ibu dalam mendukung pembangunan desa, kami ucapkan terima kasih.',
 
-  // 6. TANDA TANGAN PEJABAT
+  // 7. TANDA TANGAN PEJABAT
   ttdJabatan: 'PJ. Kepala Desa Karangpucung',
   ttdNama: 'A. ANJARNINGSIH, S.E.',
   ttdNip: 'NIP. 19790507 2003 12 2 006',
 
-  // 7. FORMAT & MARGIN (INCH / MM)
+  // 8. FORMAT & MARGIN (INCH / MM)
+  fontFamily: 'times',
   fontSize: 11,
   marginTop: 19.3,   // 0.76 inch
   marginBottom: 19.3,// 0.76 inch
   marginLeft: 25.4,  // 1 inch
   marginRight: 25.4, // 1 inch
 
-  // 8. CUSTOM LOGO
+  // 9. CUSTOM LOGO
   customLogoBase64: null
 };
 
 class PdfService {
   constructor() {
-    this.storageKey = 'pasar_template_settings_v1';
+    this.storageKey = 'pasar_template_settings_v2';
     this.customLogoKey = 'pasar_custom_logo_v2';
     this.loadSettings();
   }
@@ -107,7 +116,6 @@ class PdfService {
   }
 
   loadSettings() {
-    // initialize
     return this.getTemplateSettings();
   }
 
@@ -168,7 +176,7 @@ class PdfService {
   }
 
   /**
-   * Renders the complete official government layout with customizable template settings
+   * Renders the complete official government layout with Alinea & Ruler Indentation
    */
   renderSingleLetterPage(doc, data) {
     const settings = this.getTemplateSettings();
@@ -179,8 +187,15 @@ class PdfService {
     const marginTop = Number(settings.marginTop) || 19.3;
     const contentWidth = pageWidth - marginLeft - marginRight; // 159.2 mm
 
-    const primaryFont = 'times';
+    const primaryFont = settings.fontFamily || 'times';
     const baseFontSize = Number(settings.fontSize) || 11;
+    const lineSpacingFactor = Number(settings.lineSpacing) || 1.35;
+    const alignMode = settings.textAlign === 'left' ? 'left' : 'justify';
+    const alineaIndent = Number(settings.firstLineIndent) || 12.7;
+
+    const colonLeftX = marginLeft + (Number(settings.tableColonLeft) || 36);
+    const col2X = marginLeft + (Number(settings.tableCol2Offset) || 80);
+    const colonRightX = col2X + (Number(settings.tableColonRight) || 24);
 
     // ==========================================
     // 1. KOP SURAT RESMI KEDINASAN (HEADER)
@@ -277,60 +292,82 @@ class PdfService {
     doc.text('Tempat', marginLeft, yTujuan + 17);
 
     // ==========================================
-    // 4. PARAGRAF PEMBUKA
+    // 4. PARAGRAF PEMBUKA (DENGAN ALINEA & JUSTIFY)
     // ==========================================
     const yPembuka = yTujuan + 24;
-    const openingText = settings.paragrafPembuka || 'Berdasarkan Peraturan Desa (Perdes) Karangpucung Nomor 3 Tahun 2026 tentang Aset Desa, bersama ini kami beritahukan bahwa Pemerintah Desa Karangpucung akan melaksanakan penarikan sewa tahunan untuk fasilitas Kios/Los/Lemprakan di lingkungan Pasar Mukti Makmur Desa Karangpucung.\nAdapun rincian tagihan sewa tahunan Saudara/i adalah sebagai berikut:';
-    
-    const splitOpening = doc.splitTextToSize(openingText, contentWidth);
-    doc.text(splitOpening, marginLeft, yPembuka, { align: 'justify', maxWidth: contentWidth, lineHeightFactor: 1.35 });
+    const rawParagraph = (settings.paragrafPembuka || 'Berdasarkan Peraturan Desa (Perdes) Karangpucung Nomor 3 Tahun 2026 tentang Aset Desa, bersama ini kami beritahukan bahwa Pemerintah Desa Karangpucung akan melaksanakan penarikan sewa tahunan untuk fasilitas Kios/Los/Lemprakan di lingkungan Pasar Mukti Makmur Desa Karangpucung.\nAdapun rincian tagihan sewa tahunan Saudara/i adalah sebagai berikut:').split('\n');
 
-    const ySubText = yPembuka + (splitOpening.length * 5.2) + 2;
+    let currentY = yPembuka;
+
+    rawParagraph.forEach((paraText, pIdx) => {
+      if (!paraText.trim()) return;
+
+      if (pIdx === 0 && alineaIndent > 0) {
+        // First line with indent
+        const firstLineIndentWidth = contentWidth - alineaIndent;
+        const lines = doc.splitTextToSize(paraText, firstLineIndentWidth);
+
+        if (lines.length > 0) {
+          doc.text(lines[0], marginLeft + alineaIndent, currentY, { align: alignMode, maxWidth: firstLineIndentWidth });
+          currentY += (5.2 * (lineSpacingFactor / 1.35));
+
+          if (lines.length > 1) {
+            const restLines = doc.splitTextToSize(paraText.substring(lines[0].length).trim(), contentWidth);
+            doc.text(restLines, marginLeft, currentY, { align: alignMode, maxWidth: contentWidth, lineHeightFactor: lineSpacingFactor });
+            currentY += (restLines.length * 5.2 * (lineSpacingFactor / 1.35));
+          }
+        }
+      } else {
+        const splitText = doc.splitTextToSize(paraText, contentWidth);
+        doc.text(splitText, marginLeft, currentY, { align: alignMode, maxWidth: contentWidth, lineHeightFactor: lineSpacingFactor });
+        currentY += (splitText.length * 5.2 * (lineSpacingFactor / 1.35));
+      }
+      currentY += 2;
+    });
 
     // ==========================================
-    // 5. TABEL RINCIAN TAGIHAN (2-COLUMN GRID)
+    // 5. TABEL RINCIAN TAGIHAN (2-COLUMN GRID WITH RULER POSITIONS)
     // ==========================================
-    const yTabel = ySubText + 4;
-    const col2X = marginLeft + 80;
+    const yTabel = currentY + 2;
 
     // Row 1
     doc.setFont(primaryFont, 'normal');
     doc.text('Pasar', marginLeft, yTabel);
-    doc.text(':', marginLeft + 35, yTabel);
+    doc.text(':', colonLeftX, yTabel);
     doc.setFont(primaryFont, 'bold');
-    doc.text(data.jenis_pasar || 'Sandang', marginLeft + 38, yTabel);
+    doc.text(data.jenis_pasar || 'Sandang', colonLeftX + 3, yTabel);
 
     doc.setFont(primaryFont, 'normal');
     doc.text('Tipe Unit', col2X, yTabel);
-    doc.text(':', col2X + 24, yTabel);
+    doc.text(':', colonRightX, yTabel);
     doc.setFont(primaryFont, 'bold');
-    doc.text(data.tipe_kios || 'LOS', col2X + 27, yTabel);
+    doc.text(data.tipe_kios || 'LOS', colonRightX + 3, yTabel);
 
     // Row 2
     doc.setFont(primaryFont, 'normal');
     doc.text('Ukuran', marginLeft, yTabel + 5.5);
-    doc.text(':', marginLeft + 35, yTabel + 5.5);
+    doc.text(':', colonLeftX, yTabel + 5.5);
     doc.setFont(primaryFont, 'bold');
-    doc.text(data.luas_dimensi || '200 x 200', marginLeft + 38, yTabel + 5.5);
+    doc.text(data.luas_dimensi || '200 x 200', colonLeftX + 3, yTabel + 5.5);
 
     doc.setFont(primaryFont, 'normal');
     doc.text('Luas', col2X, yTabel + 5.5);
-    doc.text(':', col2X + 24, yTabel + 5.5);
+    doc.text(':', colonRightX, yTabel + 5.5);
     doc.setFont(primaryFont, 'bold');
-    doc.text(`${data.luas_m2 || '4.0'} m²`, col2X + 27, yTabel + 5.5);
+    doc.text(`${data.luas_m2 || '4.0'} m²`, colonRightX + 3, yTabel + 5.5);
 
     // Row 3
     doc.setFont(primaryFont, 'normal');
     doc.text('Kios/Los/Lemprakan', marginLeft, yTabel + 11);
-    doc.text(':', marginLeft + 35, yTabel + 11);
+    doc.text(':', colonLeftX, yTabel + 11);
     doc.setFont(primaryFont, 'bold');
-    doc.text(data.blok_kios || 'Blok A1', marginLeft + 38, yTabel + 11);
+    doc.text(data.blok_kios || 'Blok A1', colonLeftX + 3, yTabel + 11);
 
     doc.setFont(primaryFont, 'normal');
     doc.text('Biaya Sewa', col2X, yTabel + 11);
-    doc.text(':', col2X + 24, yTabel + 11);
+    doc.text(':', colonRightX, yTabel + 11);
     doc.setFont(primaryFont, 'bold');
-    doc.text(data.biaya_sewa || 'Rp 225.000/thn', col2X + 27, yTabel + 11);
+    doc.text(data.biaya_sewa || 'Rp 225.000/thn', colonRightX + 3, yTabel + 11);
 
     // ==========================================
     // 6. INSTRUKSI PEMBAYARAN & PENUTUP
@@ -340,7 +377,7 @@ class PdfService {
     doc.setFont(primaryFont, 'normal');
     doc.setFontSize(baseFontSize - 0.5);
     const textInstruksi = settings.paragrafPembayaran || 'Pembayaran sewa tahunan tersebut dapat dilakukan pada batas waktu pembayaran mulai tanggal 31 Agustus 2026 sampai dengan selambat-lambatnya 7 September 2026, melalui metode berikut:';
-    doc.text(textInstruksi, marginLeft, yPembayaran, { maxWidth: contentWidth, align: 'justify', lineHeightFactor: 1.3 });
+    doc.text(textInstruksi, marginLeft, yPembayaran, { maxWidth: contentWidth, align: alignMode, lineHeightFactor: 1.3 });
 
     const yMetode = yPembayaran + 10;
     doc.text('1. Transfer Bank:', marginLeft, yMetode);
@@ -355,7 +392,7 @@ class PdfService {
 
     const yPenutup = yTunai + 12;
     const penutupText = settings.paragrafPenutup || 'Demikian surat pemberitahuan ini kami sampaikan. Atas kerja sama dan partisipasi Bapak/Ibu dalam mendukung pembangunan desa, kami ucapkan terima kasih.';
-    doc.text(penutupText, marginLeft, yPenutup, { maxWidth: contentWidth, align: 'justify', lineHeightFactor: 1.35 });
+    doc.text(penutupText, marginLeft, yPenutup, { maxWidth: contentWidth, align: alignMode, lineHeightFactor: 1.35 });
 
     // ==========================================
     // 7. TANDA TANGAN KEPALA DESA
