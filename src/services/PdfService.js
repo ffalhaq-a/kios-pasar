@@ -10,12 +10,16 @@ const DEFAULT_SETTINGS = {
   logoY: 12,
   logoWidth: 20,
   logoHeight: 24,
-  margin: 20
+  margin: 20,
+  fontFamily: 'times',      // 'times' | 'helvetica' | 'courier'
+  bodyFontSize: 9.5,        // points
+  headerFontSize: 13.5,     // points
+  lineSpacing: 1.35         // line height multiplier
 };
 
 /**
  * Official PDF Generator Engine for Pasar Mukti Makmur Karangpucung 2026
- * Supports proportional auto-scaling, in-app logo uploads, and margin controls.
+ * Supports full typography customization (Font Family, Font Size, Line Spacing) and Logo controls.
  */
 export class PdfService {
   constructor() {
@@ -103,13 +107,18 @@ export class PdfService {
   }
 
   /**
-   * Renders exact 1-to-1 match of Google Docs template on A4 page
+   * Renders exact 1-to-1 match of Google Docs template on A4 page with dynamic typography
    */
   renderNoticePage(doc, data) {
     const cfg = this.settings;
     const pageWidth = 210;
     const margin = Number(cfg.margin) || 20;
     const contentWidth = pageWidth - (margin * 2); // 170mm default
+
+    const font = cfg.fontFamily || 'times';
+    const bodyFs = Number(cfg.bodyFontSize) || 9.5;
+    const headerFs = Number(cfg.headerFontSize) || 13.5;
+    const lineSpacing = Number(cfg.lineSpacing) || 1.35;
 
     // ==========================================
     // 1. KOP SURAT RESMI (DENGAN LOGO CILACAP)
@@ -120,7 +129,7 @@ export class PdfService {
     let logoWidth = Number(cfg.logoWidth) || 20;
     let logoHeight = Number(cfg.logoHeight) || 24;
 
-    // Ensure maximum safe height so it never collides with double border line at 40.5mm
+    // Ensure maximum safe height
     const maxSafeHeight = 27;
     if (logoHeight > maxSafeHeight) {
       if (cfg.lockAspect && cfg.logoAspectRatio) {
@@ -143,22 +152,22 @@ export class PdfService {
     const headerLeftBound = logoX + logoWidth + 2;
     const headerCenterX = headerLeftBound + (pageWidth - margin - headerLeftBound) / 2;
 
-    doc.setFont('times', 'bold');
-    doc.setFontSize(11.5);
+    doc.setFont(font, 'bold');
+    doc.setFontSize(headerFs - 2);
     doc.setTextColor(0, 0, 0);
     doc.text('PEMERINTAH KABUPATEN CILACAP', headerCenterX, 15, { align: 'center' });
     doc.text('KECAMATAN KARANGPUCUNG', headerCenterX, 20, { align: 'center' });
 
-    doc.setFontSize(13.5);
+    doc.setFontSize(headerFs);
     doc.text('PEMERINTAH DESA KARANGPUCUNG', headerCenterX, 26, { align: 'center' });
 
-    doc.setFont('times', 'normal');
-    doc.setFontSize(9.5);
+    doc.setFont(font, 'normal');
+    doc.setFontSize(bodyFs);
     doc.text('Jalan Pramuka No. 09 Tlp. 02806261727', headerCenterX, 31, { align: 'center' });
     doc.text('CILACAP', headerCenterX, 35.5, { align: 'center' });
 
     // Kode Pos (Right aligned under Kop)
-    doc.setFontSize(9.5);
+    doc.setFontSize(bodyFs);
     doc.text('Kode Pos 53255', pageWidth - margin, 38.5, { align: 'right' });
 
     // Double Border Lines below Kop
@@ -171,8 +180,8 @@ export class PdfService {
     // 2. NOMOR NASKAH & TANGGAL
     // ==========================================
     const startY = 48;
-    doc.setFont('times', 'normal');
-    doc.setFontSize(10);
+    doc.setFont(font, 'normal');
+    doc.setFontSize(bodyFs + 0.5);
     doc.setTextColor(0, 0, 0);
 
     // Date (Right Column)
@@ -215,8 +224,10 @@ export class PdfService {
     const yPembuka = yTujuan + 22.5;
     const openingText = 'Berdasarkan Peraturan Desa (Perdes) Karangpucung Nomor 3 Tahun 2026 tentang Aset Desa, bersama ini kami beritahukan bahwa Pemerintah Desa Karangpucung akan melaksanakan penarikan sewa tahunan untuk fasilitas Kios/Los/Lemprakan di lingkungan Pasar Mukti Makmur Desa Karangpucung.';
     
+    doc.setFont(font, 'normal');
+    doc.setFontSize(bodyFs);
     const splitOpening = doc.splitTextToSize(openingText, contentWidth);
-    doc.text(splitOpening, margin, yPembuka, { align: 'justify', maxWidth: contentWidth, lineHeightFactor: 1.35 });
+    doc.text(splitOpening, margin, yPembuka, { align: 'justify', maxWidth: contentWidth, lineHeightFactor: lineSpacing });
 
     const ySubText = yPembuka + 15;
     doc.text('Adapun rincian tagihan sewa tahunan Saudara/i adalah sebagai berikut:', margin, ySubText);
@@ -228,42 +239,42 @@ export class PdfService {
     const col2X = margin + 85;
 
     // Row 1
-    doc.setFont('times', 'normal');
+    doc.setFont(font, 'normal');
     doc.text('Pasar', margin, yTabel);
     doc.text(':', margin + 35, yTabel);
-    doc.setFont('times', 'bold');
+    doc.setFont(font, 'bold');
     doc.text(data.jenis_pasar || 'Sandang', margin + 38, yTabel);
 
-    doc.setFont('times', 'normal');
+    doc.setFont(font, 'normal');
     doc.text('Tipe Unit', col2X, yTabel);
     doc.text(':', col2X + 25, yTabel);
-    doc.setFont('times', 'bold');
+    doc.setFont(font, 'bold');
     doc.text(data.tipe_kios || 'LOS', col2X + 28, yTabel);
 
     // Row 2
-    doc.setFont('times', 'normal');
+    doc.setFont(font, 'normal');
     doc.text('Ukuran', margin, yTabel + 5);
     doc.text(':', margin + 35, yTabel + 5);
-    doc.setFont('times', 'bold');
+    doc.setFont(font, 'bold');
     doc.text(data.luas_dimensi || '200 x 200', margin + 38, yTabel + 5);
 
-    doc.setFont('times', 'normal');
+    doc.setFont(font, 'normal');
     doc.text('Luas', col2X, yTabel + 5);
     doc.text(':', col2X + 25, yTabel + 5);
-    doc.setFont('times', 'bold');
+    doc.setFont(font, 'bold');
     doc.text(`${data.luas_m2 || '4.0'} m²`, col2X + 28, yTabel + 5);
 
     // Row 3
-    doc.setFont('times', 'normal');
+    doc.setFont(font, 'normal');
     doc.text('Kios/Los/Lemprakan', margin, yTabel + 10);
     doc.text(':', margin + 35, yTabel + 10);
-    doc.setFont('times', 'bold');
+    doc.setFont(font, 'bold');
     doc.text(data.blok_kios || 'Blok A1', margin + 38, yTabel + 10);
 
-    doc.setFont('times', 'normal');
+    doc.setFont(font, 'normal');
     doc.text('Biaya Sewa', col2X, yTabel + 10);
     doc.text(':', col2X + 25, yTabel + 10);
-    doc.setFont('times', 'bold');
+    doc.setFont(font, 'bold');
     doc.text(data.biaya_sewa || 'Rp 225.000/thn', col2X + 28, yTabel + 10);
 
     // ==========================================
@@ -271,8 +282,8 @@ export class PdfService {
     // ==========================================
     const yPembayaran = yTabel + 16.5;
     
-    doc.setFont('times', 'normal');
-    doc.setFontSize(9.5);
+    doc.setFont(font, 'normal');
+    doc.setFontSize(bodyFs);
     doc.text('Pembayaran sewa tahunan tersebut dapat dilakukan pada batas waktu pembayaran mulai tanggal 31 Agustus 2026 sampai dengan selambat-lambatnya 7 September 2026, melalui metode berikut:', margin, yPembayaran, { maxWidth: contentWidth, align: 'justify', lineHeightFactor: 1.3 });
 
     const yMetode = yPembayaran + 9;
@@ -288,7 +299,7 @@ export class PdfService {
 
     const yPenutup = yTunai + 10.5;
     const penutupText = 'Demikian surat pemberitahuan ini kami sampaikan. Atas kerja sama dan partisipasi Bapak/Ibu dalam mendukung pembangunan desa, kami ucapkan terima kasih.';
-    doc.text(penutupText, margin, yPenutup, { maxWidth: contentWidth, align: 'justify', lineHeightFactor: 1.35 });
+    doc.text(penutupText, margin, yPenutup, { maxWidth: contentWidth, align: 'justify', lineHeightFactor: lineSpacing });
 
     // ==========================================
     // 7. TANDA TANGAN KEPALA DESA
@@ -296,13 +307,13 @@ export class PdfService {
     const yTtd = yPenutup + 12;
     const ttdCenterX = pageWidth - margin - 35;
 
-    doc.setFont('times', 'normal');
-    doc.setFontSize(10);
+    doc.setFont(font, 'normal');
+    doc.setFontSize(bodyFs + 0.5);
     doc.text('PJ. Kepala Desa Karangpucung', ttdCenterX, yTtd, { align: 'center' });
 
     // Signature Area
     const yNamaTtd = yTtd + 24;
-    doc.setFont('times', 'bold');
+    doc.setFont(font, 'bold');
     doc.text('A. ANJARNINGSIH, S.E.', ttdCenterX, yNamaTtd, { align: 'center' });
     
     // Underline
@@ -310,8 +321,8 @@ export class PdfService {
     doc.setLineWidth(0.4);
     doc.line(ttdCenterX - (nameWidth / 2), yNamaTtd + 0.8, ttdCenterX + (nameWidth / 2), yNamaTtd + 0.8);
 
-    doc.setFont('times', 'bold');
-    doc.setFontSize(9.5);
+    doc.setFont(font, 'bold');
+    doc.setFontSize(bodyFs);
     doc.text('NIP. 19790507 2003 12 2 006', ttdCenterX, yNamaTtd + 5, { align: 'center' });
   }
 

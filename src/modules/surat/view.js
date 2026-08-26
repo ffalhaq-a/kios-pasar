@@ -102,9 +102,9 @@ export function renderSuratView(container, initialKiosId = null) {
           </div>
 
           <!-- Settings Button -->
-          <button id="open-settings-btn" title="Pengaturan Logo & Margin Surat" class="px-3.5 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${cardBg} ${textPrimary} hover:border-emerald-500 shadow-sm">
+          <button id="open-settings-btn" title="Pengaturan Logo, Margin & Font Surat" class="px-3.5 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${cardBg} ${textPrimary} hover:border-emerald-500 shadow-sm">
             <i data-lucide="settings" class="w-3.5 h-3.5 text-emerald-500"></i>
-            <span>Pengaturan Logo & Margin</span>
+            <span>Pengaturan Format & Font</span>
           </button>
 
           <!-- Refresh Button -->
@@ -257,14 +257,14 @@ export function renderSuratView(container, initialKiosId = null) {
 
       </div>
 
-      <!-- MODAL PENGATURAN LOGO & MARGIN SURAT -->
+      <!-- MODAL PENGATURAN LOGO, MARGIN & FONT SURAT -->
       <div id="settings-modal-backdrop" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="border rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl ${cardBg} ${textPrimary} relative max-h-[90vh] overflow-y-auto">
+        <div class="border rounded-2xl max-w-xl w-full p-6 space-y-5 shadow-2xl ${cardBg} ${textPrimary} relative max-h-[90vh] overflow-y-auto">
           
           <div class="flex items-center justify-between border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
             <h3 class="text-sm font-bold flex items-center gap-2">
               <i data-lucide="settings" class="w-4 h-4 text-emerald-500"></i>
-              <span>Pengaturan Kop, Logo & Margin PDF</span>
+              <span>Pengaturan Format, Logo & Tipografi PDF</span>
             </h3>
             <button id="close-settings-btn" class="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-100">
               <i data-lucide="x" class="w-4 h-4"></i>
@@ -331,9 +331,44 @@ export function renderSuratView(container, initialKiosId = null) {
             </div>
           </div>
 
-          <!-- SECTION 3: MARGIN KERTAS -->
+          <!-- SECTION 3: PENGATURAN TIPOGRAFI & FONT -->
+          <div class="space-y-3 p-3.5 rounded-xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'}">
+            <label class="text-xs font-bold ${textSecondary}">3. Pengaturan Jenis & Ukuran Font:</label>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div class="space-y-1">
+                <span class="text-[11px] ${textSecondary}">Jenis Huruf (Font Family):</span>
+                <select id="setting-font-family" class="w-full p-2 rounded-lg text-xs font-bold border ${inputBg}">
+                  <option value="times">Times New Roman (Resmi Dinas)</option>
+                  <option value="helvetica">Helvetica / Arial (Modern)</option>
+                  <option value="courier">Courier (Mesin Tik)</option>
+                </select>
+              </div>
+
+              <div class="space-y-1">
+                <span class="text-[11px] ${textSecondary}">Spasi Antar Baris:</span>
+                <select id="setting-line-spacing" class="w-full p-2 rounded-lg text-xs font-bold border ${inputBg}">
+                  <option value="1.25">1.25x (Rapat)</option>
+                  <option value="1.35" selected>1.35x (Standar Ideal)</option>
+                  <option value="1.5">1.50x (Renggang)</option>
+                </select>
+              </div>
+
+              <div class="space-y-1">
+                <span class="text-[11px] ${textSecondary}">Ukuran Teks Isi Surat (pt):</span>
+                <input type="number" id="setting-body-font-size" class="w-full p-2 rounded-lg text-xs font-mono border ${inputBg}" min="8" max="11.5" step="0.5" value="9.5" />
+              </div>
+
+              <div class="space-y-1">
+                <span class="text-[11px] ${textSecondary}">Ukuran Judul Kop Desa (pt):</span>
+                <input type="number" id="setting-header-font-size" class="w-full p-2 rounded-lg text-xs font-mono border ${inputBg}" min="11" max="16" step="0.5" value="13.5" />
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION 4: MARGIN KERTAS -->
           <div class="space-y-2">
-            <label class="text-xs font-bold ${textSecondary}">3. Margin Kiri & Kanan Kertas (mm):</label>
+            <label class="text-xs font-bold ${textSecondary}">4. Margin Tepi Kiri & Kanan Kertas (mm):</label>
             <input type="number" id="setting-margin" class="w-full p-2 rounded-lg text-xs font-mono border ${inputBg}" min="10" max="35" value="20" />
           </div>
 
@@ -405,6 +440,11 @@ export function renderSuratView(container, initialKiosId = null) {
     const inputLogoH = container.querySelector('#setting-logo-h');
     const inputMargin = container.querySelector('#setting-margin');
 
+    const selectFontFamily = container.querySelector('#setting-font-family');
+    const selectLineSpacing = container.querySelector('#setting-line-spacing');
+    const inputBodyFontSize = container.querySelector('#setting-body-font-size');
+    const inputHeaderFontSize = container.querySelector('#setting-header-font-size');
+
     const btnSaveSettings = container.querySelector('#save-settings-btn');
     const btnResetAll = container.querySelector('#reset-all-settings-btn');
 
@@ -424,6 +464,11 @@ export function renderSuratView(container, initialKiosId = null) {
       inputLogoH.value = cfg.logoHeight || 24;
       inputMargin.value = cfg.margin || 20;
 
+      selectFontFamily.value = cfg.fontFamily || 'times';
+      selectLineSpacing.value = String(cfg.lineSpacing || '1.35');
+      inputBodyFontSize.value = cfg.bodyFontSize || 9.5;
+      inputHeaderFontSize.value = cfg.headerFontSize || 13.5;
+
       if (currentLogoBase64) {
         logoPreviewImg.src = currentLogoBase64;
         logoPreviewImg.classList.remove('hidden');
@@ -440,7 +485,7 @@ export function renderSuratView(container, initialKiosId = null) {
         const w = Number(inputLogoW.value);
         if (w > 0) {
           const computedH = Math.round((w / currentAspectRatio) * 10) / 10;
-          inputLogoH.value = Math.min(computedH, 27); // Safe max height
+          inputLogoH.value = Math.min(computedH, 27);
         }
       }
     });
@@ -479,12 +524,10 @@ export function renderSuratView(container, initialKiosId = null) {
         logoPreviewImg.classList.remove('hidden');
         logoPreviewFallback.classList.add('hidden');
 
-        // Extract actual image natural dimensions to set aspect ratio
         const img = new Image();
         img.onload = () => {
           if (img.naturalHeight > 0) {
             currentAspectRatio = img.naturalWidth / img.naturalHeight;
-            // Auto calculate proportional dimensions
             const safeW = 20;
             const safeH = Math.min(Math.round((safeW / currentAspectRatio) * 10) / 10, 27);
             inputLogoW.value = safeW;
@@ -524,15 +567,19 @@ export function renderSuratView(container, initialKiosId = null) {
         logoY: Number(inputLogoY.value) || 12,
         logoWidth: Number(inputLogoW.value) || 20,
         logoHeight: Number(inputLogoH.value) || 24,
-        margin: Number(inputMargin.value) || 20
+        margin: Number(inputMargin.value) || 20,
+        fontFamily: selectFontFamily.value,
+        lineSpacing: Number(selectLineSpacing.value) || 1.35,
+        bodyFontSize: Number(inputBodyFontSize.value) || 9.5,
+        headerFontSize: Number(inputHeaderFontSize.value) || 13.5
       });
 
       settingsModal.classList.add('hidden');
-      alert('Pengaturan Logo Proporsional & Margin Berhasil Disimpan!');
+      alert('Pengaturan Format Dokumen, Font & Logo Berhasil Disimpan!');
     });
 
     btnResetAll.addEventListener('click', () => {
-      if (confirm('Kembalikan semua pengaturan logo dan margin ke standar desa?')) {
+      if (confirm('Kembalikan semua pengaturan font, logo dan margin ke standar desa?')) {
         pdfService.resetSettings();
         syncModalWithSettings();
       }
