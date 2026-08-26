@@ -1,8 +1,6 @@
 import { spreadsheetService } from '../../services/SpreadsheetService.js';
 import { themeManager } from '../../shell/ThemeManager.js';
 import { pdfService } from '../../services/PdfService.js';
-import { authService, GOOGLE_API_URL } from '../../services/AuthService.js';
-import { API_SECURITY_TOKEN } from '../../utils/security.js';
 
 export function renderSuratView(container, targetKiosId = null) {
   const isDark = themeManager.isDark();
@@ -50,13 +48,20 @@ export function renderSuratView(container, targetKiosId = null) {
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 class="text-xl font-extrabold ${textPrimary}">Penerbitan Surat Pemberitahuan Retribusi Sewa</h1>
-          <p class="text-xs ${textSecondary} mt-0.5">Generator PDF Client-Side Super Kilat (0.2 Detik) sesuai Format Resmi Desa Karangpucung</p>
+          <p class="text-xs ${textSecondary} mt-0.5">Format Bookman Old Style 11 pt • Margin Atas/Bawah 0.76" & Kiri/Kanan 1" • Instan 0.2 Detik</p>
         </div>
 
         <div class="flex items-center gap-2">
+          <!-- Tombol Upload Logo -->
+          <label class="cursor-pointer border px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${cardBg} ${textPrimary} hover:border-emerald-500 shadow-sm">
+            <i data-lucide="image" class="w-3.5 h-3.5 text-emerald-500"></i>
+            <span>Upload File Logo PNG</span>
+            <input type="file" id="upload-logo-input" accept="image/png,image/jpeg" class="hidden" />
+          </label>
+
           <span class="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 flex items-center gap-1.5 shadow-sm">
             <i data-lucide="zap" class="w-3.5 h-3.5"></i>
-            <span>Mesin Instan 0.2 Detik</span>
+            <span>Client-Side 0.2s</span>
           </span>
         </div>
       </div>
@@ -211,7 +216,7 @@ export function renderSuratView(container, targetKiosId = null) {
             <div class="pt-2">
               <div class="p-3 rounded-xl border text-[11px] leading-relaxed ${isDark ? 'bg-slate-900 border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'}">
                 <i data-lucide="info" class="w-3.5 h-3.5 inline mr-1 text-emerald-500"></i>
-                Dokumen dicetak menggunakan font <strong>Times New Roman</strong> standar kedinasan dengan garis ganda tebal-tipis, tabel 2 kolom rincian sewa, dan tanda tangan resmi PJ. Kepala Desa Karangpucung.
+                Margin presisi: <strong>Atas/Bawah 0.76 inch (19.3 mm)</strong> & <strong>Kiri/Kanan 1 inch (25.4 mm)</strong>. Tipografi <strong>Bookman Old Style 11 pt</strong> dengan garis ganda kedinasan resmi.
               </div>
             </div>
 
@@ -227,6 +232,7 @@ export function renderSuratView(container, targetKiosId = null) {
   const inputNo = container.querySelector('#input-no-naskah');
   const inputTgl = container.querySelector('#input-tgl-naskah');
   const inputSifat = container.querySelector('#input-sifat');
+  const uploadLogoInput = container.querySelector('#upload-logo-input');
   
   const btnGenerateInstant = container.querySelector('#btn-generate-instant');
   const btnPreviewInstant = container.querySelector('#btn-preview-instant');
@@ -256,6 +262,24 @@ export function renderSuratView(container, targetKiosId = null) {
     selectedKiosk = kiosks.find(k => k.id === e.target.value) || null;
     updatePreview(selectedKiosk);
   });
+
+  // UPLOAD LOGO HANDLER
+  if (uploadLogoInput) {
+    uploadLogoInput.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target.result;
+        pdfService.saveCustomLogo(base64);
+        statusAlertBox.classList.remove('hidden');
+        statusAlertText.innerText = 'Logo resmi berhasil diunggah dan disimpan untuk semua surat PDF!';
+        setTimeout(() => statusAlertBox.classList.add('hidden'), 5000);
+      };
+      reader.readAsDataURL(file);
+    });
+  }
 
   // 1. GENERATE INSTANT SATUAN (0.2s)
   btnGenerateInstant.addEventListener('click', () => {
