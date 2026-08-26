@@ -156,15 +156,8 @@ export function renderDaftarPedagangView(container) {
             ${cleanBlok}
           </td>
 
-          <td class="px-3.5 py-3 ${textPrimary} font-semibold whitespace-nowrap">
-            <div class="flex items-center gap-2">
-              <span class="w-6 h-6 rounded-full ${item.pedagang === '-' ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'} flex items-center justify-center font-bold text-[10px] shrink-0">
-                ${item.pedagang === '-' ? 'K' : item.pedagang.charAt(0)}
-              </span>
-              <span class="${item.pedagang === '-' ? 'text-rose-500 italic' : textPrimary}">
-                ${item.pedagang === '-' ? 'LAHAN KOSONG' : item.pedagang}
-              </span>
-            </div>
+          <td class="px-3.5 py-3 ${item.pedagang === '-' ? 'text-rose-500 italic' : textPrimary} font-semibold whitespace-nowrap">
+            ${item.pedagang === '-' ? 'LAHAN KOSONG' : item.pedagang}
           </td>
 
           <td class="px-3 py-3 ${textSecondary} whitespace-nowrap">${item.alamat || '-'}</td>
