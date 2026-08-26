@@ -7,6 +7,26 @@ export function renderDashboardView(container) {
 
   // 1. Overall Master Stats (612 Units)
   const totalKios = kiosks.length;
+
+  if (totalKios === 0) {
+    container.innerHTML = `
+      <div class="p-8 flex flex-col items-center justify-center h-full space-y-4 ${isDark ? 'bg-slate-900 text-slate-200' : 'bg-slate-50 text-slate-700'}">
+        <div class="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+        <p class="text-sm font-bold text-center">Menghubungkan & Memuat Data 610 Unit Pasar dari Google Sheets...</p>
+        <button id="retry-fetch-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow transition-all">
+          Sinkronisasi Ulang Sekarang
+        </button>
+      </div>
+    `;
+
+    container.querySelector('#retry-fetch-btn')?.addEventListener('click', () => {
+      spreadsheetService.fetchRemoteKiosks();
+    });
+
+    spreadsheetService.fetchRemoteKiosks();
+    return;
+  }
+
   const terisi = kiosks.filter(k => k.pedagang && k.pedagang !== '-').length;
   const kosong = totalKios - terisi;
   
@@ -79,7 +99,7 @@ export function renderDashboardView(container) {
             </div>
           </div>
           <p class="text-2xl font-extrabold text-emerald-500">${terisi}</p>
-          <p class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">${Math.round((terisi/totalKios)*100)}% Okupansi</p>
+          <p class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">${totalKios > 0 ? Math.round((terisi/totalKios)*100) : 0}% Okupansi</p>
         </div>
 
         <!-- Unit Kosong -->
@@ -119,7 +139,7 @@ export function renderDashboardView(container) {
         </div>
       </div>
 
-      <!-- 2. BARIS KE-2: 4 KARTU BREAKDOWN TIPE UNIT (GAYA & WARNA PERSIS BARIS ATAS - NO RED BADGES) -->
+      <!-- 2. BARIS KE-2: 4 KARTU BREAKDOWN TIPE UNIT -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
         <!-- KIOS 1 -->
         <div class="${cardBg} border rounded-2xl p-4 relative overflow-hidden">
@@ -336,7 +356,7 @@ export function renderDashboardView(container) {
     </div>
   `;
 
-  container.querySelector('#export-excel-btn').addEventListener('click', () => {
+  container.querySelector('#export-excel-btn')?.addEventListener('click', () => {
     spreadsheetService.downloadCSV();
   });
 

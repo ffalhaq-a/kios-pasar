@@ -38,7 +38,10 @@ class SpreadsheetService {
     const saved = localStorage.getItem(this.storageKey);
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
       } catch (e) {
         console.error('Error parsing stored master kiosk data:', e);
       }
@@ -52,10 +55,31 @@ class SpreadsheetService {
     this.isFetchingRemote = true;
 
     try {
-      const res = await fetch(`${GOOGLE_API_URL}?action=getKiosks&apiToken=${API_SECURITY_TOKEN}`);
-      const json = await res.json();
+      let json = null;
 
-      if (json.status === 'success' && Array.isArray(json.data) && json.data.length > 0) {
+      // Method 1: Try GET with full parameter encoding
+      try {
+        const res = await fetch(`${GOOGLE_API_URL}?action=getKiosks&apiToken=${encodeURIComponent(API_SECURITY_TOKEN)}`);
+        json = await res.json();
+      } catch (e) {
+        console.warn('GET getKiosks failed, attempting POST fallback...', e);
+      }
+
+      // Method 2: POST fallback
+      if (!json || json.status !== 'success' || !Array.isArray(json.data)) {
+        const res = await fetch(GOOGLE_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'getKiosks',
+            apiToken: API_SECURITY_TOKEN
+          }),
+          redirect: 'follow'
+        });
+        json = await res.json();
+      }
+
+      if (json && json.status === 'success' && Array.isArray(json.data) && json.data.length > 0) {
         const cleanedData = json.data.map(k => ({
           ...k,
           pedagang: escapeHTML(k.pedagang || '-'),
@@ -88,7 +112,6 @@ class SpreadsheetService {
     const kiosks = this.loadKiosks();
     const idx = kiosks.findIndex(k => k.id === id);
     if (idx !== -1) {
-      // Security Hardening: Sanitize formula injection & escape HTML
       const cleanUpdated = {
         ...updatedFields,
         pedagang: sanitizeFormulaInput(updatedFields.pedagang || '-'),
