@@ -3,6 +3,9 @@ import { themeManager } from '../../shell/ThemeManager.js';
 import { authService, GOOGLE_API_URL } from '../../services/AuthService.js';
 import { API_SECURITY_TOKEN, escapeHTML } from '../../utils/security.js';
 
+// Direct Google Apps Script Endpoint for long-running batch PDF generator (bypasses 15s Vercel edge timeout)
+const DIRECT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzGTU7gWu_FlR2NbWkuh4p2RL0XHnMa3szvQlZ2mO9LcbKITDuO8WF937rQ0lCKs_87/exec';
+
 /**
  * Helper to ensure clean "Blok A1", "Blok B2", etc.
  */
@@ -207,10 +210,10 @@ export function renderSuratView(container, initialKiosId = null) {
                 <i data-lucide="loader" class="w-4 h-4 animate-spin"></i>
                 <span id="progress-status-text">Menyusun halaman surat di Google Drive...</span>
               </span>
-              <span id="progress-percent" class="font-mono text-slate-300">45%</span>
+              <span id="progress-percent" class="font-mono text-slate-300">10%</span>
             </div>
             <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden border border-slate-700">
-              <div id="progress-bar-fill" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-300" style="width: 45%;"></div>
+              <div id="progress-bar-fill" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-300" style="width: 10%;"></div>
             </div>
             <p id="progress-subtext" class="text-[11px] text-slate-400">Mohon tunggu sebentar, file PDF sedang digabungkan dan disimpan ke folder Drive...</p>
           </div>
@@ -296,13 +299,13 @@ export function renderSuratView(container, initialKiosId = null) {
       progressSubtext.innerText = 'Mempersiapkan data pedagang dan folder Google Drive...';
 
       progressInterval = setInterval(() => {
-        if (progress < 85) {
-          progress += Math.floor(Math.random() * 8) + 3;
-          if (progress > 85) progress = 85;
+        if (progress < 90) {
+          progress += Math.floor(Math.random() * 5) + 2;
+          if (progress > 90) progress = 90;
           progressBarFill.style.width = `${progress}%`;
           progressPercent.innerText = `${progress}%`;
 
-          if (progress > 30 && progress < 60) {
+          if (progress > 25 && progress < 60) {
             progressStatusText.innerText = isBatch ? `Menggandakan template & menyusun ${count} halaman...` : 'Mengisi template Google Docs...';
             progressSubtext.innerText = 'Memasukkan rincian tagihan sewa dan nomor surat...';
           } else if (progress >= 60) {
@@ -310,7 +313,7 @@ export function renderSuratView(container, initialKiosId = null) {
             progressSubtext.innerText = 'Menyimpan berkas resmi ke folder Arsip Surat...';
           }
         }
-      }, 400);
+      }, 500);
     }
 
     function stopProgressAnimation(isSuccess) {
@@ -396,8 +399,9 @@ export function renderSuratView(container, initialKiosId = null) {
 
       try {
         let payload = {};
+        const isBatch = currentMode !== 'SATUAN';
 
-        if (currentMode === 'SATUAN') {
+        if (!isBatch) {
           if (!selectedKiosk) {
             alert('Silakan pilih Kios/Pedagang terlebih dahulu!');
             generateBtn.disabled = false;
@@ -459,14 +463,23 @@ export function renderSuratView(container, initialKiosId = null) {
           };
         }
 
-        const res = await fetch(GOOGLE_API_URL, {
+        // For large batch PDF generation, use direct Google Apps Script URL to avoid Vercel 15s edge proxy timeout
+        const targetUrl = isBatch ? DIRECT_SCRIPT_URL : GOOGLE_API_URL;
+
+        const res = await fetch(targetUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(payload),
           redirect: 'follow'
         });
 
-        const json = await res.json();
+        const rawText = await res.text();
+        let json;
+        try {
+          json = JSON.parse(rawText);
+        } catch (err) {
+          throw new Error('Server mengembalikan respons non-JSON: ' + rawText.substring(0, 100));
+        }
 
         if (json.status === 'success' && (json.pdfUrl || json.pdfViewUrl)) {
           stopProgressAnimation(true);
