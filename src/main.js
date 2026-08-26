@@ -8,6 +8,7 @@ import { authService } from './services/AuthService.js';
 import { AuthModule } from './modules/auth/index.js';
 import { DashboardModule } from './modules/dashboard/index.js';
 import { PedagangModule } from './modules/pedagang/index.js';
+import { SuratModule } from './modules/surat/index.js';
 
 window._navigate = (path) => registry.navigate(path);
 
@@ -16,10 +17,11 @@ function initApp() {
 
   themeManager.init();
 
-  // 1. Register Active Modules (Auth, Dashboard, Pedagang)
+  // 1. Register Active Modules (Auth, Dashboard, Pedagang, Surat)
   registry.registerModule(AuthModule);
   registry.registerModule(DashboardModule);
   registry.registerModule(PedagangModule);
+  registry.registerModule(SuratModule);
 
   function updateUI() {
     const isAuth = authService.isAuthenticated();

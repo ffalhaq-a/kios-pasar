@@ -190,14 +190,28 @@ export function renderDaftarPedagangView(container) {
           <td class="px-3 py-3 font-mono font-bold text-amber-500 whitespace-nowrap">${formattedTglHabis}</td>
           <td class="px-3 py-3 whitespace-nowrap">${statusBadge}</td>
           <td class="px-3 py-3 text-right whitespace-nowrap">
-            <button data-edit-id="${item.id}" class="edit-merchant-btn bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-[11px] font-bold shadow transition-all flex items-center gap-1 ml-auto">
-              <i data-lucide="edit-2" class="w-3 h-3"></i>
-              <span>Edit</span>
-            </button>
+            <div class="flex items-center justify-end gap-1.5">
+              <button data-surat-id="${item.id}" class="create-surat-btn ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'} border px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center gap-1" title="Terbitkan Surat Pemberitahuan">
+                <i data-lucide="file-text" class="w-3 h-3 text-emerald-500"></i>
+                <span>Surat</span>
+              </button>
+              <button data-edit-id="${item.id}" class="edit-merchant-btn bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-[11px] font-bold shadow transition-all flex items-center gap-1">
+                <i data-lucide="edit-2" class="w-3 h-3"></i>
+                <span>Edit</span>
+              </button>
+            </div>
           </td>
         </tr>
       `;
     }).join('');
+
+    tbody.querySelectorAll('.create-surat-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.getAttribute('data-surat-id');
+        window._selectedKiosIdForSurat = targetId;
+        if (window._navigate) window._navigate('/surat');
+      });
+    });
 
     tbody.querySelectorAll('.edit-merchant-btn').forEach(btn => {
       btn.addEventListener('click', () => {
