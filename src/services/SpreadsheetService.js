@@ -2,23 +2,36 @@ import { GOOGLE_API_URL, authService } from './AuthService.js';
 import { escapeHTML, sanitizeFormulaInput, API_SECURITY_TOKEN } from '../utils/security.js';
 
 /**
- * Format any date string or ISO timestamp into clean DD/MM/YYYY format without time
- * @param {string} dateStr - e.g. "2026-12-30T17:00:00.000Z", "2026-12-31", "31/12/2026"
- * @returns {string} e.g. "30/12/2026" or "-"
+ * Format any date string, ISO timestamp, or Google Sheets Date representation into clean DD/MM/YYYY format without time
+ * @param {string|Date} dateStr - e.g. "Wed Aug 26 2026 00:00:00 GMT+0700", "2026-08-26T17:00:00.000Z", "2026-08-26", "26/08/2026"
+ * @returns {string} e.g. "26/08/2026" or "-"
  */
 export function formatDateDDMMYYYY(dateStr) {
-  if (!dateStr || dateStr === '-' || dateStr === 'null' || dateStr === 'undefined') return '-';
+  if (!dateStr || dateStr === '-' || dateStr === 'null' || dateStr === 'undefined' || dateStr === '') return '-';
   
-  const cleanStr = String(dateStr).split('T')[0].trim();
+  const cleanStr = String(dateStr).trim();
+  if (cleanStr === '-' || cleanStr === '') return '-';
 
+  // If already in DD/MM/YYYY format
   if (/^\d{2}\/\d{2}\/\d{4}$/.test(cleanStr)) {
     return cleanStr;
   }
 
-  const parts = cleanStr.split('-');
+  // Try parsing via standard Date object
+  const parsedDate = new Date(cleanStr);
+  if (!isNaN(parsedDate.getTime())) {
+    const d = String(parsedDate.getDate()).padStart(2, '0');
+    const m = String(parsedDate.getMonth() + 1).padStart(2, '0');
+    const y = parsedDate.getFullYear();
+    return `${d}/${m}/${y}`;
+  }
+
+  // Fallback ISO YYYY-MM-DD parsing
+  const isoPart = cleanStr.split('T')[0].trim();
+  const parts = isoPart.split('-');
   if (parts.length === 3 && parts[0].length === 4) {
     const [year, month, day] = parts;
-    return `${day}/${month}/${year}`;
+    return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
   }
 
   return cleanStr;
@@ -26,7 +39,7 @@ export function formatDateDDMMYYYY(dateStr) {
 
 class SpreadsheetService {
   constructor() {
-    this.storageKey = 'pasar_mukti_makmur_master_v4';
+    this.storageKey = 'pasar_mukti_makmur_master_v5';
     this.listeners = [];
     this.isFetchingRemote = false;
 
@@ -80,18 +93,45 @@ class SpreadsheetService {
       }
 
       if (json && json.status === 'success' && Array.isArray(json.data) && json.data.length > 0) {
-        const cleanedData = json.data.map(k => ({
-          ...k,
-          pedagang: escapeHTML(k.pedagang || '-'),
-          nik: escapeHTML(k.nik || '-'),
-          alamat: escapeHTML(k.alamat || '-'),
-          kategori: escapeHTML(k.kategori || 'Umum'),
-          luasM2: String(k.luasM2 || ''),
-          sewaBulanan: String(k.sewaBulanan || ''),
-          tglPembayaran: String(k.tglPembayaran || '-').split('T')[0],
-          tglHabisSewa: String(k.tglHabisSewa || '2026-12-31').split('T')[0],
-          statusBayar: String(k.statusBayar || 'belum_bayar')
-        }));
+        const cleanedData = json.data.map(k => {
+          // Normalisasi Data: Deteksi jika kolom zona dan blokKode terbalik dari Google Sheets
+          let finalZona = String(k.zona || '').trim().toUpperCase();
+          let finalBlok = String(k.blokKode || '').trim();
+
+          const rawId = String(k.id || '').trim();
+          const cleanIdSuffix = rawId.replace(/^(SND|SYR)-/i, '').trim();
+
+          if (finalBlok.includes('PASAR')) {
+            // Kolom terbalik: blokKode berisi Nama Pasar, zona berisi Kode Blok
+            finalZona = finalBlok;
+            finalBlok = k.zona ? String(k.zona).trim() : cleanIdSuffix;
+          } else if (!finalZona.includes('PASAR')) {
+            // Jika zona tidak memuat kata PASAR, infer dari ID
+            finalZona = rawId.startsWith('SYR') ? 'PASAR SAYUR' : 'PASAR SANDANG';
+            if (!finalBlok || finalBlok.includes('PASAR')) {
+              finalBlok = cleanIdSuffix;
+            }
+          }
+
+          // Bersihkan prefix 'Blok ' jika ada agar konsisten 'A1', 'B2', dll
+          finalBlok = finalBlok.replace(/^blok\s+/i, '').replace(/^(SND|SYR)-/i, '').trim();
+
+          return {
+            ...k,
+            id: rawId,
+            zona: finalZona,
+            blokKode: finalBlok,
+            pedagang: escapeHTML(k.pedagang || '-'),
+            nik: escapeHTML(k.nik || '-'),
+            alamat: escapeHTML(k.alamat || '-'),
+            kategori: escapeHTML(k.kategori || 'Umum'),
+            luasM2: String(k.luasM2 || ''),
+            sewaBulanan: String(k.sewaBulanan || ''),
+            tglPembayaran: k.tglPembayaran ? String(k.tglPembayaran) : '-',
+            tglHabisSewa: k.tglHabisSewa ? String(k.tglHabisSewa) : '2026-12-31',
+            statusBayar: String(k.statusBayar || 'belum_bayar')
+          };
+        });
 
         this.saveKiosksLocally(cleanedData);
       }
@@ -118,8 +158,8 @@ class SpreadsheetService {
         nik: sanitizeFormulaInput(updatedFields.nik || '-'),
         alamat: sanitizeFormulaInput(updatedFields.alamat || '-'),
         kategori: sanitizeFormulaInput(updatedFields.kategori || 'Umum'),
-        tglPembayaran: updatedFields.tglPembayaran ? String(updatedFields.tglPembayaran).split('T')[0] : '-',
-        tglHabisSewa: updatedFields.tglHabisSewa ? String(updatedFields.tglHabisSewa).split('T')[0] : '2026-12-31'
+        tglPembayaran: updatedFields.tglPembayaran ? String(updatedFields.tglPembayaran) : '-',
+        tglHabisSewa: updatedFields.tglHabisSewa ? String(updatedFields.tglHabisSewa) : '2026-12-31'
       };
 
       const updatedItem = { ...kiosks[idx], ...cleanUpdated };

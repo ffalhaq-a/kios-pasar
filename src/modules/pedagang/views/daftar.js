@@ -14,7 +14,7 @@ export function renderDaftarPedagangView(container) {
   const uniqueBlockPrefixes = Array.from(
     new Set(
       kiosks.map(k => {
-        const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/, '');
+        const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
         const match = rawCode.match(/^[A-Za-z]+/);
         return match ? match[0].toUpperCase() : null;
       }).filter(Boolean)
@@ -55,7 +55,7 @@ export function renderDaftarPedagangView(container) {
         k.zona === currentZoneFilter;
 
       // 3. Filter Blok Match
-      const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/, '');
+      const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
       const blockPrefix = rawCode.match(/^[A-Za-z]+/)?.[0]?.toUpperCase() || '';
       const matchBlok = 
         currentBlokFilter === 'ALL' ||
@@ -148,10 +148,12 @@ export function renderDaftarPedagangView(container) {
       const formattedTglBayar = formatDateDDMMYYYY(item.tglPembayaran);
       const formattedTglHabis = formatDateDDMMYYYY(item.tglHabisSewa);
 
+      const cleanBlok = item.blokKode ? (item.blokKode.startsWith('Blok') ? item.blokKode : `Blok ${item.blokKode}`) : (item.id || '-');
+
       return `
         <tr class="border-b ${rowHover} transition-all text-xs">
           <td class="px-3.5 py-3 font-mono font-bold text-emerald-500 whitespace-nowrap">
-            ${item.blokKode || item.id}
+            ${cleanBlok}
           </td>
 
           <td class="px-3.5 py-3 ${textPrimary} font-semibold whitespace-nowrap">
