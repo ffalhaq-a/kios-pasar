@@ -10,20 +10,30 @@ function getCleanBlokName(kiosk) {
   if (!kiosk) return 'Blok -';
   let blok = String(kiosk.blokKode || '').trim();
   
-  // If blokKode is empty or contains "PASAR", fallback to id
   if (!blok || blok.toUpperCase().includes('PASAR')) {
     blok = String(kiosk.id || '').trim();
   }
 
-  // Strip SND- or SYR- prefix if present (e.g. SND-A1 -> A1)
   blok = blok.replace(/^(SND-|SYR-)/i, '').trim();
 
-  // If already starts with "Blok", normalize capitalization
   if (/^blok\s+/i.test(blok)) {
     return blok.replace(/^blok\s+/i, 'Blok ');
   }
 
   return `Blok ${blok}`;
+}
+
+/**
+ * Helper to extract pure block letter/category (e.g. "Blok A", "Blok B", etc.)
+ */
+function getBlockCategory(kiosk) {
+  const full = getCleanBlokName(kiosk);
+  // Match letter or prefix like "Blok A", "Blok B", "Blok R", etc.
+  const match = full.match(/^Blok\s+([A-Za-z]+)/i);
+  if (match) {
+    return `Blok ${match[1].toUpperCase()}`;
+  }
+  return 'Lainnya';
 }
 
 /**
@@ -38,6 +48,20 @@ function getCleanJenisPasar(kiosk) {
 export function renderSuratView(container, initialKiosId = null) {
   const isDark = themeManager.isDark();
   const kiosks = spreadsheetService.loadKiosks();
+
+  // Mode: 'SATUAN' | 'BLOK'
+  let currentMode = 'SATUAN';
+
+  // Group kiosks by block
+  const blockGroups = {};
+  kiosks.forEach(k => {
+    const bCat = getBlockCategory(k);
+    if (!blockGroups[bCat]) blockGroups[bCat] = [];
+    blockGroups[bCat].push(k);
+  });
+
+  const availableBlocks = Object.keys(blockGroups).sort();
+  let selectedBlock = availableBlocks[0] || 'Blok A';
 
   // Current Date formatted in Indonesian standard
   const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
@@ -67,7 +91,7 @@ export function renderSuratView(container, initialKiosId = null) {
           </div>
           <h1 class="text-xl font-extrabold ${textPrimary}">Penerbitan Surat & Dokumen Resmi Pasar</h1>
           <p class="text-xs ${textSecondary} mt-0.5">
-            Buat Surat Pemberitahuan Retribusi Sewa berbasis Google Docs & simpan otomatis sebagai PDF di Google Drive
+            Buat Surat Pemberitahuan Satuan atau Bundel Massal Per Blok (1 File PDF Multi-Halaman di Google Drive)
           </p>
         </div>
 
@@ -79,6 +103,18 @@ export function renderSuratView(container, initialKiosId = null) {
         </div>
       </div>
 
+      <!-- MODE TOGGLE SWITCHER -->
+      <div class="flex items-center p-1.5 rounded-2xl border max-w-md ${cardBg}">
+        <button id="mode-satuan-btn" class="flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 bg-emerald-600 text-white shadow">
+          <i data-lucide="user" class="w-4 h-4"></i>
+          <span>Mode Satuan (1 Pedagang)</span>
+        </button>
+        <button id="mode-blok-btn" class="flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${textSecondary} hover:text-emerald-500">
+          <i data-lucide="layers" class="w-4 h-4"></i>
+          <span>Cetak Massal Per Blok (1 PDF)</span>
+        </button>
+      </div>
+
       <!-- MAIN 2-COLUMN GRID -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
@@ -87,11 +123,11 @@ export function renderSuratView(container, initialKiosId = null) {
           <div class="border rounded-2xl p-5 space-y-4 ${cardBg}">
             <h2 class="text-sm font-bold ${textPrimary} flex items-center gap-2 border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
               <i data-lucide="file-edit" class="w-4 h-4 text-emerald-500"></i>
-              <span>Parameter Surat Pemberitahuan</span>
+              <span id="form-panel-title">Parameter Surat Satuan</span>
             </h2>
 
-            <!-- PILIH PEDAGANG / KIOS -->
-            <div class="space-y-1.5">
+            <!-- PILIHAN 1: SELECTOR SATUAN -->
+            <div id="wrapper-select-satuan" class="space-y-1.5">
               <label class="text-xs font-bold ${textSecondary}">Pilih Kios / Nama Pedagang:</label>
               <select id="kiosk-select" class="w-full p-2.5 rounded-xl text-xs font-bold border focus:outline-none focus:border-emerald-500 ${inputBg}">
                 ${kiosks.map(k => `
@@ -100,6 +136,25 @@ export function renderSuratView(container, initialKiosId = null) {
                   </option>
                 `).join('')}
               </select>
+            </div>
+
+            <!-- PILIHAN 2: SELECTOR BATCH PER BLOK -->
+            <div id="wrapper-select-blok" class="hidden space-y-2">
+              <label class="text-xs font-bold ${textSecondary}">Pilih Blok yang Ingin Dicetak Massal:</label>
+              <select id="block-select" class="w-full p-2.5 rounded-xl text-xs font-bold border focus:outline-none focus:border-emerald-500 ${inputBg}">
+                ${availableBlocks.map(b => `
+                  <option value="${b}" ${b === selectedBlock ? 'selected' : ''}>
+                    ${b} (${blockGroups[b].length} Pedagang / Halaman)
+                  </option>
+                `).join('')}
+              </select>
+              <div class="p-3 rounded-xl border text-[11px] space-y-1 bg-emerald-500/10 border-emerald-500/30 text-emerald-500">
+                <p class="font-bold flex items-center gap-1.5">
+                  <i data-lucide="info" class="w-3.5 h-3.5"></i>
+                  <span id="batch-info-text">Seluruh surat di blok ini akan disatukan menjadi 1 File PDF.</span>
+                </p>
+                <p class="text-[10px] text-slate-400">Cocok untuk cetak fisik sekali jalan (*Ctrl + P* di printer kantor desa).</p>
+              </div>
             </div>
 
             <!-- NOMOR NASKAH -->
@@ -178,10 +233,10 @@ export function renderSuratView(container, initialKiosId = null) {
             <div class="flex items-center justify-between border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
               <h3 class="text-xs font-extrabold ${textPrimary} uppercase tracking-wider flex items-center gap-2">
                 <i data-lucide="eye" class="w-4 h-4 text-emerald-500"></i>
-                <span>Pratinjau Data Surat (A4 Format)</span>
+                <span id="preview-panel-title">Pratinjau Format Surat (A4)</span>
               </h3>
-              <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-500/10 text-slate-400">
-                TEMPLAT RESMI DESA
+              <span id="badge-page-count" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-500/10 text-slate-400">
+                1 LEMBAR
               </span>
             </div>
 
@@ -291,7 +346,16 @@ export function renderSuratView(container, initialKiosId = null) {
   initSuratListeners();
 
   function initSuratListeners() {
+    const btnModeSatuan = container.querySelector('#mode-satuan-btn');
+    const btnModeBlok = container.querySelector('#mode-blok-btn');
+    const wrapperSatuan = container.querySelector('#wrapper-select-satuan');
+    const wrapperBlok = container.querySelector('#wrapper-select-blok');
+    const formPanelTitle = container.querySelector('#form-panel-title');
+    const badgePageCount = container.querySelector('#badge-page-count');
+    const batchInfoText = container.querySelector('#batch-info-text');
+
     const kioskSelect = container.querySelector('#kiosk-select');
+    const blockSelect = container.querySelector('#block-select');
     const inputNo = container.querySelector('#input-nomor-naskah');
     const inputTgl = container.querySelector('#input-tanggal-naskah');
     const inputSifat = container.querySelector('#input-sifat');
@@ -302,6 +366,49 @@ export function renderSuratView(container, initialKiosId = null) {
     const resultCard = container.querySelector('#result-status-card');
     const resultFileName = container.querySelector('#result-file-name');
     const btnViewPdf = container.querySelector('#btn-view-pdf');
+
+    // Switch to SATUAN Mode
+    btnModeSatuan.addEventListener('click', () => {
+      currentMode = 'SATUAN';
+      btnModeSatuan.className = 'flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 bg-emerald-600 text-white shadow';
+      btnModeBlok.className = `flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${textSecondary} hover:text-emerald-500`;
+      wrapperSatuan.classList.remove('hidden');
+      wrapperBlok.classList.add('hidden');
+      formPanelTitle.innerText = 'Parameter Surat Satuan';
+      btnText.innerText = 'Terbitkan Surat PDF & Simpan ke Drive';
+      badgePageCount.innerText = '1 LEMBAR';
+      updatePreviewKioskDetails(selectedKiosk);
+    });
+
+    // Switch to BLOK Mode
+    btnModeBlok.addEventListener('click', () => {
+      currentMode = 'BLOK';
+      btnModeBlok.className = 'flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 bg-emerald-600 text-white shadow';
+      btnModeSatuan.className = `flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${textSecondary} hover:text-emerald-500`;
+      wrapperSatuan.classList.add('hidden');
+      wrapperBlok.classList.remove('hidden');
+      formPanelTitle.innerText = `Parameter Cetak Massal (${selectedBlock})`;
+      const count = blockGroups[selectedBlock] ? blockGroups[selectedBlock].length : 0;
+      btnText.innerText = `Terbitkan 1 PDF Bundel ${selectedBlock} (${count} Halaman)`;
+      badgePageCount.innerText = `${count} HALAMAN (1 FILE PDF)`;
+      batchInfoText.innerText = `Seluruh ${count} pedagang di ${selectedBlock} akan digabung dalam 1 file PDF.`;
+      if (blockGroups[selectedBlock] && blockGroups[selectedBlock][0]) {
+        updatePreviewKioskDetails(blockGroups[selectedBlock][0]);
+      }
+    });
+
+    // Block Selector Change
+    blockSelect.addEventListener('change', (e) => {
+      selectedBlock = e.target.value;
+      const count = blockGroups[selectedBlock] ? blockGroups[selectedBlock].length : 0;
+      formPanelTitle.innerText = `Parameter Cetak Massal (${selectedBlock})`;
+      btnText.innerText = `Terbitkan 1 PDF Bundel ${selectedBlock} (${count} Halaman)`;
+      badgePageCount.innerText = `${count} HALAMAN (1 FILE PDF)`;
+      batchInfoText.innerText = `Seluruh ${count} pedagang di ${selectedBlock} akan digabung dalam 1 file PDF.`;
+      if (blockGroups[selectedBlock] && blockGroups[selectedBlock][0]) {
+        updatePreviewKioskDetails(blockGroups[selectedBlock][0]);
+      }
+    });
 
     // Live update preview when typing
     inputNo.addEventListener('input', (e) => {
@@ -328,39 +435,76 @@ export function renderSuratView(container, initialKiosId = null) {
       renderSuratView(container, selectedKiosk ? selectedKiosk.id : null);
     });
 
-    // GENERATE PDF TRIGGER
+    // GENERATE PDF TRIGGER (SATUAN & MASSAL PER BLOK)
     generateBtn.addEventListener('click', async () => {
-      if (!selectedKiosk) {
-        alert('Silakan pilih Kios/Pedagang terlebih dahulu!');
-        return;
-      }
-
       const currentUser = authService.getCurrentUser();
       const petugasName = currentUser ? `${currentUser.nama} (${currentUser.username})` : 'Petugas Pasar';
 
       generateBtn.disabled = true;
-      btnText.innerText = 'Memproses PDF di Google Drive...';
       generateBtn.className = 'w-full bg-slate-700 text-slate-300 p-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow opacity-80 cursor-wait';
 
       try {
-        const cleanBlok = getCleanBlokName(selectedKiosk);
-        const cleanPasar = getCleanJenisPasar(selectedKiosk);
+        let payload = {};
 
-        const payload = {
-          action: 'generateSuratPemberitahuan',
-          apiToken: API_SECURITY_TOKEN,
-          nomor_naskah: inputNo.value.trim(),
-          tanggal_naskah: inputTgl.value.trim(),
-          sifat: inputSifat.value,
-          nama_pedagang: selectedKiosk.pedagang === '-' ? 'Penyewa Kios' : selectedKiosk.pedagang,
-          jenis_pasar: cleanPasar,
-          blok_kios: cleanBlok,
-          tipe_kios: selectedKiosk.tipeKios || 'LOS',
-          luas_dimensi: selectedKiosk.luasDimensi || '200 x 200',
-          luas_m2: selectedKiosk.luasM2 || '4.0',
-          biaya_sewa: selectedKiosk.sewaBulanan || 'Rp 225.000/thn',
-          user: petugasName
-        };
+        if (currentMode === 'SATUAN') {
+          if (!selectedKiosk) {
+            alert('Silakan pilih Kios/Pedagang terlebih dahulu!');
+            generateBtn.disabled = false;
+            return;
+          }
+
+          btnText.innerText = 'Memproses PDF di Google Drive...';
+          const cleanBlok = getCleanBlokName(selectedKiosk);
+          const cleanPasar = getCleanJenisPasar(selectedKiosk);
+
+          payload = {
+            action: 'generateSuratPemberitahuan',
+            apiToken: API_SECURITY_TOKEN,
+            nomor_naskah: inputNo.value.trim(),
+            tanggal_naskah: inputTgl.value.trim(),
+            sifat: inputSifat.value,
+            nama_pedagang: selectedKiosk.pedagang === '-' ? 'Penyewa Kios' : selectedKiosk.pedagang,
+            jenis_pasar: cleanPasar,
+            blok_kios: cleanBlok,
+            tipe_kios: selectedKiosk.tipeKios || 'LOS',
+            luas_dimensi: selectedKiosk.luasDimensi || '200 x 200',
+            luas_m2: selectedKiosk.luasM2 || '4.0',
+            biaya_sewa: selectedKiosk.sewaBulanan || 'Rp 225.000/thn',
+            user: petugasName
+          };
+        } else {
+          // BATCH PER BLOK MODE
+          const targetKiosks = blockGroups[selectedBlock] || [];
+          if (targetKiosks.length === 0) {
+            alert(`Tidak ada data kios di ${selectedBlock}!`);
+            generateBtn.disabled = false;
+            return;
+          }
+
+          btnText.innerText = `Menyusun 1 PDF Bundel ${selectedBlock} (${targetKiosks.length} Halaman)...`;
+
+          const kioskPayloads = targetKiosks.map(k => ({
+            id: k.id,
+            nama_pedagang: k.pedagang === '-' ? 'Penyewa Kios' : k.pedagang,
+            jenis_pasar: getCleanJenisPasar(k),
+            blok_kios: getCleanBlokName(k),
+            tipe_kios: k.tipeKios || 'LOS',
+            luas_dimensi: k.luasDimensi || '200 x 200',
+            luas_m2: k.luasM2 || '4.0',
+            biaya_sewa: k.sewaBulanan || 'Rp 225.000/thn'
+          }));
+
+          payload = {
+            action: 'generateSuratBatchBlok',
+            apiToken: API_SECURITY_TOKEN,
+            blok_name: selectedBlock,
+            nomor_naskah: inputNo.value.trim(),
+            tanggal_naskah: inputTgl.value.trim(),
+            sifat: inputSifat.value,
+            kiosks: kioskPayloads,
+            user: petugasName
+          };
+        }
 
         const res = await fetch(GOOGLE_API_URL, {
           method: 'POST',
@@ -385,7 +529,12 @@ export function renderSuratView(container, initialKiosId = null) {
         alert('Terjadi kendala jaringan saat menghubungi server Google Drive: ' + err.toString());
       } finally {
         generateBtn.disabled = false;
-        btnText.innerText = 'Terbitkan Surat PDF & Simpan ke Drive';
+        if (currentMode === 'SATUAN') {
+          btnText.innerText = 'Terbitkan Surat PDF & Simpan ke Drive';
+        } else {
+          const count = blockGroups[selectedBlock] ? blockGroups[selectedBlock].length : 0;
+          btnText.innerText = `Terbitkan 1 PDF Bundel ${selectedBlock} (${count} Halaman)`;
+        }
         generateBtn.className = 'w-full bg-emerald-600 hover:bg-emerald-500 text-white p-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all cursor-pointer';
         if (window.lucide) window.lucide.createIcons();
       }
