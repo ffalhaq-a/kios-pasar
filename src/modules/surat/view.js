@@ -15,22 +15,31 @@ export function renderSuratView(container, targetKiosId = null) {
 
   const getCleanJenisPasar = (k) => {
     if (!k) return 'Sandang';
-    return (k.zona || '').toUpperCase().includes('SAYUR') ? 'Sayur' : 'Sandang';
+    return (k.zona || '').toUpperCase().includes('SAYUR') || String(k.id || '').startsWith('SYR') ? 'Sayur' : 'Sandang';
   };
 
   // Find target kiosk if provided
   let selectedKiosk = kiosks.find(k => k.id === targetKiosId) || kiosks[0] || null;
 
-  // Extract unique blocks for Batch Printing
-  const uniqueBlocks = Array.from(
-    new Set(
-      kiosks.map(k => {
-        const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
-        const match = rawCode.match(/^[A-Za-z]+/);
-        return match ? match[0].toUpperCase() : null;
-      }).filter(Boolean)
-    )
-  ).sort();
+  // Group kiosks by Pasar
+  const sandangKiosks = kiosks.filter(k => getCleanJenisPasar(k) === 'Sandang');
+  const sayurKiosks = kiosks.filter(k => getCleanJenisPasar(k) === 'Sayur');
+
+  // Extract unique blocks
+  const getBlockList = (kioskList) => {
+    const map = new Map();
+    kioskList.forEach(k => {
+      const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
+      const match = rawCode.match(/^[A-Za-z]+/);
+      const blockLetter = match ? match[0].toUpperCase() : 'LAIN';
+      map.set(blockLetter, (map.get(blockLetter) || 0) + 1);
+    });
+    return Array.from(map.entries())
+      .map(([letter, count]) => ({ letter, count }))
+      .sort((a, b) => a.letter.localeCompare(b.letter));
+  };
+
+  const allBlocks = getBlockList(kiosks);
 
   const cardBg = isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200 shadow-sm';
   const textPrimary = isDark ? 'text-slate-100' : 'text-slate-900';
@@ -48,8 +57,8 @@ export function renderSuratView(container, targetKiosId = null) {
       <!-- HEADER -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 class="text-xl font-extrabold ${textPrimary}">Penerbitan Surat Pemberitahuan Retribusi Sewa</h1>
-          <p class="text-xs ${textSecondary} mt-0.5">Format Bookman Old Style 11 pt • Margin Atas/Bawah 0.76" & Kiri/Kanan 1" • Instan 0.2 Detik</p>
+          <h1 class="text-xl font-extrabold ${textPrimary}">Penerbitan Surat Pemberitahuan</h1>
+          <p class="text-xs ${textSecondary} mt-0.5">Format standar SRIKANDI • Cetak Satuan, Per Blok, atau Per Pasar Sekaligus</p>
         </div>
 
         <div class="flex items-center gap-2">
@@ -65,11 +74,6 @@ export function renderSuratView(container, targetKiosId = null) {
             <span>Upload Logo PNG</span>
             <input type="file" id="upload-logo-input" accept="image/png,image/jpeg" class="hidden" />
           </label>
-
-          <span class="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 flex items-center gap-1.5 shadow-sm">
-            <i data-lucide="zap" class="w-3.5 h-3.5"></i>
-            <span>Instan 0.2s</span>
-          </span>
         </div>
       </div>
 
@@ -87,7 +91,6 @@ export function renderSuratView(container, targetKiosId = null) {
                 </div>
                 <h3 class="text-sm font-bold ${textPrimary}">Cetak Surat Perorangan (Satuan)</h3>
               </div>
-              <span class="text-[11px] font-mono ${textSecondary}">${kiosks.length} Data Siap</span>
             </div>
 
             <!-- Pilih Kios / Pedagang -->
@@ -96,7 +99,7 @@ export function renderSuratView(container, targetKiosId = null) {
               <select id="kiosk-select" class="w-full px-3 py-2.5 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}">
                 ${kiosks.map(k => `
                   <option value="${k.id}" ${selectedKiosk && selectedKiosk.id === k.id ? 'selected' : ''}>
-                    ${getCleanBlokName(k)} • ${k.pedagang === '-' ? '(KOSONG)' : k.pedagang} • ${k.zona} (${k.sewaBulanan || 'Rp 225.000/thn'})
+                    [${getCleanJenisPasar(k)}] ${getCleanBlokName(k)} • ${k.pedagang === '-' ? '(KOSONG)' : k.pedagang} • ${k.sewaBulanan || 'Rp 225.000/thn'}
                   </option>
                 `).join('')}
               </select>
@@ -117,7 +120,8 @@ export function renderSuratView(container, targetKiosId = null) {
               <div class="space-y-1">
                 <label class="text-[11px] font-bold ${textSecondary}">Sifat Surat:</label>
                 <select id="input-sifat" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}">
-                  <option value="Biasa" selected>Biasa</option>
+                  <option value="${defaultSifat}" selected>\${sifat} (SRIKANDI)</option>
+                  <option value="Biasa">Biasa</option>
                   <option value="Penting">Penting</option>
                   <option value="Segera">Segera</option>
                 </select>
@@ -128,7 +132,7 @@ export function renderSuratView(container, targetKiosId = null) {
             <div class="pt-2 flex flex-col sm:flex-row gap-2.5">
               <button id="btn-generate-instant" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white p-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30 transition-all">
                 <i data-lucide="download" class="w-4 h-4"></i>
-                <span>Download PDF Satuan (0.2s)</span>
+                <span>Download PDF Satuan</span>
               </button>
 
               <button id="btn-preview-instant" class="border px-4 py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${cardBg} ${textPrimary} hover:border-emerald-500 shadow-sm">
@@ -138,38 +142,45 @@ export function renderSuratView(container, targetKiosId = null) {
             </div>
           </div>
 
-          <!-- CARD 2: CETAK MASSAL PER BLOK (BATCH GENERATOR) -->
+          <!-- CARD 2: CETAK MASSAL (PER PASAR / PER BLOK) -->
           <div class="${cardBg} border rounded-2xl p-5 space-y-4">
             <div class="flex items-center justify-between border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
               <div class="flex items-center gap-2">
                 <div class="p-1.5 bg-blue-500/10 text-blue-500 rounded-lg">
                   <i data-lucide="layers" class="w-4 h-4"></i>
                 </div>
-                <h3 class="text-sm font-bold ${textPrimary}">Cetak Massal 1 Blok Sekaligus (Batch PDF)</h3>
+                <h3 class="text-sm font-bold ${textPrimary}">Cetak Massal (Per Pasar / Per Blok)</h3>
               </div>
-              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-500">1 File Multi-Halaman</span>
             </div>
 
-            <div class="space-y-1.5">
-              <label class="text-xs font-bold ${textSecondary}">Pilih Blok Target:</label>
-              <div class="flex gap-2">
-                <select id="batch-block-select" class="flex-1 px-3 py-2.5 rounded-xl border text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none ${inputBg}">
-                  <option value="ALL">Semua Blok (Seluruh 610 Unit Pasar)</option>
-                  ${uniqueBlocks.map(b => {
-                    const count = kiosks.filter(k => {
-                      const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
-                      return rawCode.toUpperCase().startsWith(b);
-                    }).length;
-                    return `<option value="${b}">Blok ${b} (${count} Pedagang / Unit)</option>`;
-                  }).join('')}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <!-- Scope Selector -->
+              <div class="space-y-1.5">
+                <label class="text-xs font-bold ${textSecondary}">Pilihan Lingkup Cetak:</label>
+                <select id="batch-scope-select" class="w-full px-3 py-2.5 rounded-xl border text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none ${inputBg}">
+                  <option value="ALL">Seluruh Pasar (${kiosks.length} Unit)</option>
+                  <option value="SANDANG">Khusus Pasar Sandang (${sandangKiosks.length} Unit)</option>
+                  <option value="SAYUR">Khusus Pasar Sayur (${sayurKiosks.length} Unit)</option>
+                  <option value="BLOCK">Pilih Blok Tertentu</option>
                 </select>
-
-                <button id="btn-batch-generate" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 shadow-lg shadow-blue-900/30 transition-all shrink-0">
-                  <i data-lucide="printer" class="w-4 h-4"></i>
-                  <span>Cetak Massal</span>
-                </button>
               </div>
-              <p class="text-[11px] ${textSecondary}">Menghasilkan 1 file PDF yang memuat seluruh surat pedagang di blok terpilih secara berurutan dan siap langsung diprint.</p>
+
+              <!-- Block Selector -->
+              <div id="batch-block-wrapper" class="space-y-1.5 opacity-50 pointer-events-none transition-all">
+                <label class="text-xs font-bold ${textSecondary}">Pilih Blok:</label>
+                <select id="batch-block-select" class="w-full px-3 py-2.5 rounded-xl border text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none ${inputBg}">
+                  ${allBlocks.map(b => `
+                    <option value="${b.letter}">Blok ${b.letter} (${b.count} Unit)</option>
+                  `).join('')}
+                </select>
+              </div>
+            </div>
+
+            <div class="pt-2">
+              <button id="btn-batch-generate" class="w-full bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-blue-900/30 transition-all">
+                <i data-lucide="printer" class="w-4 h-4"></i>
+                <span id="batch-btn-label">Cetak Massal Seluruh Pasar (${kiosks.length} Surat)</span>
+              </button>
             </div>
           </div>
 
@@ -177,15 +188,15 @@ export function renderSuratView(container, targetKiosId = null) {
           <div id="status-alert-box" class="hidden p-3.5 rounded-xl border text-xs flex items-center justify-between gap-3 bg-emerald-500/10 border-emerald-500/30 text-emerald-500">
             <div class="flex items-center gap-2">
               <i data-lucide="check-circle-2" class="w-4 h-4 shrink-0"></i>
-              <span id="status-alert-text">Surat PDF berhasil diterbitkan instan!</span>
+              <span id="status-alert-text">Surat PDF berhasil diterbitkan!</span>
             </div>
           </div>
 
         </div>
 
-        <!-- KOLOM KANAN: LIVE PREVIEW DOKUMEN (5 COLS) -->
+        <!-- KOLOM KANAN: RINGKASAN SURAT TERPILIH (5 COLS) -->
         <div class="lg:col-span-5 space-y-4">
-          <div class="${cardBg} border rounded-2xl p-5 space-y-3 sticky top-4">
+          <div class="${cardBg} border rounded-2xl p-5 space-y-4 sticky top-4">
             <div class="flex items-center justify-between border-b pb-2.5 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
               <div class="flex items-center gap-2">
                 <i data-lucide="file-check" class="w-4 h-4 text-emerald-500"></i>
@@ -203,7 +214,7 @@ export function renderSuratView(container, targetKiosId = null) {
                 <span id="preview-pedagang" class="font-bold ${textPrimary}">${selectedKiosk ? (selectedKiosk.pedagang === '-' ? 'Lahan Kosong' : selectedKiosk.pedagang) : '-'}</span>
               </div>
               <div class="flex justify-between py-1 border-b border-slate-800/40">
-                <span class="${textSecondary}">Kawasan Pasar:</span>
+                <span class="${textSecondary}">Kawasan:</span>
                 <span id="preview-pasar" class="font-bold">${selectedKiosk ? selectedKiosk.zona : 'PASAR SANDANG'}</span>
               </div>
               <div class="flex justify-between py-1 border-b border-slate-800/40">
@@ -221,9 +232,12 @@ export function renderSuratView(container, targetKiosId = null) {
             </div>
 
             <div class="pt-2">
-              <div class="p-3 rounded-xl border text-[11px] leading-relaxed ${isDark ? 'bg-slate-900 border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'}">
-                <i data-lucide="info" class="w-3.5 h-3.5 inline mr-1 text-emerald-500"></i>
-                Margin presisi: <strong>Atas/Bawah 0.76 inch (19.3 mm)</strong> & <strong>Kiri/Kanan 1 inch (25.4 mm)</strong>. Tipografi <strong>Bookman Old Style 11 pt</strong> dengan garis ganda kedinasan resmi.
+              <div class="p-2.5 rounded-xl border flex items-center justify-between text-xs font-bold ${isDark ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'}">
+                <span class="flex items-center gap-1.5">
+                  <i data-lucide="shield-check" class="w-4 h-4 text-emerald-500"></i>
+                  <span>Format Standar SRIKANDI (A4)</span>
+                </span>
+                <span class="text-[10px] text-emerald-500 font-mono">TTE Ready</span>
               </div>
             </div>
 
@@ -250,8 +264,12 @@ export function renderSuratView(container, targetKiosId = null) {
 
   const btnGenerateInstant = container.querySelector('#btn-generate-instant');
   const btnPreviewInstant = container.querySelector('#btn-preview-instant');
-  const btnBatchGenerate = container.querySelector('#btn-batch-generate');
+  
+  const batchScopeSelect = container.querySelector('#batch-scope-select');
+  const batchBlockWrapper = container.querySelector('#batch-block-wrapper');
   const batchBlockSelect = container.querySelector('#batch-block-select');
+  const btnBatchGenerate = container.querySelector('#btn-batch-generate');
+  const batchBtnLabel = container.querySelector('#batch-btn-label');
 
   const previewBadgeBlok = container.querySelector('#preview-badge-blok');
   const previewPedagang = container.querySelector('#preview-pedagang');
@@ -277,6 +295,32 @@ export function renderSuratView(container, targetKiosId = null) {
     updatePreview(selectedKiosk);
   });
 
+  // BATCH SCOPE CHANGE
+  function updateBatchButtonLabel() {
+    const scope = batchScopeSelect.value;
+    if (scope === 'ALL') {
+      batchBlockWrapper.classList.add('opacity-50', 'pointer-events-none');
+      batchBtnLabel.innerText = `Cetak Massal Seluruh Pasar (${kiosks.length} Surat)`;
+    } else if (scope === 'SANDANG') {
+      batchBlockWrapper.classList.add('opacity-50', 'pointer-events-none');
+      batchBtnLabel.innerText = `Cetak Massal Khusus Pasar Sandang (${sandangKiosks.length} Surat)`;
+    } else if (scope === 'SAYUR') {
+      batchBlockWrapper.classList.add('opacity-50', 'pointer-events-none');
+      batchBtnLabel.innerText = `Cetak Massal Khusus Pasar Sayur (${sayurKiosks.length} Surat)`;
+    } else if (scope === 'BLOCK') {
+      batchBlockWrapper.classList.remove('opacity-50', 'pointer-events-none');
+      const blk = batchBlockSelect.value;
+      const blkCount = kiosks.filter(k => {
+        const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
+        return rawCode.toUpperCase().startsWith(blk);
+      }).length;
+      batchBtnLabel.innerText = `Cetak Massal Blok ${blk} (${blkCount} Surat)`;
+    }
+  }
+
+  batchScopeSelect.addEventListener('change', updateBatchButtonLabel);
+  batchBlockSelect.addEventListener('change', updateBatchButtonLabel);
+
   // UPLOAD LOGO HANDLER
   if (uploadLogoInput) {
     uploadLogoInput.addEventListener('change', (e) => {
@@ -288,7 +332,7 @@ export function renderSuratView(container, targetKiosId = null) {
         const base64 = event.target.result;
         pdfService.saveCustomLogo(base64);
         statusAlertBox.classList.remove('hidden');
-        statusAlertText.innerText = 'Logo resmi berhasil diunggah dan disimpan untuk semua surat PDF!';
+        statusAlertText.innerText = 'Logo resmi berhasil diunggah!';
         setTimeout(() => statusAlertBox.classList.add('hidden'), 5000);
       };
       reader.readAsDataURL(file);
@@ -308,7 +352,7 @@ export function renderSuratView(container, targetKiosId = null) {
     const letterData = {
       nomor_naskah: inputNo.value.trim() || defaultNoNaskah,
       tanggal_naskah: inputTgl.value.trim() || defaultDateStr,
-      sifat: inputSifat.value || 'Biasa',
+      sifat: inputSifat.value || defaultSifat,
       nama_pedagang: selectedKiosk.pedagang === '-' ? 'Penyewa Kios' : selectedKiosk.pedagang,
       jenis_pasar: cleanPasar,
       blok_kios: cleanBlok,
@@ -324,7 +368,7 @@ export function renderSuratView(container, targetKiosId = null) {
     doc.save(fileName);
 
     statusAlertBox.classList.remove('hidden');
-    statusAlertText.innerText = `Surat ${cleanBlok} berhasil diunduh instan (${fileName})`;
+    statusAlertText.innerText = `Surat ${cleanBlok} berhasil diunduh (${fileName})`;
     setTimeout(() => statusAlertBox.classList.add('hidden'), 5000);
   });
 
@@ -341,7 +385,7 @@ export function renderSuratView(container, targetKiosId = null) {
     const letterData = {
       nomor_naskah: inputNo.value.trim() || defaultNoNaskah,
       tanggal_naskah: inputTgl.value.trim() || defaultDateStr,
-      sifat: inputSifat.value || 'Biasa',
+      sifat: inputSifat.value || defaultSifat,
       nama_pedagang: selectedKiosk.pedagang === '-' ? 'Penyewa Kios' : selectedKiosk.pedagang,
       jenis_pasar: cleanPasar,
       blok_kios: cleanBlok,
@@ -357,20 +401,32 @@ export function renderSuratView(container, targetKiosId = null) {
     window.open(blobUrl, '_blank');
   });
 
-  // 3. BATCH GENERATOR (1 BLOK SEKALIGUS)
+  // 3. BATCH GENERATOR (PER PASAR / PER BLOK)
   btnBatchGenerate.addEventListener('click', () => {
-    const selectedBlock = batchBlockSelect.value;
-    let targetList = kiosks;
+    const scope = batchScopeSelect.value;
+    let targetList = [];
+    let batchFileName = '';
 
-    if (selectedBlock !== 'ALL') {
+    if (scope === 'ALL') {
+      targetList = kiosks;
+      batchFileName = `Bundle_Surat_Pemberitahuan_Semua_Pasar_610_Unit.pdf`;
+    } else if (scope === 'SANDANG') {
+      targetList = sandangKiosks;
+      batchFileName = `Bundle_Surat_Pemberitahuan_Pasar_Sandang_318_Unit.pdf`;
+    } else if (scope === 'SAYUR') {
+      targetList = sayurKiosks;
+      batchFileName = `Bundle_Surat_Pemberitahuan_Pasar_Sayur_292_Unit.pdf`;
+    } else if (scope === 'BLOCK') {
+      const selectedBlock = batchBlockSelect.value;
       targetList = kiosks.filter(k => {
         const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
         return rawCode.toUpperCase().startsWith(selectedBlock);
       });
+      batchFileName = `Bundle_Surat_Pemberitahuan_Blok_${selectedBlock}_${targetList.length}_Pedagang.pdf`;
     }
 
     if (targetList.length === 0) {
-      alert('Tidak ada pedagang di blok terpilih!');
+      alert('Tidak ada data pada lingkup cetak yang dipilih!');
       return;
     }
 
@@ -381,21 +437,17 @@ export function renderSuratView(container, targetKiosId = null) {
       const commonParams = {
         nomor_naskah: inputNo.value.trim() || defaultNoNaskah,
         tanggal_naskah: inputTgl.value.trim() || defaultDateStr,
-        sifat: inputSifat.value || 'Biasa'
+        sifat: inputSifat.value || defaultSifat
       };
 
       const doc = pdfService.generateBatchSurat(targetList, commonParams);
-      const batchFileName = selectedBlock === 'ALL' 
-        ? `Bundle_Surat_Pemberitahuan_Semua_Blok_610_Unit.pdf` 
-        : `Bundle_Surat_Pemberitahuan_Blok_${selectedBlock}_${targetList.length}_Pedagang.pdf`;
-
       doc.save(batchFileName);
 
       btnBatchGenerate.disabled = false;
-      btnBatchGenerate.innerHTML = `<i data-lucide="printer" class="w-4 h-4"></i><span>Cetak Massal</span>`;
+      updateBatchButtonLabel();
 
       statusAlertBox.classList.remove('hidden');
-      statusAlertText.innerText = `Bundle PDF Blok ${selectedBlock} (${targetList.length} surat) berhasil diunduh instan!`;
+      statusAlertText.innerText = `Bundle PDF (${targetList.length} surat) berhasil diunduh instan!`;
       setTimeout(() => statusAlertBox.classList.add('hidden'), 6000);
     }, 100);
   });
