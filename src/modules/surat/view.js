@@ -78,140 +78,135 @@ export function renderSuratView(container, initialKiosId = null) {
   const inputBg = isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900';
 
   container.innerHTML = `
-    <div class="p-6 space-y-4 w-full h-full flex flex-col justify-start overflow-hidden ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}">
+    <div class="p-6 space-y-5 w-full h-full overflow-y-auto ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}">
       
       <!-- TOOLBAR HEADER -->
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-3 shrink-0 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b pb-4 shrink-0 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
         <div>
-          <div class="flex items-center gap-2 mb-0.5">
-            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 font-mono">
-              LAYANAN SURAT RESMI PASAR 2026
-            </span>
-          </div>
           <h1 class="text-xl font-extrabold ${textPrimary}">Penerbitan Surat Pemberitahuan Retribusi Sewa</h1>
         </div>
 
-        <div class="flex items-center gap-3 flex-wrap">
-          <!-- Mode Switcher Pill in Header -->
+        <!-- RIGHT ACTION BUTTONS IN SINGLE HORIZONTAL ROW -->
+        <div class="flex items-center gap-2 flex-wrap">
+          
+          <!-- Mode Switcher Pill -->
           <div class="flex items-center p-1 rounded-xl border ${cardBg}">
-            <button id="mode-satuan-btn" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 bg-emerald-600 text-white shadow">
+            <button id="mode-satuan-btn" class="px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 bg-emerald-600 text-white shadow">
               <i data-lucide="user" class="w-3.5 h-3.5"></i>
-              <span>Mode Satuan (1 Pedagang)</span>
+              <span>Cetak Satuan</span>
             </button>
-            <button id="mode-blok-btn" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${textSecondary} hover:text-emerald-500">
+            <button id="mode-blok-btn" class="px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${textSecondary} hover:text-emerald-500">
               <i data-lucide="layers" class="w-3.5 h-3.5"></i>
-              <span>Cetak Massal Per Blok (1 PDF)</span>
+              <span>Cetak Massal Per Blok</span>
             </button>
           </div>
 
-          <button id="refresh-data-btn" class="px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${cardBg} ${textPrimary} hover:border-emerald-500">
+          <!-- Refresh Button beside Cetak Massal -->
+          <button id="refresh-data-btn" class="px-3.5 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${cardBg} ${textPrimary} hover:border-emerald-500 shadow-sm">
             <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-emerald-500"></i>
             <span>Refresh</span>
           </button>
         </div>
       </div>
 
-      <!-- FULL-WIDTH CARD (FITS 1 SCREEN) -->
-      <div class="border rounded-2xl p-5 space-y-4 flex-1 flex flex-col justify-between overflow-hidden ${cardBg}">
+      <!-- MAIN CARD (SCROLLABLE & EXPANDABLE) -->
+      <div class="border rounded-2xl p-6 space-y-6 ${cardBg}">
         
-        <div class="space-y-4">
-          <div class="flex items-center justify-between border-b pb-2.5 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
-            <h2 class="text-sm font-bold ${textPrimary} flex items-center gap-2">
-              <i data-lucide="file-edit" class="w-4 h-4 text-emerald-500"></i>
-              <span id="form-panel-title">Parameter Surat Satuan</span>
-            </h2>
-            <span id="info-badge-summary" class="text-xs font-mono font-bold text-emerald-500">
-              ${selectedKiosk ? `${getCleanBlokName(selectedKiosk)} • ${selectedKiosk.pedagang} • ${selectedKiosk.sewaBulanan || 'Rp 225.000/thn'}` : ''}
-            </span>
-          </div>
+        <div class="flex items-center justify-between border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
+          <h2 class="text-sm font-bold ${textPrimary} flex items-center gap-2">
+            <i data-lucide="file-edit" class="w-4 h-4 text-emerald-500"></i>
+            <span id="form-panel-title">Parameter Cetak Satuan</span>
+          </h2>
+          <span id="info-badge-summary" class="text-xs font-mono font-bold text-emerald-500">
+            ${selectedKiosk ? `${getCleanBlokName(selectedKiosk)} • ${selectedKiosk.pedagang} • ${selectedKiosk.sewaBulanan || 'Rp 225.000/thn'}` : ''}
+          </span>
+        </div>
 
-          <!-- FORM GRID (3 COLUMNS ON DESKTOP) -->
-          <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
-            
-            <!-- COLUMN 1 & 2: TARGET SELECTOR (SATUAN / BLOK) -->
-            <div class="md:col-span-6 space-y-1.5">
-              <div id="wrapper-select-satuan" class="space-y-1.5">
-                <label class="text-xs font-bold ${textSecondary}">Pilih Kios / Nama Pedagang:</label>
-                <select id="kiosk-select" class="w-full p-2.5 rounded-xl text-xs font-bold border focus:outline-none focus:border-emerald-500 ${inputBg}">
-                  ${kiosks.map(k => `
-                    <option value="${k.id}" ${selectedKiosk && selectedKiosk.id === k.id ? 'selected' : ''}>
-                      [${getCleanBlokName(k)}] ${k.pedagang === '-' ? '(KOSONG)' : k.pedagang} - Pasar ${getCleanJenisPasar(k)} (${k.sewaBulanan || 'Rp 225.000/thn'})
-                    </option>
-                  `).join('')}
-                </select>
-              </div>
-
-              <div id="wrapper-select-blok" class="hidden space-y-1.5">
-                <label class="text-xs font-bold ${textSecondary}">Pilih Blok yang Ingin Dicetak Massal:</label>
-                <select id="block-select" class="w-full p-2.5 rounded-xl text-xs font-bold border focus:outline-none focus:border-emerald-500 ${inputBg}">
-                  ${availableBlocks.map(b => `
-                    <option value="${b}" ${b === selectedBlock ? 'selected' : ''}>
-                      ${b} (${blockGroups[b].length} Pedagang / Halaman)
-                    </option>
-                  `).join('')}
-                </select>
-              </div>
-            </div>
-
-            <!-- COLUMN 3: SIFAT SURAT -->
-            <div class="md:col-span-6 space-y-1.5">
-              <label class="text-xs font-bold ${textSecondary}">Sifat Surat:</label>
-              <select id="input-sifat" class="w-full p-2.5 rounded-xl text-xs font-bold border focus:outline-none focus:border-emerald-500 ${inputBg}">
-                <option value="Biasa" selected>Biasa</option>
-                <option value="Penting">Penting / Segera</option>
-                <option value="Peringatan">Peringatan / Jatuh Tempo</option>
+        <!-- FORM GRID (2 COLUMNS) -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-5">
+          
+          <!-- COLUMN 1: SELECTOR (SATUAN / BLOK) -->
+          <div class="md:col-span-6 space-y-1.5">
+            <div id="wrapper-select-satuan" class="space-y-1.5">
+              <label class="text-xs font-bold ${textSecondary}">Pilih Kios / Nama Pedagang:</label>
+              <select id="kiosk-select" class="w-full p-3 rounded-xl text-xs font-bold border focus:outline-none focus:border-emerald-500 ${inputBg}">
+                ${kiosks.map(k => `
+                  <option value="${k.id}" ${selectedKiosk && selectedKiosk.id === k.id ? 'selected' : ''}>
+                    [${getCleanBlokName(k)}] ${k.pedagang === '-' ? '(KOSONG)' : k.pedagang} - Pasar ${getCleanJenisPasar(k)} (${k.sewaBulanan || 'Rp 225.000/thn'})
+                  </option>
+                `).join('')}
               </select>
             </div>
 
-            <!-- COLUMN 4: NOMOR NASKAH -->
-            <div class="md:col-span-6 space-y-1.5">
-              <label class="text-xs font-bold ${textSecondary}">Nomor Naskah / Surat:</label>
-              <input 
-                type="text" 
-                id="input-nomor-naskah" 
-                value="${defaultNoNaskah}"
-                class="w-full p-2.5 rounded-xl text-xs font-mono border focus:outline-none focus:border-emerald-500 ${inputBg}"
-                placeholder="misal: 511.2/014/VIII/2026"
-              />
+            <div id="wrapper-select-blok" class="hidden space-y-1.5">
+              <label class="text-xs font-bold ${textSecondary}">Pilih Blok yang Ingin Dicetak Massal:</label>
+              <select id="block-select" class="w-full p-3 rounded-xl text-xs font-bold border focus:outline-none focus:border-emerald-500 ${inputBg}">
+                ${availableBlocks.map(b => `
+                  <option value="${b}" ${b === selectedBlock ? 'selected' : ''}>
+                    ${b} (${blockGroups[b].length} Pedagang / Halaman)
+                  </option>
+                `).join('')}
+              </select>
             </div>
-
-            <!-- COLUMN 5: TANGGAL NASKAH -->
-            <div class="md:col-span-6 space-y-1.5">
-              <label class="text-xs font-bold ${textSecondary}">Tanggal Naskah Surat:</label>
-              <input 
-                type="text" 
-                id="input-tanggal-naskah" 
-                value="${defaultDateStr}"
-                class="w-full p-2.5 rounded-xl text-xs font-bold border focus:outline-none focus:border-emerald-500 ${inputBg}"
-                placeholder="misal: 26 Agustus 2026"
-              />
-            </div>
-
           </div>
 
-          <!-- BATCH HELPER INFO BOX (ONLY IN BLOK MODE) -->
-          <div id="batch-info-box" class="hidden p-3 rounded-xl border text-xs flex items-center justify-between gap-3 bg-emerald-500/10 border-emerald-500/30 text-emerald-500">
-            <div class="flex items-center gap-2">
-              <i data-lucide="info" class="w-4 h-4 shrink-0"></i>
-              <span id="batch-info-text">Seluruh surat di blok ini akan disatukan menjadi 1 File PDF multi-halaman.</span>
-            </div>
-            <span class="text-[11px] font-mono font-bold bg-emerald-500/20 px-2.5 py-1 rounded-lg">
-              1 KALI KLIK PRINT ALL
-            </span>
+          <!-- COLUMN 2: SIFAT SURAT -->
+          <div class="md:col-span-6 space-y-1.5">
+            <label class="text-xs font-bold ${textSecondary}">Sifat Surat:</label>
+            <select id="input-sifat" class="w-full p-3 rounded-xl text-xs font-bold border focus:outline-none focus:border-emerald-500 ${inputBg}">
+              <option value="Biasa" selected>Biasa</option>
+              <option value="Penting">Penting / Segera</option>
+              <option value="Peringatan">Peringatan / Jatuh Tempo</option>
+            </select>
+          </div>
+
+          <!-- COLUMN 3: NOMOR NASKAH -->
+          <div class="md:col-span-6 space-y-1.5">
+            <label class="text-xs font-bold ${textSecondary}">Nomor Naskah / Surat:</label>
+            <input 
+              type="text" 
+              id="input-nomor-naskah" 
+              value="${defaultNoNaskah}"
+              class="w-full p-3 rounded-xl text-xs font-mono border focus:outline-none focus:border-emerald-500 ${inputBg}"
+              placeholder="misal: 511.2/014/VIII/2026"
+            />
+          </div>
+
+          <!-- COLUMN 4: TANGGAL NASKAH -->
+          <div class="md:col-span-6 space-y-1.5">
+            <label class="text-xs font-bold ${textSecondary}">Tanggal Naskah Surat:</label>
+            <input 
+              type="text" 
+              id="input-tanggal-naskah" 
+              value="${defaultDateStr}"
+              class="w-full p-3 rounded-xl text-xs font-bold border focus:outline-none focus:border-emerald-500 ${inputBg}"
+              placeholder="misal: 26 Agustus 2026"
+            />
           </div>
 
         </div>
 
+        <!-- BATCH HELPER INFO BOX (ONLY IN BLOK MODE) -->
+        <div id="batch-info-box" class="hidden p-3.5 rounded-xl border text-xs flex items-center justify-between gap-3 bg-emerald-500/10 border-emerald-500/30 text-emerald-500">
+          <div class="flex items-center gap-2">
+            <i data-lucide="info" class="w-4 h-4 shrink-0"></i>
+            <span id="batch-info-text">Seluruh surat di blok ini akan disatukan menjadi 1 File PDF multi-halaman.</span>
+          </div>
+          <span class="text-[11px] font-mono font-bold bg-emerald-500/20 px-2.5 py-1 rounded-lg">
+            1 KALI KLIK PRINT ALL
+          </span>
+        </div>
+
         <!-- BOTTOM CONTROLS & RESULT BANNER -->
-        <div class="space-y-3 pt-3 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}">
+        <div class="space-y-4 pt-3 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}">
           
           <!-- RESULT SUCCESS BANNER -->
-          <div id="result-status-card" class="hidden border rounded-xl p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 ${cardBg} border-emerald-500/50 bg-emerald-500/5">
-            <div class="flex items-center gap-2.5 text-emerald-500 font-extrabold text-xs">
-              <i data-lucide="check-circle" class="w-4 h-4"></i>
+          <div id="result-status-card" class="hidden border rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 ${cardBg} border-emerald-500/50 bg-emerald-500/5 shadow-sm">
+            <div class="flex items-center gap-3 text-emerald-500 font-extrabold text-xs">
+              <i data-lucide="check-circle" class="w-5 h-5"></i>
               <div>
-                <p id="result-status-title">Surat PDF Berhasil Diterbitkan ke Google Drive!</p>
-                <p id="result-file-name" class="text-[11px] font-mono font-normal text-slate-400">Surat_Pemberitahuan.pdf</p>
+                <p id="result-status-title" class="text-sm">Surat PDF Berhasil Diterbitkan ke Google Drive!</p>
+                <p id="result-file-name" class="text-xs font-mono font-normal text-slate-400">Surat_Pemberitahuan.pdf</p>
               </div>
             </div>
             
@@ -219,7 +214,7 @@ export function renderSuratView(container, initialKiosId = null) {
               id="btn-view-pdf" 
               href="#" 
               target="_blank" 
-              class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all"
+              class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow transition-all"
             >
               <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
               <span>Buka File PDF di Google Drive</span>
@@ -271,12 +266,12 @@ export function renderSuratView(container, initialKiosId = null) {
     // Switch to SATUAN Mode
     btnModeSatuan.addEventListener('click', () => {
       currentMode = 'SATUAN';
-      btnModeSatuan.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 bg-emerald-600 text-white shadow';
-      btnModeBlok.className = `px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${textSecondary} hover:text-emerald-500`;
+      btnModeSatuan.className = 'px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 bg-emerald-600 text-white shadow';
+      btnModeBlok.className = `px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${textSecondary} hover:text-emerald-500`;
       wrapperSatuan.classList.remove('hidden');
       wrapperBlok.classList.add('hidden');
       batchInfoBox.classList.add('hidden');
-      formPanelTitle.innerText = 'Parameter Surat Satuan';
+      formPanelTitle.innerText = 'Parameter Cetak Satuan';
       btnText.innerText = 'Terbitkan Surat PDF & Simpan ke Drive';
       updateSummaryBadge();
     });
@@ -284,8 +279,8 @@ export function renderSuratView(container, initialKiosId = null) {
     // Switch to BLOK Mode
     btnModeBlok.addEventListener('click', () => {
       currentMode = 'BLOK';
-      btnModeBlok.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 bg-emerald-600 text-white shadow';
-      btnModeSatuan.className = `px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${textSecondary} hover:text-emerald-500`;
+      btnModeBlok.className = 'px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 bg-emerald-600 text-white shadow';
+      btnModeSatuan.className = `px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${textSecondary} hover:text-emerald-500`;
       wrapperSatuan.classList.add('hidden');
       wrapperBlok.classList.remove('hidden');
       batchInfoBox.classList.remove('hidden');
