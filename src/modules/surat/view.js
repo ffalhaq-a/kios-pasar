@@ -78,148 +78,163 @@ export function renderSuratView(container, initialKiosId = null) {
   const inputBg = isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900';
 
   container.innerHTML = `
-    <div class="p-6 space-y-6 max-w-3xl mx-auto h-full overflow-y-auto ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}">
+    <div class="p-6 space-y-4 w-full h-full flex flex-col justify-start overflow-hidden ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}">
       
-      <!-- HEADER -->
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
+      <!-- TOOLBAR HEADER -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-3 shrink-0 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
         <div>
-          <div class="flex items-center gap-2 mb-1">
+          <div class="flex items-center gap-2 mb-0.5">
             <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 font-mono">
               LAYANAN SURAT RESMI PASAR 2026
             </span>
           </div>
-          <h1 class="text-xl font-extrabold ${textPrimary}">Penerbitan Surat Pemberitahuan</h1>
-          <p class="text-xs ${textSecondary} mt-0.5">
-            Terbitkan Surat Pemberitahuan Satuan atau Bundel Massal Per Blok langsung ke Google Drive
-          </p>
+          <h1 class="text-xl font-extrabold ${textPrimary}">Penerbitan Surat Pemberitahuan Retribusi Sewa</h1>
         </div>
 
-        <div class="flex items-center gap-2">
-          <button id="refresh-data-btn" class="px-3.5 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${cardBg} ${textPrimary} hover:border-emerald-500">
+        <div class="flex items-center gap-3 flex-wrap">
+          <!-- Mode Switcher Pill in Header -->
+          <div class="flex items-center p-1 rounded-xl border ${cardBg}">
+            <button id="mode-satuan-btn" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 bg-emerald-600 text-white shadow">
+              <i data-lucide="user" class="w-3.5 h-3.5"></i>
+              <span>Mode Satuan (1 Pedagang)</span>
+            </button>
+            <button id="mode-blok-btn" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${textSecondary} hover:text-emerald-500">
+              <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+              <span>Cetak Massal Per Blok (1 PDF)</span>
+            </button>
+          </div>
+
+          <button id="refresh-data-btn" class="px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${cardBg} ${textPrimary} hover:border-emerald-500">
             <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-emerald-500"></i>
-            <span>Refresh Data</span>
+            <span>Refresh</span>
           </button>
         </div>
       </div>
 
-      <!-- MODE TOGGLE SWITCHER -->
-      <div class="flex items-center p-1.5 rounded-2xl border ${cardBg}">
-        <button id="mode-satuan-btn" class="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 bg-emerald-600 text-white shadow">
-          <i data-lucide="user" class="w-4 h-4"></i>
-          <span>Mode Satuan (1 Pedagang)</span>
-        </button>
-        <button id="mode-blok-btn" class="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${textSecondary} hover:text-emerald-500">
-          <i data-lucide="layers" class="w-4 h-4"></i>
-          <span>Cetak Massal Per Blok (1 PDF)</span>
-        </button>
-      </div>
-
-      <!-- MAIN FORM CARD -->
-      <div class="space-y-4">
-        <div class="border rounded-2xl p-6 space-y-5 ${cardBg}">
-          <h2 class="text-sm font-bold ${textPrimary} flex items-center gap-2 border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
-            <i data-lucide="file-edit" class="w-4 h-4 text-emerald-500"></i>
-            <span id="form-panel-title">Parameter Surat Satuan</span>
-          </h2>
-
-          <!-- PILIHAN 1: SELECTOR SATUAN -->
-          <div id="wrapper-select-satuan" class="space-y-1.5">
-            <label class="text-xs font-bold ${textSecondary}">Pilih Kios / Nama Pedagang:</label>
-            <select id="kiosk-select" class="w-full p-3 rounded-xl text-xs font-bold border focus:outline-none focus:border-emerald-500 ${inputBg}">
-              ${kiosks.map(k => `
-                <option value="${k.id}" ${selectedKiosk && selectedKiosk.id === k.id ? 'selected' : ''}>
-                  [${getCleanBlokName(k)}] ${k.pedagang === '-' ? '(KOSONG)' : k.pedagang} - Pasar ${getCleanJenisPasar(k)} (${k.sewaBulanan || 'Rp 225.000/thn'})
-                </option>
-              `).join('')}
-            </select>
+      <!-- FULL-WIDTH CARD (FITS 1 SCREEN) -->
+      <div class="border rounded-2xl p-5 space-y-4 flex-1 flex flex-col justify-between overflow-hidden ${cardBg}">
+        
+        <div class="space-y-4">
+          <div class="flex items-center justify-between border-b pb-2.5 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
+            <h2 class="text-sm font-bold ${textPrimary} flex items-center gap-2">
+              <i data-lucide="file-edit" class="w-4 h-4 text-emerald-500"></i>
+              <span id="form-panel-title">Parameter Surat Satuan</span>
+            </h2>
+            <span id="info-badge-summary" class="text-xs font-mono font-bold text-emerald-500">
+              ${selectedKiosk ? `${getCleanBlokName(selectedKiosk)} • ${selectedKiosk.pedagang} • ${selectedKiosk.sewaBulanan || 'Rp 225.000/thn'}` : ''}
+            </span>
           </div>
 
-          <!-- PILIHAN 2: SELECTOR BATCH PER BLOK -->
-          <div id="wrapper-select-blok" class="hidden space-y-2">
-            <label class="text-xs font-bold ${textSecondary}">Pilih Blok yang Ingin Dicetak Massal:</label>
-            <select id="block-select" class="w-full p-3 rounded-xl text-xs font-bold border focus:outline-none focus:border-emerald-500 ${inputBg}">
-              ${availableBlocks.map(b => `
-                <option value="${b}" ${b === selectedBlock ? 'selected' : ''}>
-                  ${b} (${blockGroups[b].length} Pedagang / Halaman)
-                </option>
-              `).join('')}
-            </select>
-            <div class="p-3 rounded-xl border text-xs space-y-1 bg-emerald-500/10 border-emerald-500/30 text-emerald-500">
-              <p class="font-bold flex items-center gap-1.5">
-                <i data-lucide="info" class="w-4 h-4"></i>
-                <span id="batch-info-text">Seluruh surat di blok ini akan disatukan menjadi 1 File PDF.</span>
-              </p>
-              <p class="text-[11px] text-slate-400">Cocok untuk cetak fisik sekali jalan (*Ctrl + P* di printer kantor desa).</p>
+          <!-- FORM GRID (3 COLUMNS ON DESKTOP) -->
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+            
+            <!-- COLUMN 1 & 2: TARGET SELECTOR (SATUAN / BLOK) -->
+            <div class="md:col-span-6 space-y-1.5">
+              <div id="wrapper-select-satuan" class="space-y-1.5">
+                <label class="text-xs font-bold ${textSecondary}">Pilih Kios / Nama Pedagang:</label>
+                <select id="kiosk-select" class="w-full p-2.5 rounded-xl text-xs font-bold border focus:outline-none focus:border-emerald-500 ${inputBg}">
+                  ${kiosks.map(k => `
+                    <option value="${k.id}" ${selectedKiosk && selectedKiosk.id === k.id ? 'selected' : ''}>
+                      [${getCleanBlokName(k)}] ${k.pedagang === '-' ? '(KOSONG)' : k.pedagang} - Pasar ${getCleanJenisPasar(k)} (${k.sewaBulanan || 'Rp 225.000/thn'})
+                    </option>
+                  `).join('')}
+                </select>
+              </div>
+
+              <div id="wrapper-select-blok" class="hidden space-y-1.5">
+                <label class="text-xs font-bold ${textSecondary}">Pilih Blok yang Ingin Dicetak Massal:</label>
+                <select id="block-select" class="w-full p-2.5 rounded-xl text-xs font-bold border focus:outline-none focus:border-emerald-500 ${inputBg}">
+                  ${availableBlocks.map(b => `
+                    <option value="${b}" ${b === selectedBlock ? 'selected' : ''}>
+                      ${b} (${blockGroups[b].length} Pedagang / Halaman)
+                    </option>
+                  `).join('')}
+                </select>
+              </div>
             </div>
-          </div>
 
-          <!-- FORM ROW 2: NOMOR & TANGGAL NASKAH -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="space-y-1.5">
+            <!-- COLUMN 3: SIFAT SURAT -->
+            <div class="md:col-span-6 space-y-1.5">
+              <label class="text-xs font-bold ${textSecondary}">Sifat Surat:</label>
+              <select id="input-sifat" class="w-full p-2.5 rounded-xl text-xs font-bold border focus:outline-none focus:border-emerald-500 ${inputBg}">
+                <option value="Biasa" selected>Biasa</option>
+                <option value="Penting">Penting / Segera</option>
+                <option value="Peringatan">Peringatan / Jatuh Tempo</option>
+              </select>
+            </div>
+
+            <!-- COLUMN 4: NOMOR NASKAH -->
+            <div class="md:col-span-6 space-y-1.5">
               <label class="text-xs font-bold ${textSecondary}">Nomor Naskah / Surat:</label>
               <input 
                 type="text" 
                 id="input-nomor-naskah" 
                 value="${defaultNoNaskah}"
-                class="w-full p-3 rounded-xl text-xs font-mono border focus:outline-none focus:border-emerald-500 ${inputBg}"
+                class="w-full p-2.5 rounded-xl text-xs font-mono border focus:outline-none focus:border-emerald-500 ${inputBg}"
                 placeholder="misal: 511.2/014/VIII/2026"
               />
             </div>
 
-            <div class="space-y-1.5">
+            <!-- COLUMN 5: TANGGAL NASKAH -->
+            <div class="md:col-span-6 space-y-1.5">
               <label class="text-xs font-bold ${textSecondary}">Tanggal Naskah Surat:</label>
               <input 
                 type="text" 
                 id="input-tanggal-naskah" 
                 value="${defaultDateStr}"
-                class="w-full p-3 rounded-xl text-xs font-bold border focus:outline-none focus:border-emerald-500 ${inputBg}"
+                class="w-full p-2.5 rounded-xl text-xs font-bold border focus:outline-none focus:border-emerald-500 ${inputBg}"
                 placeholder="misal: 26 Agustus 2026"
               />
             </div>
+
           </div>
 
-          <!-- SIFAT SURAT -->
-          <div class="space-y-1.5">
-            <label class="text-xs font-bold ${textSecondary}">Sifat Surat:</label>
-            <select id="input-sifat" class="w-full p-3 rounded-xl text-xs font-bold border focus:outline-none focus:border-emerald-500 ${inputBg}">
-              <option value="Biasa" selected>Biasa</option>
-              <option value="Penting">Penting / Segera</option>
-              <option value="Peringatan">Peringatan / Jatuh Tempo</option>
-            </select>
-          </div>
-
-          <!-- GENERATE ACTION BUTTON -->
-          <div class="pt-3 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}">
-            <button 
-              id="generate-pdf-btn" 
-              class="w-full bg-emerald-600 hover:bg-emerald-500 text-white p-3.5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all cursor-pointer"
-            >
-              <i data-lucide="file-check" class="w-4 h-4"></i>
-              <span id="btn-generate-text">Terbitkan Surat PDF & Simpan ke Drive</span>
-            </button>
+          <!-- BATCH HELPER INFO BOX (ONLY IN BLOK MODE) -->
+          <div id="batch-info-box" class="hidden p-3 rounded-xl border text-xs flex items-center justify-between gap-3 bg-emerald-500/10 border-emerald-500/30 text-emerald-500">
+            <div class="flex items-center gap-2">
+              <i data-lucide="info" class="w-4 h-4 shrink-0"></i>
+              <span id="batch-info-text">Seluruh surat di blok ini akan disatukan menjadi 1 File PDF multi-halaman.</span>
+            </div>
+            <span class="text-[11px] font-mono font-bold bg-emerald-500/20 px-2.5 py-1 rounded-lg">
+              1 KALI KLIK PRINT ALL
+            </span>
           </div>
 
         </div>
 
-        <!-- STATUS / RESULT BANNER -->
-        <div id="result-status-card" class="hidden border rounded-2xl p-6 space-y-4 ${cardBg} border-emerald-500/50 bg-emerald-500/5">
-          <div class="flex items-center gap-2 text-emerald-500 font-extrabold text-sm">
-            <i data-lucide="check-circle" class="w-5 h-5"></i>
-            <span id="result-status-title">Surat PDF Berhasil Diterbitkan!</span>
-          </div>
-          <p id="result-file-name" class="text-xs font-mono ${textSecondary}">Surat_Pemberitahuan.pdf</p>
+        <!-- BOTTOM CONTROLS & RESULT BANNER -->
+        <div class="space-y-3 pt-3 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}">
           
-          <div class="flex flex-wrap gap-3 pt-2">
+          <!-- RESULT SUCCESS BANNER -->
+          <div id="result-status-card" class="hidden border rounded-xl p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 ${cardBg} border-emerald-500/50 bg-emerald-500/5">
+            <div class="flex items-center gap-2.5 text-emerald-500 font-extrabold text-xs">
+              <i data-lucide="check-circle" class="w-4 h-4"></i>
+              <div>
+                <p id="result-status-title">Surat PDF Berhasil Diterbitkan ke Google Drive!</p>
+                <p id="result-file-name" class="text-[11px] font-mono font-normal text-slate-400">Surat_Pemberitahuan.pdf</p>
+              </div>
+            </div>
+            
             <a 
               id="btn-view-pdf" 
               href="#" 
               target="_blank" 
-              class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all"
+              class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all"
             >
-              <i data-lucide="external-link" class="w-4 h-4"></i>
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
               <span>Buka File PDF di Google Drive</span>
             </a>
           </div>
+
+          <!-- GENERATE ACTION BUTTON -->
+          <button 
+            id="generate-pdf-btn" 
+            class="w-full bg-emerald-600 hover:bg-emerald-500 text-white p-3.5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all cursor-pointer"
+          >
+            <i data-lucide="file-check" class="w-4 h-4"></i>
+            <span id="btn-generate-text">Terbitkan Surat PDF & Simpan ke Drive</span>
+          </button>
+
         </div>
 
       </div>
@@ -235,8 +250,10 @@ export function renderSuratView(container, initialKiosId = null) {
     const btnModeBlok = container.querySelector('#mode-blok-btn');
     const wrapperSatuan = container.querySelector('#wrapper-select-satuan');
     const wrapperBlok = container.querySelector('#wrapper-select-blok');
+    const batchInfoBox = container.querySelector('#batch-info-box');
     const formPanelTitle = container.querySelector('#form-panel-title');
     const batchInfoText = container.querySelector('#batch-info-text');
+    const infoBadgeSummary = container.querySelector('#info-badge-summary');
 
     const kioskSelect = container.querySelector('#kiosk-select');
     const blockSelect = container.querySelector('#block-select');
@@ -254,25 +271,29 @@ export function renderSuratView(container, initialKiosId = null) {
     // Switch to SATUAN Mode
     btnModeSatuan.addEventListener('click', () => {
       currentMode = 'SATUAN';
-      btnModeSatuan.className = 'flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 bg-emerald-600 text-white shadow';
-      btnModeBlok.className = `flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${textSecondary} hover:text-emerald-500`;
+      btnModeSatuan.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 bg-emerald-600 text-white shadow';
+      btnModeBlok.className = `px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${textSecondary} hover:text-emerald-500`;
       wrapperSatuan.classList.remove('hidden');
       wrapperBlok.classList.add('hidden');
+      batchInfoBox.classList.add('hidden');
       formPanelTitle.innerText = 'Parameter Surat Satuan';
       btnText.innerText = 'Terbitkan Surat PDF & Simpan ke Drive';
+      updateSummaryBadge();
     });
 
     // Switch to BLOK Mode
     btnModeBlok.addEventListener('click', () => {
       currentMode = 'BLOK';
-      btnModeBlok.className = 'flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 bg-emerald-600 text-white shadow';
-      btnModeSatuan.className = `flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${textSecondary} hover:text-emerald-500`;
+      btnModeBlok.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 bg-emerald-600 text-white shadow';
+      btnModeSatuan.className = `px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${textSecondary} hover:text-emerald-500`;
       wrapperSatuan.classList.add('hidden');
       wrapperBlok.classList.remove('hidden');
+      batchInfoBox.classList.remove('hidden');
       formPanelTitle.innerText = `Parameter Cetak Massal (${selectedBlock})`;
       const count = blockGroups[selectedBlock] ? blockGroups[selectedBlock].length : 0;
       btnText.innerText = `Terbitkan 1 PDF Bundel ${selectedBlock} (${count} Halaman)`;
       batchInfoText.innerText = `Seluruh ${count} pedagang di ${selectedBlock} akan digabung dalam 1 file PDF.`;
+      infoBadgeSummary.innerText = `${selectedBlock} • Total ${count} Pedagang / Halaman`;
     });
 
     // Block Selector Change
@@ -282,11 +303,19 @@ export function renderSuratView(container, initialKiosId = null) {
       formPanelTitle.innerText = `Parameter Cetak Massal (${selectedBlock})`;
       btnText.innerText = `Terbitkan 1 PDF Bundel ${selectedBlock} (${count} Halaman)`;
       batchInfoText.innerText = `Seluruh ${count} pedagang di ${selectedBlock} akan digabung dalam 1 file PDF.`;
+      infoBadgeSummary.innerText = `${selectedBlock} • Total ${count} Pedagang / Halaman`;
     });
 
     kioskSelect.addEventListener('change', (e) => {
       selectedKiosk = kiosks.find(k => k.id === e.target.value) || null;
+      updateSummaryBadge();
     });
+
+    function updateSummaryBadge() {
+      if (selectedKiosk) {
+        infoBadgeSummary.innerText = `${getCleanBlokName(selectedKiosk)} • ${selectedKiosk.pedagang} • ${selectedKiosk.sewaBulanan || 'Rp 225.000/thn'}`;
+      }
+    }
 
     refreshBtn.addEventListener('click', async () => {
       refreshBtn.classList.add('animate-spin');
@@ -379,8 +408,6 @@ export function renderSuratView(container, initialKiosId = null) {
           resultFileName.innerText = json.fileName || 'Surat_Pemberitahuan.pdf';
           btnViewPdf.href = json.pdfViewUrl || json.pdfUrl;
           resultCard.classList.remove('hidden');
-
-          resultCard.scrollIntoView({ behavior: 'smooth' });
         } else {
           alert('Gagal membuat PDF: ' + (json.message || 'Respons server tidak valid'));
         }
