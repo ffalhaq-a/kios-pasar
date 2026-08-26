@@ -48,15 +48,16 @@ class SpreadsheetService {
   }
 
   loadKiosks() {
-    const saved = localStorage.getItem(this.storageKey);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      } catch (e) {
-        console.error('Error parsing stored master kiosk data:', e);
+    const keys = [this.storageKey, 'pasar_mukti_makmur_master_v4', 'pasar_mukti_makmur_master_v3', 'pasar_mukti_makmur_master_v2'];
+    for (const key of keys) {
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        } catch (e) {}
       }
     }
 
@@ -72,7 +73,9 @@ class SpreadsheetService {
 
       // Method 1: Try GET with full parameter encoding
       try {
-        const res = await fetch(`${GOOGLE_API_URL}?action=getKiosks&apiToken=${encodeURIComponent(API_SECURITY_TOKEN)}`);
+        const res = await fetch(`${GOOGLE_API_URL}?action=getKiosks&apiToken=${encodeURIComponent(API_SECURITY_TOKEN)}`, {
+          redirect: 'follow'
+        });
         json = await res.json();
       } catch (e) {
         console.warn('GET getKiosks failed, attempting POST fallback...', e);

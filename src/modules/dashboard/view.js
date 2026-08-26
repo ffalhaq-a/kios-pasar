@@ -7,26 +7,6 @@ export function renderDashboardView(container) {
 
   // 1. Overall Master Stats (612 Units)
   const totalKios = kiosks.length;
-
-  if (totalKios === 0) {
-    container.innerHTML = `
-      <div class="p-8 flex flex-col items-center justify-center h-full space-y-4 ${isDark ? 'bg-slate-900 text-slate-200' : 'bg-slate-50 text-slate-700'}">
-        <div class="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-        <p class="text-sm font-bold text-center">Menghubungkan & Memuat Data 610 Unit Pasar dari Google Sheets...</p>
-        <button id="retry-fetch-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow transition-all">
-          Sinkronisasi Ulang Sekarang
-        </button>
-      </div>
-    `;
-
-    container.querySelector('#retry-fetch-btn')?.addEventListener('click', () => {
-      spreadsheetService.fetchRemoteKiosks();
-    });
-
-    spreadsheetService.fetchRemoteKiosks();
-    return;
-  }
-
   const terisi = kiosks.filter(k => k.pedagang && k.pedagang !== '-').length;
   const kosong = totalKios - terisi;
   
@@ -68,12 +48,20 @@ export function renderDashboardView(container) {
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 class="text-xl font-extrabold ${textPrimary}">Ringkasan Utama & Status Pembayaran</h1>
+          ${totalKios === 0 ? `<p class="text-xs text-amber-500 font-bold mt-1 animate-pulse">Menghubungkan & Memuat data 610 unit pasar dari Google Sheets...</p>` : ''}
         </div>
 
-        <button id="export-excel-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 shadow-lg shadow-emerald-900/30 transition-all w-fit">
-          <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
-          <span>Download Master Dataset CSV</span>
-        </button>
+        <div class="flex items-center gap-2">
+          <button id="sync-dashboard-btn" class="border px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${cardBg} ${textPrimary} hover:border-emerald-500 shadow-sm">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-emerald-500"></i>
+            <span>Sinkronisasi Data</span>
+          </button>
+
+          <button id="export-excel-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 shadow-lg shadow-emerald-900/30 transition-all w-fit">
+            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+            <span>Download CSV</span>
+          </button>
+        </div>
       </div>
 
       <!-- 1. BARIS ATAS: 5 KARTU STATISTIK UTAMA -->
@@ -211,7 +199,7 @@ export function renderDashboardView(container) {
           ${expiringKiosks.length > 0 ? expiringKiosks.map(k => `
             <div class="p-3 rounded-xl border flex items-center justify-between text-xs ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-amber-200'}">
               <div>
-                <span class="font-bold text-amber-500">Blok ${k.blokKode || k.id}</span>
+                <span class="font-bold text-amber-500">${k.blokKode.startsWith('Blok') ? k.blokKode : 'Blok ' + k.blokKode}</span>
                 <p class="font-semibold ${textPrimary} truncate max-w-[140px]">${k.pedagang}</p>
                 <p class="text-[10px] ${textSecondary}">${k.zona}</p>
               </div>
@@ -355,6 +343,15 @@ export function renderDashboardView(container) {
       </div>
     </div>
   `;
+
+  const syncBtn = container.querySelector('#sync-dashboard-btn');
+  if (syncBtn) {
+    syncBtn.addEventListener('click', async () => {
+      syncBtn.querySelector('i')?.classList.add('animate-spin');
+      await spreadsheetService.fetchRemoteKiosks();
+      syncBtn.querySelector('i')?.classList.remove('animate-spin');
+    });
+  }
 
   container.querySelector('#export-excel-btn')?.addEventListener('click', () => {
     spreadsheetService.downloadCSV();

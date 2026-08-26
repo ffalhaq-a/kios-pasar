@@ -5,8 +5,8 @@ import {
   API_SECURITY_TOKEN 
 } from '../utils/security.js';
 
-// Hidden API Endpoint behind Vercel Edge Serverless Proxy
-export const GOOGLE_API_URL = '/api/proxy';
+// Direct Google Apps Script Endpoint with built-in CORS & redirect follow
+export const GOOGLE_API_URL = 'https://script.google.com/macros/s/AKfycbzGTU7gWu_FlR2NbWkuh4p2RL0XHnMa3szvQlZ2mO9LcbKITDuO8WF937rQ0lCKs_87/exec';
 
 class AuthService {
   constructor() {
@@ -66,7 +66,7 @@ class AuthService {
   }
 
   /**
-   * Secure Login via HTTP POST through Hidden Proxy
+   * Secure Login via Direct Google Apps Script API
    */
   async login(username, password, remember = true) {
     const u = (username || '').trim();
