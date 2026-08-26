@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 
-// Official Default Template Configuration with Alinea, Ruler, & Alignment
+// Official Default Template Configuration formatted for SRIKANDI e-Office
 export const DEFAULT_TEMPLATE_SETTINGS = {
   // 1. KOP SURAT
   kopKabupaten: 'PEMERINTAH KABUPATEN CILACAP',
@@ -10,10 +10,10 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
   kopKota: 'CILACAP',
   kopKodePos: 'Kode Pos 53255',
 
-  // 2. METADATA & PERIHAL
-  defaultNoNaskah: '511.2/014/VIII/2026',
-  defaultDateStr: '26 Agustus 2026',
-  defaultSifat: 'Biasa',
+  // 2. METADATA & PERIHAL (TAG SRIKANDI)
+  defaultNoNaskah: '${nomor_naskah}',
+  defaultDateStr: '${tanggal_naskah}',
+  defaultSifat: '${sifat}',
   halSurat: 'Pemberitahuan Pembayaran Sewa Tahunan Pasar Mukti Makmur',
   tujuanSurat: 'Yth. Bapak/Ibu Penyewa Kios/Los/Lemprakan\nPasar Mukti Makmur Desa Karangpucung\ndi\nTempat',
 
@@ -39,8 +39,9 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
   // 6. PENUTUP
   paragrafPenutup: 'Demikian surat pemberitahuan ini kami sampaikan. Atas kerja sama dan partisipasi Bapak/Ibu dalam mendukung pembangunan desa, kami ucapkan terima kasih.',
 
-  // 7. TANDA TANGAN PEJABAT
+  // 7. TANDA TANGAN PEJABAT (TAG TTE SRIKANDI)
   ttdJabatan: 'PJ. Kepala Desa Karangpucung',
+  ttdTag: '${ttd_pengirim}',
   ttdNama: 'A. ANJARNINGSIH, S.E.',
   ttdNip: 'NIP. 19790507 2003 12 2 006',
 
@@ -58,7 +59,7 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
 
 class PdfService {
   constructor() {
-    this.storageKey = 'pasar_template_settings_v2';
+    this.storageKey = 'pasar_template_settings_v3';
     this.customLogoKey = 'pasar_custom_logo_v2';
     this.loadSettings();
   }
@@ -120,7 +121,7 @@ class PdfService {
   }
 
   /**
-   * Generates a single official notice letter (Surat Pemberitahuan)
+   * Generates a single official notice letter (Surat Pemberitahuan) with SRIKANDI tags
    * @param {Object} data 
    * @returns {jsPDF}
    */
@@ -136,7 +137,7 @@ class PdfService {
   }
 
   /**
-   * Generates multi-page batch notice letters in a single PDF file
+   * Generates multi-page batch notice letters in a single PDF file with SRIKANDI tags
    * @param {Array<Object>} kiosksList 
    * @param {Object} commonParams 
    * @returns {jsPDF}
@@ -156,9 +157,9 @@ class PdfService {
       }
 
       const letterData = {
-        nomor_naskah: commonParams.nomor_naskah || settings.defaultNoNaskah,
-        tanggal_naskah: commonParams.tanggal_naskah || settings.defaultDateStr,
-        sifat: commonParams.sifat || settings.defaultSifat,
+        nomor_naskah: commonParams.nomor_naskah || settings.defaultNoNaskah || '${nomor_naskah}',
+        tanggal_naskah: commonParams.tanggal_naskah || settings.defaultDateStr || '${tanggal_naskah}',
+        sifat: commonParams.sifat || settings.defaultSifat || '${sifat}',
         nama_pedagang: kiosk.pedagang === '-' ? 'Penyewa Kios' : kiosk.pedagang,
         jenis_pasar: (kiosk.zona || '').toUpperCase().includes('SAYUR') ? 'Sayur' : 'Sandang',
         blok_kios: kiosk.blokKode ? (kiosk.blokKode.startsWith('Blok') ? kiosk.blokKode : `Blok ${kiosk.blokKode}`) : (kiosk.id || '-'),
@@ -176,7 +177,7 @@ class PdfService {
   }
 
   /**
-   * Renders the complete official government layout with Alinea & Ruler Indentation
+   * Renders the complete official government layout with exact SRIKANDI tags
    */
   renderSingleLetterPage(doc, data) {
     const settings = this.getTemplateSettings();
@@ -248,15 +249,16 @@ class PdfService {
     doc.line(marginLeft, lineY + 1, pageWidth - marginRight, lineY + 1);
 
     // ==========================================
-    // 2. NOMOR NASKAH & TANGGAL
+    // 2. NOMOR NASKAH & TANGGAL (SRIKANDI TAGS)
     // ==========================================
     const startY = lineY + 7.5;
     doc.setFont(primaryFont, 'normal');
     doc.setFontSize(baseFontSize);
     doc.setTextColor(0, 0, 0);
 
-    // Date (Right Column)
-    doc.text(`Cilacap, ${data.tanggal_naskah || settings.defaultDateStr}`, pageWidth - marginRight, startY, { align: 'right' });
+    // Date (Right Column: Cilacap, ${tanggal_naskah})
+    const dateText = data.tanggal_naskah || settings.defaultDateStr || '${tanggal_naskah}';
+    doc.text(`Cilacap, ${dateText}`, pageWidth - marginRight, startY, { align: 'right' });
 
     // Left Column Metadata
     const colColon = marginLeft + 20;
@@ -264,11 +266,11 @@ class PdfService {
 
     doc.text('Nomor', marginLeft, startY + 4.5);
     doc.text(':', colColon, startY + 4.5);
-    doc.text(data.nomor_naskah || settings.defaultNoNaskah, colVal, startY + 4.5);
+    doc.text(data.nomor_naskah || settings.defaultNoNaskah || '${nomor_naskah}', colVal, startY + 4.5);
 
     doc.text('Sifat', marginLeft, startY + 9.5);
     doc.text(':', colColon, startY + 9.5);
-    doc.text(data.sifat || settings.defaultSifat, colVal, startY + 9.5);
+    doc.text(data.sifat || settings.defaultSifat || '${sifat}', colVal, startY + 9.5);
 
     doc.text('Lampiran', marginLeft, startY + 14.5);
     doc.text(':', colColon, startY + 14.5);
@@ -395,7 +397,7 @@ class PdfService {
     doc.text(penutupText, marginLeft, yPenutup, { maxWidth: contentWidth, align: alignMode, lineHeightFactor: 1.35 });
 
     // ==========================================
-    // 7. TANDA TANGAN KEPALA DESA
+    // 7. TANDA TANGAN KEPALA DESA (DENGAN TAG ${ttd_pengirim} SRIKANDI)
     // ==========================================
     const yTtd = yPenutup + 12.5;
     const ttdCenterX = pageWidth - marginRight - 38;
@@ -404,9 +406,16 @@ class PdfService {
     doc.setFontSize(baseFontSize);
     doc.text(settings.ttdJabatan || 'PJ. Kepala Desa Karangpucung', ttdCenterX, yTtd, { align: 'center' });
 
+    // SRIKANDI TTE TAG: ${ttd_pengirim}
+    const yTtdTag = yTtd + 13;
+    doc.setFont(primaryFont, 'normal');
+    doc.setFontSize(10.5);
+    doc.text(settings.ttdTag || '${ttd_pengirim}', ttdCenterX, yTtdTag, { align: 'center' });
+
     // Signature Name
-    const yNamaTtd = yTtd + 24;
+    const yNamaTtd = yTtd + 26;
     doc.setFont(primaryFont, 'bold');
+    doc.setFontSize(baseFontSize);
     doc.text(settings.ttdNama || 'A. ANJARNINGSIH, S.E.', ttdCenterX, yNamaTtd, { align: 'center' });
     
     // Underline

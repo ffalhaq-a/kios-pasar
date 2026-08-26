@@ -37,9 +37,10 @@ export function renderSuratView(container, targetKiosId = null) {
   const textSecondary = isDark ? 'text-slate-400' : 'text-slate-600';
   const inputBg = isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900';
 
-  // Default values
-  const defaultNoNaskah = '511.2/014/VIII/2026';
-  const defaultDateStr = '26 Agustus 2026';
+  // Default SRIKANDI Tag Values
+  const defaultNoNaskah = '${nomor_naskah}';
+  const defaultDateStr = '${tanggal_naskah}';
+  const defaultSifat = '${sifat}';
 
   container.innerHTML = `
     <div class="p-6 space-y-6 overflow-y-auto h-full ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}">
