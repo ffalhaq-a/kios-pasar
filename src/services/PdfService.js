@@ -1,5 +1,22 @@
 import { jsPDF } from 'jspdf';
 
+// Helper to convert ALL CAPS to Title Case (Kapital huruf depan)
+export function toTitleCase(str) {
+  if (!str || str === '-' || str.toLowerCase() === 'penyewa kios' || str.toLowerCase() === 'lahan kosong') {
+    return 'Penyewa';
+  }
+  return str
+    .toLowerCase()
+    .split(' ')
+    .map(word => {
+      if (word.length === 0) return '';
+      // Retain periods in abbreviations like H., Hj., Drs.
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(' ')
+    .trim();
+}
+
 // Official Default Template Configuration formatted for SRIKANDI e-Office
 export const DEFAULT_TEMPLATE_SETTINGS = {
   // 1. KOP SURAT
@@ -15,10 +32,9 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
   defaultDateStr: '${tanggal_naskah}',
   defaultSifat: '${sifat}',
   halSurat: 'Pemberitahuan Pembayaran Sewa Tahunan Pasar Mukti Makmur',
-  tujuanSurat: 'Yth. Bapak/Ibu Penyewa Kios/Los/Lemprakan\nPasar Mukti Makmur Desa Karangpucung\ndi\nTempat',
 
-  // 3. PARAGRAF PEMBUKA & ALINEA
-  paragrafPembuka: 'Berdasarkan Peraturan Desa (Perdes) Karangpucung Nomor 3 Tahun 2026 tentang Aset Desa, bersama ini kami beritahukan bahwa Pemerintah Desa Karangpucung akan melaksanakan penarikan sewa tahunan untuk fasilitas Kios/Los/Lemprakan di lingkungan Pasar Mukti Makmur Desa Karangpucung.\nAdapun rincian tagihan sewa tahunan Saudara/i adalah sebagai berikut:',
+  // 3. PARAGRAF PEMBUKA (PERDES NO 4/2025 & NO 3/2026) & ALINEA
+  paragrafPembuka: 'Berdasarkan Peraturan Desa (Perdes) Karangpucung Nomor 4 Tahun 2025 tentang Pungutan Pasar Mukti Makmur dan Nomor 3 Tahun 2026 tentang Aset Desa, bersama ini kami beritahukan bahwa Pemerintah Desa Karangpucung akan melaksanakan penarikan sewa tahunan untuk fasilitas Kios/Los/Lemprakan di lingkungan Pasar Mukti Makmur Desa Karangpucung.\nAdapun rincian tagihan sewa tahunan Saudara/i adalah sebagai berikut:',
   firstLineIndent: 12.7, // mm (0.5 inch standard alinea)
   textAlign: 'justify',  // justify | left
   lineSpacing: 1.35,
@@ -59,7 +75,7 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
 
 class PdfService {
   constructor() {
-    this.storageKey = 'pasar_template_settings_v3';
+    this.storageKey = 'pasar_template_settings_v4';
     this.customLogoKey = 'pasar_custom_logo_v2';
     this.loadSettings();
   }
@@ -156,13 +172,16 @@ class PdfService {
         doc.addPage('a4', 'portrait');
       }
 
+      const cleanJenisPasar = (kiosk.zona || '').toUpperCase().includes('SAYUR') || String(kiosk.id || '').startsWith('SYR') ? 'Sayur' : 'Sandang';
+      const cleanBlokKode = kiosk.blokKode ? (kiosk.blokKode.startsWith('Blok') ? kiosk.blokKode : `Blok ${kiosk.blokKode}`) : (kiosk.id || '-');
+
       const letterData = {
         nomor_naskah: commonParams.nomor_naskah || settings.defaultNoNaskah || '${nomor_naskah}',
         tanggal_naskah: commonParams.tanggal_naskah || settings.defaultDateStr || '${tanggal_naskah}',
         sifat: commonParams.sifat || settings.defaultSifat || '${sifat}',
-        nama_pedagang: kiosk.pedagang === '-' ? 'Penyewa Kios' : kiosk.pedagang,
-        jenis_pasar: (kiosk.zona || '').toUpperCase().includes('SAYUR') ? 'Sayur' : 'Sandang',
-        blok_kios: kiosk.blokKode ? (kiosk.blokKode.startsWith('Blok') ? kiosk.blokKode : `Blok ${kiosk.blokKode}`) : (kiosk.id || '-'),
+        nama_pedagang: kiosk.pedagang === '-' ? 'Penyewa' : kiosk.pedagang,
+        jenis_pasar: cleanJenisPasar,
+        blok_kios: cleanBlokKode,
         tipe_kios: kiosk.tipeKios || 'LOS',
         luas_dimensi: kiosk.luasDimensi || '200 x 200',
         luas_m2: kiosk.luasM2 || '4.0',
@@ -177,7 +196,7 @@ class PdfService {
   }
 
   /**
-   * Renders the complete official government layout with exact SRIKANDI tags
+   * Renders the complete official government layout
    */
   renderSingleLetterPage(doc, data) {
     const settings = this.getTemplateSettings();
@@ -284,20 +303,22 @@ class PdfService {
     doc.text(halLines, colVal, startY + 19.5);
 
     // ==========================================
-    // 3. TUJUAN SURAT (KEPADA YTH)
+    // 3. TUJUAN SURAT (KEPADA YTH - TITLE CASE: Napsiyah Blok A1 Pasar Sandang)
     // ==========================================
-    const yTujuan = startY + 32;
-    doc.text('Yth. Bapak/Ibu Penyewa Kios/Los/Lemprakan', marginLeft, yTujuan);
-    doc.text('Pasar Mukti Makmur Desa Karangpucung', marginLeft + 7.5, yTujuan + 5);
+    const yTujuan = startY + 31;
+    const merchantTitle = toTitleCase(data.nama_pedagang);
+    const blokName = data.blok_kios || 'Blok A1';
+    const pasarName = (data.jenis_pasar || 'Sandang').startsWith('Pasar') ? data.jenis_pasar : `Pasar ${data.jenis_pasar || 'Sandang'}`;
 
-    doc.text('di', marginLeft + 7.5, yTujuan + 12);
-    doc.text('Tempat', marginLeft, yTujuan + 17);
+    doc.text(`Yth. ${merchantTitle} ${blokName} ${pasarName}`, marginLeft, yTujuan);
+    doc.text('di', marginLeft + 7.5, yTujuan + 5.5);
+    doc.text('Tempat', marginLeft + 7.5, yTujuan + 10.5);
 
     // ==========================================
-    // 4. PARAGRAF PEMBUKA (DENGAN ALINEA & JUSTIFY)
+    // 4. PARAGRAF PEMBUKA (DENGAN PERDES NO 4/2025 & NO 3/2026 + ALINEA)
     // ==========================================
-    const yPembuka = yTujuan + 24;
-    const rawParagraph = (settings.paragrafPembuka || 'Berdasarkan Peraturan Desa (Perdes) Karangpucung Nomor 3 Tahun 2026 tentang Aset Desa, bersama ini kami beritahukan bahwa Pemerintah Desa Karangpucung akan melaksanakan penarikan sewa tahunan untuk fasilitas Kios/Los/Lemprakan di lingkungan Pasar Mukti Makmur Desa Karangpucung.\nAdapun rincian tagihan sewa tahunan Saudara/i adalah sebagai berikut:').split('\n');
+    const yPembuka = yTujuan + 19;
+    const rawParagraph = (settings.paragrafPembuka || 'Berdasarkan Peraturan Desa (Perdes) Karangpucung Nomor 4 Tahun 2025 tentang Pungutan Pasar Mukti Makmur dan Nomor 3 Tahun 2026 tentang Aset Desa, bersama ini kami beritahukan bahwa Pemerintah Desa Karangpucung akan melaksanakan penarikan sewa tahunan untuk fasilitas Kios/Los/Lemprakan di lingkungan Pasar Mukti Makmur Desa Karangpucung.\nAdapun rincian tagihan sewa tahunan Saudara/i adalah sebagai berikut:').split('\n');
 
     let currentY = yPembuka;
 
