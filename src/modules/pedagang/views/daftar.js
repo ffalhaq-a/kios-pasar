@@ -209,7 +209,7 @@ export function renderDaftarPedagangView(container) {
       btn.addEventListener('click', () => {
         const targetId = btn.getAttribute('data-surat-id');
         window._selectedKiosIdForSurat = targetId;
-        if (window._navigate) window._navigate('/surat');
+        if (window._navigate) window._navigate('/surat/pemberitahuan');
       });
     });
 

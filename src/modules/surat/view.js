@@ -197,9 +197,24 @@ export function renderSuratView(container, initialKiosId = null) {
           </span>
         </div>
 
-        <!-- BOTTOM CONTROLS & RESULT BANNER -->
+        <!-- BOTTOM CONTROLS, PROGRESS INDICATOR & RESULT BANNER -->
         <div class="space-y-4 pt-3 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}">
           
+          <!-- PROGRESS INDICATOR BAR (ACTIVE DURING GENERATION) -->
+          <div id="progress-indicator-box" class="hidden border rounded-2xl p-4 space-y-2.5 bg-slate-900 border-slate-700/80 shadow-lg">
+            <div class="flex items-center justify-between text-xs font-bold">
+              <span id="progress-status-label" class="text-emerald-400 flex items-center gap-2">
+                <i data-lucide="loader" class="w-4 h-4 animate-spin"></i>
+                <span id="progress-status-text">Menyusun halaman surat di Google Drive...</span>
+              </span>
+              <span id="progress-percent" class="font-mono text-slate-300">45%</span>
+            </div>
+            <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden border border-slate-700">
+              <div id="progress-bar-fill" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-300" style="width: 45%;"></div>
+            </div>
+            <p id="progress-subtext" class="text-[11px] text-slate-400">Mohon tunggu sebentar, file PDF sedang digabungkan dan disimpan ke folder Drive...</p>
+          </div>
+
           <!-- RESULT SUCCESS BANNER -->
           <div id="result-status-card" class="hidden border rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 ${cardBg} border-emerald-500/50 bg-emerald-500/5 shadow-sm">
             <div class="flex items-center gap-3 text-emerald-500 font-extrabold text-xs">
@@ -259,9 +274,61 @@ export function renderSuratView(container, initialKiosId = null) {
     const btnText = container.querySelector('#btn-generate-text');
     const refreshBtn = container.querySelector('#refresh-data-btn');
 
+    const progressBox = container.querySelector('#progress-indicator-box');
+    const progressBarFill = container.querySelector('#progress-bar-fill');
+    const progressPercent = container.querySelector('#progress-percent');
+    const progressStatusText = container.querySelector('#progress-status-text');
+    const progressSubtext = container.querySelector('#progress-subtext');
+
     const resultCard = container.querySelector('#result-status-card');
     const resultFileName = container.querySelector('#result-file-name');
     const btnViewPdf = container.querySelector('#btn-view-pdf');
+
+    let progressInterval = null;
+
+    function startProgressAnimation(isBatch, count = 1) {
+      progressBox.classList.remove('hidden');
+      resultCard.classList.add('hidden');
+      let progress = 10;
+      progressBarFill.style.width = '10%';
+      progressPercent.innerText = '10%';
+      progressStatusText.innerText = 'Menghubungkan ke Google Apps Script...';
+      progressSubtext.innerText = 'Mempersiapkan data pedagang dan folder Google Drive...';
+
+      progressInterval = setInterval(() => {
+        if (progress < 85) {
+          progress += Math.floor(Math.random() * 8) + 3;
+          if (progress > 85) progress = 85;
+          progressBarFill.style.width = `${progress}%`;
+          progressPercent.innerText = `${progress}%`;
+
+          if (progress > 30 && progress < 60) {
+            progressStatusText.innerText = isBatch ? `Menggandakan template & menyusun ${count} halaman...` : 'Mengisi template Google Docs...';
+            progressSubtext.innerText = 'Memasukkan rincian tagihan sewa dan nomor surat...';
+          } else if (progress >= 60) {
+            progressStatusText.innerText = 'Mengonversi dokumen menjadi PDF di Google Drive...';
+            progressSubtext.innerText = 'Menyimpan berkas resmi ke folder Arsip Surat...';
+          }
+        }
+      }, 400);
+    }
+
+    function stopProgressAnimation(isSuccess) {
+      if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+      }
+      if (isSuccess) {
+        progressBarFill.style.width = '100%';
+        progressPercent.innerText = '100%';
+        progressStatusText.innerText = 'Penerbitan PDF Selesai!';
+        setTimeout(() => {
+          progressBox.classList.add('hidden');
+        }, 800);
+      } else {
+        progressBox.classList.add('hidden');
+      }
+    }
 
     // Switch to SATUAN Mode
     btnModeSatuan.addEventListener('click', () => {
@@ -337,6 +404,7 @@ export function renderSuratView(container, initialKiosId = null) {
             return;
           }
 
+          startProgressAnimation(false, 1);
           btnText.innerText = 'Memproses PDF di Google Drive...';
           const cleanBlok = getCleanBlokName(selectedKiosk);
           const cleanPasar = getCleanJenisPasar(selectedKiosk);
@@ -365,6 +433,7 @@ export function renderSuratView(container, initialKiosId = null) {
             return;
           }
 
+          startProgressAnimation(true, targetKiosks.length);
           btnText.innerText = `Menyusun 1 PDF Bundel ${selectedBlock} (${targetKiosks.length} Halaman)...`;
 
           const kioskPayloads = targetKiosks.map(k => ({
@@ -400,13 +469,18 @@ export function renderSuratView(container, initialKiosId = null) {
         const json = await res.json();
 
         if (json.status === 'success' && (json.pdfUrl || json.pdfViewUrl)) {
+          stopProgressAnimation(true);
           resultFileName.innerText = json.fileName || 'Surat_Pemberitahuan.pdf';
           btnViewPdf.href = json.pdfViewUrl || json.pdfUrl;
           resultCard.classList.remove('hidden');
+
+          resultCard.scrollIntoView({ behavior: 'smooth' });
         } else {
+          stopProgressAnimation(false);
           alert('Gagal membuat PDF: ' + (json.message || 'Respons server tidak valid'));
         }
       } catch (err) {
+        stopProgressAnimation(false);
         console.error('Error generating document:', err);
         alert('Terjadi kendala jaringan saat menghubungi server Google Drive: ' + err.toString());
       } finally {
