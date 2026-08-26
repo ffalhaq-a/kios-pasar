@@ -3,6 +3,29 @@ import { themeManager } from '../../shell/ThemeManager.js';
 import { authService, GOOGLE_API_URL } from '../../services/AuthService.js';
 import { API_SECURITY_TOKEN, escapeHTML } from '../../utils/security.js';
 
+/**
+ * Helper to ensure clean "Blok A1", "Blok B2", etc.
+ */
+function getCleanBlokName(kiosk) {
+  if (!kiosk) return 'Blok -';
+  let blok = String(kiosk.blokKode || '').trim();
+  
+  // If blokKode is empty or contains "PASAR", fallback to id
+  if (!blok || blok.toUpperCase().includes('PASAR')) {
+    blok = String(kiosk.id || '').trim();
+  }
+
+  // Strip SND- or SYR- prefix if present (e.g. SND-A1 -> A1)
+  blok = blok.replace(/^(SND-|SYR-)/i, '').trim();
+
+  // If already starts with "Blok", normalize capitalization
+  if (/^blok\s+/i.test(blok)) {
+    return blok.replace(/^blok\s+/i, 'Blok ');
+  }
+
+  return `Blok ${blok}`;
+}
+
 export function renderSuratView(container, initialKiosId = null) {
   const isDark = themeManager.isDark();
   const kiosks = spreadsheetService.loadKiosks();
@@ -64,7 +87,7 @@ export function renderSuratView(container, initialKiosId = null) {
               <select id="kiosk-select" class="w-full p-2.5 rounded-xl text-xs font-bold border focus:outline-none focus:border-emerald-500 ${inputBg}">
                 ${kiosks.map(k => `
                   <option value="${k.id}" ${selectedKiosk && selectedKiosk.id === k.id ? 'selected' : ''}>
-                    [${k.blokKode || k.id}] ${k.pedagang === '-' ? '(KOSONG)' : k.pedagang} - ${k.zona}
+                    [${getCleanBlokName(k)}] ${k.pedagang === '-' ? '(KOSONG)' : k.pedagang} - ${k.zona}
                   </option>
                 `).join('')}
               </select>
@@ -123,7 +146,7 @@ export function renderSuratView(container, initialKiosId = null) {
               <i data-lucide="check-circle" class="w-4 h-4"></i>
               <span id="result-status-title">Surat PDF Berhasil Diterbitkan!</span>
             </div>
-            <p id="result-file-name" class="text-xs font-mono ${textSecondary}">Surat_Pemberitahuan_Blok_A1_NAPSIYAH_2026.pdf</p>
+            <p id="result-file-name" class="text-xs font-mono ${textSecondary}">Surat_Pemberitahuan.pdf</p>
             
             <div class="flex flex-wrap gap-2 pt-2">
               <a 
@@ -197,7 +220,7 @@ export function renderSuratView(container, initialKiosId = null) {
                 </div>
                 <div class="flex justify-between py-0.5 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}">
                   <span class="${textSecondary}">Kios/Los/Lemprakan:</span>
-                  <strong id="detail-blok" class="text-emerald-500 font-mono">${selectedKiosk ? selectedKiosk.blokKode || selectedKiosk.id : '-'} (${selectedKiosk ? selectedKiosk.tipeKios : 'LOS'})</strong>
+                  <strong id="detail-blok" class="text-emerald-500 font-mono">${getCleanBlokName(selectedKiosk)} (${selectedKiosk ? selectedKiosk.tipeKios : 'LOS'})</strong>
                 </div>
                 <div class="flex justify-between py-0.5 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}">
                   <span class="${textSecondary}">Ukuran / Luas:</span>
@@ -295,6 +318,8 @@ export function renderSuratView(container, initialKiosId = null) {
       generateBtn.className = 'w-full bg-slate-700 text-slate-300 p-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow opacity-80 cursor-wait';
 
       try {
+        const cleanBlok = getCleanBlokName(selectedKiosk);
+
         const payload = {
           action: 'generateSuratPemberitahuan',
           apiToken: API_SECURITY_TOKEN,
@@ -302,7 +327,7 @@ export function renderSuratView(container, initialKiosId = null) {
           tanggal_naskah: inputTgl.value.trim(),
           sifat: inputSifat.value,
           nama_pedagang: selectedKiosk.pedagang === '-' ? 'Penyewa Kios' : selectedKiosk.pedagang,
-          blok_kios: `Blok ${selectedKiosk.blokKode || selectedKiosk.id}`,
+          blok_kios: cleanBlok,
           tipe_kios: selectedKiosk.tipeKios || 'LOS',
           luas_dimensi: selectedKiosk.luasDimensi || '200 x 200',
           luas_m2: selectedKiosk.luasM2 || '4.0',
@@ -324,7 +349,6 @@ export function renderSuratView(container, initialKiosId = null) {
           btnViewPdf.href = json.pdfViewUrl || json.pdfUrl;
           resultCard.classList.remove('hidden');
 
-          // Scroll to result card
           resultCard.scrollIntoView({ behavior: 'smooth' });
         } else {
           alert('Gagal membuat PDF: ' + (json.message || 'Respons server tidak valid'));
@@ -347,7 +371,7 @@ export function renderSuratView(container, initialKiosId = null) {
     if (!kiosk) return;
     container.querySelector('#preview-nama-pedagang').innerText = kiosk.pedagang === '-' ? 'Penyewa Kios' : kiosk.pedagang;
     container.querySelector('#detail-nama').innerText = kiosk.pedagang === '-' ? '(Lahan Kosong)' : kiosk.pedagang;
-    container.querySelector('#detail-blok').innerText = `Blok ${kiosk.blokKode || kiosk.id} (${kiosk.tipeKios || 'LOS'})`;
+    container.querySelector('#detail-blok').innerText = `${getCleanBlokName(kiosk)} (${kiosk.tipeKios || 'LOS'})`;
     container.querySelector('#detail-luas').innerText = `${kiosk.luasDimensi || '200 x 200'} (${kiosk.luasM2 || '4.0'} m²)`;
     container.querySelector('#detail-sewa').innerText = kiosk.sewaBulanan || 'Rp 225.000/thn';
   }
