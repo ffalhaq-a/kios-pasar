@@ -1,10 +1,7 @@
 import { spreadsheetService, formatDateDDMMYYYY } from '../../services/SpreadsheetService.js';
 import { themeManager } from '../../shell/ThemeManager.js';
-import { authService, GOOGLE_API_URL } from '../../services/AuthService.js';
-import { API_SECURITY_TOKEN, escapeHTML } from '../../utils/security.js';
-
-// Direct Google Apps Script Endpoint for long-running batch PDF generator (bypasses 15s Vercel edge timeout)
-const DIRECT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzGTU7gWu_FlR2NbWkuh4p2RL0XHnMa3szvQlZ2mO9LcbKITDuO8WF937rQ0lCKs_87/exec';
+import { authService } from '../../services/AuthService.js';
+import { pdfService } from '../../services/PdfService.js';
 
 /**
  * Helper to ensure clean "Blok A1", "Blok B2", etc.
@@ -193,29 +190,29 @@ export function renderSuratView(container, initialKiosId = null) {
         <div id="batch-info-box" class="hidden p-3.5 rounded-xl border text-xs flex items-center justify-between gap-3 bg-emerald-500/10 border-emerald-500/30 text-emerald-500">
           <div class="flex items-center gap-2">
             <i data-lucide="info" class="w-4 h-4 shrink-0"></i>
-            <span id="batch-info-text">Seluruh surat di blok ini akan disatukan menjadi 1 File PDF multi-halaman.</span>
+            <span id="batch-info-text">Seluruh surat di blok ini akan disatukan menjadi 1 File PDF multi-halaman siap cetak.</span>
           </div>
           <span class="text-[11px] font-mono font-bold bg-emerald-500/20 px-2.5 py-1 rounded-lg">
-            1 KALI KLIK PRINT ALL
+            INSTAN 1-2 DETIK
           </span>
         </div>
 
         <!-- BOTTOM CONTROLS, PROGRESS INDICATOR & RESULT BANNER -->
         <div class="space-y-4 pt-3 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}">
           
-          <!-- PROGRESS INDICATOR BAR (ACTIVE DURING GENERATION) -->
+          <!-- PROGRESS INDICATOR BAR -->
           <div id="progress-indicator-box" class="hidden border rounded-2xl p-4 space-y-2.5 bg-slate-900 border-slate-700/80 shadow-lg">
             <div class="flex items-center justify-between text-xs font-bold">
               <span id="progress-status-label" class="text-emerald-400 flex items-center gap-2">
                 <i data-lucide="loader" class="w-4 h-4 animate-spin"></i>
-                <span id="progress-status-text">Menyusun halaman surat di Google Drive...</span>
+                <span id="progress-status-text">Menyusun halaman surat PDF...</span>
               </span>
-              <span id="progress-percent" class="font-mono text-slate-300">10%</span>
+              <span id="progress-percent" class="font-mono text-slate-300">0%</span>
             </div>
             <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden border border-slate-700">
-              <div id="progress-bar-fill" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-300" style="width: 10%;"></div>
+              <div id="progress-bar-fill" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-200" style="width: 0%;"></div>
             </div>
-            <p id="progress-subtext" class="text-[11px] text-slate-400">Mohon tunggu sebentar, file PDF sedang digabungkan dan disimpan ke folder Drive...</p>
+            <p id="progress-subtext" class="text-[11px] text-slate-400">Memproses dokumen A4 dengan tata letak resmi desa...</p>
           </div>
 
           <!-- RESULT SUCCESS BANNER -->
@@ -223,20 +220,22 @@ export function renderSuratView(container, initialKiosId = null) {
             <div class="flex items-center gap-3 text-emerald-500 font-extrabold text-xs">
               <i data-lucide="check-circle" class="w-5 h-5"></i>
               <div>
-                <p id="result-status-title" class="text-sm">Surat PDF Berhasil Diterbitkan ke Google Drive!</p>
+                <p id="result-status-title" class="text-sm">Surat PDF Berhasil Dibuat & Siap Dicetak!</p>
                 <p id="result-file-name" class="text-xs font-mono font-normal text-slate-400">Surat_Pemberitahuan.pdf</p>
               </div>
             </div>
             
-            <a 
-              id="btn-view-pdf" 
-              href="#" 
-              target="_blank" 
-              class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow transition-all"
-            >
-              <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
-              <span>Buka File PDF di Google Drive</span>
-            </a>
+            <div class="flex items-center gap-2 w-full sm:w-auto">
+              <a 
+                id="btn-view-pdf" 
+                href="#" 
+                target="_blank" 
+                class="flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow transition-all cursor-pointer"
+              >
+                <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+                <span>Buka & Cetak PDF</span>
+              </a>
+            </div>
           </div>
 
           <!-- GENERATE ACTION BUTTON -->
@@ -245,7 +244,7 @@ export function renderSuratView(container, initialKiosId = null) {
             class="w-full bg-emerald-600 hover:bg-emerald-500 text-white p-3.5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all cursor-pointer"
           >
             <i data-lucide="file-check" class="w-4 h-4"></i>
-            <span id="btn-generate-text">Terbitkan Surat PDF & Simpan ke Drive</span>
+            <span id="btn-generate-text">Terbitkan Surat PDF Sekarang</span>
           </button>
 
         </div>
@@ -287,52 +286,6 @@ export function renderSuratView(container, initialKiosId = null) {
     const resultFileName = container.querySelector('#result-file-name');
     const btnViewPdf = container.querySelector('#btn-view-pdf');
 
-    let progressInterval = null;
-
-    function startProgressAnimation(isBatch, count = 1) {
-      progressBox.classList.remove('hidden');
-      resultCard.classList.add('hidden');
-      let progress = 10;
-      progressBarFill.style.width = '10%';
-      progressPercent.innerText = '10%';
-      progressStatusText.innerText = 'Menghubungkan ke Google Apps Script...';
-      progressSubtext.innerText = 'Mempersiapkan data pedagang dan folder Google Drive...';
-
-      progressInterval = setInterval(() => {
-        if (progress < 90) {
-          progress += Math.floor(Math.random() * 5) + 2;
-          if (progress > 90) progress = 90;
-          progressBarFill.style.width = `${progress}%`;
-          progressPercent.innerText = `${progress}%`;
-
-          if (progress > 25 && progress < 60) {
-            progressStatusText.innerText = isBatch ? `Menggandakan template & menyusun ${count} halaman...` : 'Mengisi template Google Docs...';
-            progressSubtext.innerText = 'Memasukkan rincian tagihan sewa dan nomor surat...';
-          } else if (progress >= 60) {
-            progressStatusText.innerText = 'Mengonversi dokumen menjadi PDF di Google Drive...';
-            progressSubtext.innerText = 'Menyimpan berkas resmi ke folder Arsip Surat...';
-          }
-        }
-      }, 500);
-    }
-
-    function stopProgressAnimation(isSuccess) {
-      if (progressInterval) {
-        clearInterval(progressInterval);
-        progressInterval = null;
-      }
-      if (isSuccess) {
-        progressBarFill.style.width = '100%';
-        progressPercent.innerText = '100%';
-        progressStatusText.innerText = 'Penerbitan PDF Selesai!';
-        setTimeout(() => {
-          progressBox.classList.add('hidden');
-        }, 800);
-      } else {
-        progressBox.classList.add('hidden');
-      }
-    }
-
     // Switch to SATUAN Mode
     btnModeSatuan.addEventListener('click', () => {
       currentMode = 'SATUAN';
@@ -342,7 +295,7 @@ export function renderSuratView(container, initialKiosId = null) {
       wrapperBlok.classList.add('hidden');
       batchInfoBox.classList.add('hidden');
       formPanelTitle.innerText = 'Parameter Cetak Satuan';
-      btnText.innerText = 'Terbitkan Surat PDF & Simpan ke Drive';
+      btnText.innerText = 'Terbitkan Surat PDF Sekarang';
       updateSummaryBadge();
     });
 
@@ -389,59 +342,60 @@ export function renderSuratView(container, initialKiosId = null) {
       renderSuratView(container, selectedKiosk ? selectedKiosk.id : null);
     });
 
-    // GENERATE PDF TRIGGER (SATUAN & MASSAL PER BLOK)
+    // HIGH-SPEED INSTANT PDF GENERATOR TRIGGER (SATUAN & MASSAL PER BLOK)
     generateBtn.addEventListener('click', async () => {
-      const currentUser = authService.getCurrentUser();
-      const petugasName = currentUser ? `${currentUser.nama} (${currentUser.username})` : 'Petugas Pasar';
-
       generateBtn.disabled = true;
       generateBtn.className = 'w-full bg-slate-700 text-slate-300 p-3.5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow opacity-80 cursor-wait';
+      progressBox.classList.remove('hidden');
+      resultCard.classList.add('hidden');
 
       try {
-        let payload = {};
         const isBatch = currentMode !== 'SATUAN';
+        const globalParams = {
+          nomor_naskah: inputNo.value.trim() || '511.2/014/VIII/2026',
+          tanggal_naskah: inputTgl.value.trim() || defaultDateStr,
+          sifat: inputSifat.value || 'Biasa'
+        };
+
+        let pdfDoc;
+        let fileName;
 
         if (!isBatch) {
           if (!selectedKiosk) {
             alert('Silakan pilih Kios/Pedagang terlebih dahulu!');
             generateBtn.disabled = false;
+            progressBox.classList.add('hidden');
             return;
           }
 
-          startProgressAnimation(false, 1);
-          btnText.innerText = 'Memproses PDF di Google Drive...';
-          const cleanBlok = getCleanBlokName(selectedKiosk);
-          const cleanPasar = getCleanJenisPasar(selectedKiosk);
+          progressPercent.innerText = '50%';
+          progressBarFill.style.width = '50%';
+          progressStatusText.innerText = 'Menyusun dokumen PDF surat satuan...';
 
-          payload = {
-            action: 'generateSuratPemberitahuan',
-            apiToken: API_SECURITY_TOKEN,
-            nomor_naskah: inputNo.value.trim(),
-            tanggal_naskah: inputTgl.value.trim(),
-            sifat: inputSifat.value,
+          const singleData = {
+            ...globalParams,
             nama_pedagang: selectedKiosk.pedagang === '-' ? 'Penyewa Kios' : selectedKiosk.pedagang,
-            jenis_pasar: cleanPasar,
-            blok_kios: cleanBlok,
+            jenis_pasar: getCleanJenisPasar(selectedKiosk),
+            blok_kios: getCleanBlokName(selectedKiosk),
             tipe_kios: selectedKiosk.tipeKios || 'LOS',
             luas_dimensi: selectedKiosk.luasDimensi || '200 x 200',
             luas_m2: selectedKiosk.luasM2 || '4.0',
-            biaya_sewa: selectedKiosk.sewaBulanan || 'Rp 225.000/thn',
-            user: petugasName
+            biaya_sewa: selectedKiosk.sewaBulanan || 'Rp 225.000/thn'
           };
+
+          pdfDoc = pdfService.generateSingleNotice(singleData);
+          fileName = `Surat_Pemberitahuan_${singleData.blok_kios.replace(/\s+/g, '_')}_${singleData.nama_pedagang.replace(/\s+/g, '_')}_2026.pdf`;
         } else {
-          // BATCH PER BLOK MODE
+          // BATCH PER BLOK
           const targetKiosks = blockGroups[selectedBlock] || [];
           if (targetKiosks.length === 0) {
             alert(`Tidak ada data kios di ${selectedBlock}!`);
             generateBtn.disabled = false;
+            progressBox.classList.add('hidden');
             return;
           }
 
-          startProgressAnimation(true, targetKiosks.length);
-          btnText.innerText = `Menyusun 1 PDF Bundel ${selectedBlock} (${targetKiosks.length} Halaman)...`;
-
-          const kioskPayloads = targetKiosks.map(k => ({
-            id: k.id,
+          const kioskList = targetKiosks.map(k => ({
             nama_pedagang: k.pedagang === '-' ? 'Penyewa Kios' : k.pedagang,
             jenis_pasar: getCleanJenisPasar(k),
             blok_kios: getCleanBlokName(k),
@@ -451,55 +405,46 @@ export function renderSuratView(container, initialKiosId = null) {
             biaya_sewa: k.sewaBulanan || 'Rp 225.000/thn'
           }));
 
-          payload = {
-            action: 'generateSuratBatchBlok',
-            apiToken: API_SECURITY_TOKEN,
-            blok_name: selectedBlock,
-            nomor_naskah: inputNo.value.trim(),
-            tanggal_naskah: inputTgl.value.trim(),
-            sifat: inputSifat.value,
-            kiosks: kioskPayloads,
-            user: petugasName
-          };
+          pdfDoc = pdfService.generateBatchNotice(kioskList, globalParams, (percent, cur, total) => {
+            progressPercent.innerText = `${percent}%`;
+            progressBarFill.style.width = `${percent}%`;
+            progressStatusText.innerText = `Menyusun halaman ${cur} dari ${total} pedagang...`;
+          });
+
+          fileName = `Bundel_Surat_Massal_${selectedBlock.replace(/\s+/g, '_')}_2026.pdf`;
         }
 
-        // For large batch PDF generation, use direct Google Apps Script URL to avoid Vercel 15s edge proxy timeout
-        const targetUrl = isBatch ? DIRECT_SCRIPT_URL : GOOGLE_API_URL;
+        // Complete Progress
+        progressPercent.innerText = '100%';
+        progressBarFill.style.width = '100%';
+        progressStatusText.innerText = 'File PDF Berhasil Dibuat!';
 
-        const res = await fetch(targetUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(payload),
-          redirect: 'follow'
-        });
+        // Create Blob URL for Instant Download & Preview
+        const pdfBlob = pdfDoc.output('blob');
+        const pdfBlobUrl = URL.createObjectURL(pdfBlob);
 
-        const rawText = await res.text();
-        let json;
-        try {
-          json = JSON.parse(rawText);
-        } catch (err) {
-          throw new Error('Server mengembalikan respons non-JSON: ' + rawText.substring(0, 100));
-        }
+        // Auto Download file
+        pdfDoc.save(fileName);
 
-        if (json.status === 'success' && (json.pdfUrl || json.pdfViewUrl)) {
-          stopProgressAnimation(true);
-          resultFileName.innerText = json.fileName || 'Surat_Pemberitahuan.pdf';
-          btnViewPdf.href = json.pdfViewUrl || json.pdfUrl;
-          resultCard.classList.remove('hidden');
+        // Update result card
+        resultFileName.innerText = fileName;
+        btnViewPdf.href = pdfBlobUrl;
+        resultCard.classList.remove('hidden');
 
-          resultCard.scrollIntoView({ behavior: 'smooth' });
-        } else {
-          stopProgressAnimation(false);
-          alert('Gagal membuat PDF: ' + (json.message || 'Respons server tidak valid'));
-        }
+        setTimeout(() => {
+          progressBox.classList.add('hidden');
+        }, 600);
+
+        resultCard.scrollIntoView({ behavior: 'smooth' });
+
       } catch (err) {
-        stopProgressAnimation(false);
-        console.error('Error generating document:', err);
-        alert('Terjadi kendala jaringan saat menghubungi server Google Drive: ' + err.toString());
+        console.error('Error generating instant PDF:', err);
+        progressBox.classList.add('hidden');
+        alert('Terjadi kendala saat menyusun PDF: ' + err.toString());
       } finally {
         generateBtn.disabled = false;
         if (currentMode === 'SATUAN') {
-          btnText.innerText = 'Terbitkan Surat PDF & Simpan ke Drive';
+          btnText.innerText = 'Terbitkan Surat PDF Sekarang';
         } else {
           const count = blockGroups[selectedBlock] ? blockGroups[selectedBlock].length : 0;
           btnText.innerText = `Terbitkan 1 PDF Bundel ${selectedBlock} (${count} Halaman)`;
