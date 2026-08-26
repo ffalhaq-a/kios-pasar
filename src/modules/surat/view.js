@@ -25,7 +25,7 @@ export function renderSuratView(container, targetKiosId = null) {
   const sandangKiosks = kiosks.filter(k => getCleanJenisPasar(k) === 'Sandang');
   const sayurKiosks = kiosks.filter(k => getCleanJenisPasar(k) === 'Sayur');
 
-  // Extract unique blocks
+  // Extract unique blocks per market
   const getBlockList = (kioskList) => {
     const map = new Map();
     kioskList.forEach(k => {
@@ -39,7 +39,8 @@ export function renderSuratView(container, targetKiosId = null) {
       .sort((a, b) => a.letter.localeCompare(b.letter));
   };
 
-  const allBlocks = getBlockList(kiosks);
+  const sandangBlocks = getBlockList(sandangKiosks);
+  const sayurBlocks = getBlockList(sayurKiosks);
 
   const cardBg = isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200 shadow-sm';
   const textPrimary = isDark ? 'text-slate-100' : 'text-slate-900';
@@ -58,7 +59,7 @@ export function renderSuratView(container, targetKiosId = null) {
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 class="text-xl font-extrabold ${textPrimary}">Penerbitan Surat Pemberitahuan</h1>
-          <p class="text-xs ${textSecondary} mt-0.5">Format standar SRIKANDI • Cetak Satuan, Per Blok, atau Per Pasar Sekaligus</p>
+          <p class="text-xs ${textSecondary} mt-0.5">Format standar SRIKANDI • Cetak Satuan, Per Blok Sandang/Sayur, atau Per Kawasan</p>
         </div>
 
         <div class="flex items-center gap-2">
@@ -142,36 +143,35 @@ export function renderSuratView(container, targetKiosId = null) {
             </div>
           </div>
 
-          <!-- CARD 2: CETAK MASSAL (PER PASAR / PER BLOK) -->
+          <!-- CARD 2: CETAK MASSAL BERJENJANG (SANDANG / SAYUR / BLOK) -->
           <div class="${cardBg} border rounded-2xl p-5 space-y-4">
             <div class="flex items-center justify-between border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
               <div class="flex items-center gap-2">
                 <div class="p-1.5 bg-blue-500/10 text-blue-500 rounded-lg">
                   <i data-lucide="layers" class="w-4 h-4"></i>
                 </div>
-                <h3 class="text-sm font-bold ${textPrimary}">Cetak Massal (Per Pasar / Per Blok)</h3>
+                <h3 class="text-sm font-bold ${textPrimary}">Cetak Massal (Per Kawasan / Per Blok)</h3>
               </div>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <!-- Scope Selector -->
               <div class="space-y-1.5">
-                <label class="text-xs font-bold ${textSecondary}">Pilihan Lingkup Cetak:</label>
+                <label class="text-xs font-bold ${textSecondary}">Pilih Kawasan / Lingkup Cetak:</label>
                 <select id="batch-scope-select" class="w-full px-3 py-2.5 rounded-xl border text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none ${inputBg}">
-                  <option value="ALL">Seluruh Pasar (${kiosks.length} Unit)</option>
-                  <option value="SANDANG">Khusus Pasar Sandang (${sandangKiosks.length} Unit)</option>
-                  <option value="SAYUR">Khusus Pasar Sayur (${sayurKiosks.length} Unit)</option>
-                  <option value="BLOCK">Pilih Blok Tertentu</option>
+                  <option value="ALL">🏢 Seluruh Pasar (Semua 610 Unit)</option>
+                  <option value="SANDANG_ALL">🟦 Pasar Sandang • Semua Blok (${sandangKiosks.length} Unit)</option>
+                  <option value="SANDANG_BLOCK">🟦 Pasar Sandang • Pilih Blok Tertentu</option>
+                  <option value="SAYUR_ALL">🟩 Pasar Sayur • Semua Blok (${sayurKiosks.length} Unit)</option>
+                  <option value="SAYUR_BLOCK">🟩 Pasar Sayur • Pilih Blok Tertentu</option>
                 </select>
               </div>
 
               <!-- Block Selector -->
               <div id="batch-block-wrapper" class="space-y-1.5 opacity-50 pointer-events-none transition-all">
-                <label class="text-xs font-bold ${textSecondary}">Pilih Blok:</label>
+                <label id="batch-block-label" class="text-xs font-bold ${textSecondary}">Pilih Blok:</label>
                 <select id="batch-block-select" class="w-full px-3 py-2.5 rounded-xl border text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none ${inputBg}">
-                  ${allBlocks.map(b => `
-                    <option value="${b.letter}">Blok ${b.letter} (${b.count} Unit)</option>
-                  `).join('')}
+                  <!-- Injected dynamically based on selected market -->
                 </select>
               </div>
             </div>
@@ -179,7 +179,7 @@ export function renderSuratView(container, targetKiosId = null) {
             <div class="pt-2">
               <button id="btn-batch-generate" class="w-full bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-blue-900/30 transition-all">
                 <i data-lucide="printer" class="w-4 h-4"></i>
-                <span id="batch-btn-label">Cetak Massal Seluruh Pasar (${kiosks.length} Surat)</span>
+                <span id="batch-btn-label">Cetak Massal Seluruh Pasar (610 Surat)</span>
               </button>
             </div>
           </div>
@@ -267,6 +267,7 @@ export function renderSuratView(container, targetKiosId = null) {
   
   const batchScopeSelect = container.querySelector('#batch-scope-select');
   const batchBlockWrapper = container.querySelector('#batch-block-wrapper');
+  const batchBlockLabel = container.querySelector('#batch-block-label');
   const batchBlockSelect = container.querySelector('#batch-block-select');
   const btnBatchGenerate = container.querySelector('#btn-batch-generate');
   const batchBtnLabel = container.querySelector('#batch-btn-label');
@@ -295,31 +296,63 @@ export function renderSuratView(container, targetKiosId = null) {
     updatePreview(selectedKiosk);
   });
 
-  // BATCH SCOPE CHANGE
-  function updateBatchButtonLabel() {
+  // HIERARCHICAL BATCH SCOPE HANDLER
+  function populateBlockOptions(blockList, marketName) {
+    batchBlockSelect.innerHTML = blockList.map(b => `
+      <option value="${b.letter}">[${marketName}] Blok ${b.letter} (${b.count} Unit)</option>
+    `).join('');
+  }
+
+  function updateBatchScopeUI() {
     const scope = batchScopeSelect.value;
+
     if (scope === 'ALL') {
       batchBlockWrapper.classList.add('opacity-50', 'pointer-events-none');
       batchBtnLabel.innerText = `Cetak Massal Seluruh Pasar (${kiosks.length} Surat)`;
-    } else if (scope === 'SANDANG') {
+    } else if (scope === 'SANDANG_ALL') {
       batchBlockWrapper.classList.add('opacity-50', 'pointer-events-none');
-      batchBtnLabel.innerText = `Cetak Massal Khusus Pasar Sandang (${sandangKiosks.length} Surat)`;
-    } else if (scope === 'SAYUR') {
+      batchBtnLabel.innerText = `Cetak Massal Pasar Sandang • Semua Blok (${sandangKiosks.length} Surat)`;
+    } else if (scope === 'SAYUR_ALL') {
       batchBlockWrapper.classList.add('opacity-50', 'pointer-events-none');
-      batchBtnLabel.innerText = `Cetak Massal Khusus Pasar Sayur (${sayurKiosks.length} Surat)`;
-    } else if (scope === 'BLOCK') {
+      batchBtnLabel.innerText = `Cetak Massal Pasar Sayur • Semua Blok (${sayurKiosks.length} Surat)`;
+    } else if (scope === 'SANDANG_BLOCK') {
       batchBlockWrapper.classList.remove('opacity-50', 'pointer-events-none');
-      const blk = batchBlockSelect.value;
-      const blkCount = kiosks.filter(k => {
-        const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
-        return rawCode.toUpperCase().startsWith(blk);
-      }).length;
-      batchBtnLabel.innerText = `Cetak Massal Blok ${blk} (${blkCount} Surat)`;
+      batchBlockLabel.innerText = 'Pilih Blok Pasar Sandang:';
+      populateBlockOptions(sandangBlocks, 'Sandang');
+      updateBlockButtonLabel();
+    } else if (scope === 'SAYUR_BLOCK') {
+      batchBlockWrapper.classList.remove('opacity-50', 'pointer-events-none');
+      batchBlockLabel.innerText = 'Pilih Blok Pasar Sayur:';
+      populateBlockOptions(sayurBlocks, 'Sayur');
+      updateBlockButtonLabel();
     }
   }
 
-  batchScopeSelect.addEventListener('change', updateBatchButtonLabel);
-  batchBlockSelect.addEventListener('change', updateBatchButtonLabel);
+  function updateBlockButtonLabel() {
+    const scope = batchScopeSelect.value;
+    const blk = batchBlockSelect.value;
+    if (!blk) return;
+
+    if (scope === 'SANDANG_BLOCK') {
+      const blkCount = sandangKiosks.filter(k => {
+        const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
+        return rawCode.toUpperCase().startsWith(blk);
+      }).length;
+      batchBtnLabel.innerText = `Cetak Massal Pasar Sandang - Blok ${blk} (${blkCount} Surat)`;
+    } else if (scope === 'SAYUR_BLOCK') {
+      const blkCount = sayurKiosks.filter(k => {
+        const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
+        return rawCode.toUpperCase().startsWith(blk);
+      }).length;
+      batchBtnLabel.innerText = `Cetak Massal Pasar Sayur - Blok ${blk} (${blkCount} Surat)`;
+    }
+  }
+
+  batchScopeSelect.addEventListener('change', updateBatchScopeUI);
+  batchBlockSelect.addEventListener('change', updateBlockButtonLabel);
+
+  // Initial call
+  updateBatchScopeUI();
 
   // UPLOAD LOGO HANDLER
   if (uploadLogoInput) {
@@ -401,7 +434,7 @@ export function renderSuratView(container, targetKiosId = null) {
     window.open(blobUrl, '_blank');
   });
 
-  // 3. BATCH GENERATOR (PER PASAR / PER BLOK)
+  // 3. BATCH GENERATOR (BERJENJANG SANDANG / SAYUR / BLOK)
   btnBatchGenerate.addEventListener('click', () => {
     const scope = batchScopeSelect.value;
     let targetList = [];
@@ -409,20 +442,27 @@ export function renderSuratView(container, targetKiosId = null) {
 
     if (scope === 'ALL') {
       targetList = kiosks;
-      batchFileName = `Bundle_Surat_Pemberitahuan_Semua_Pasar_610_Unit.pdf`;
-    } else if (scope === 'SANDANG') {
+      batchFileName = `Bundle_Surat_Semua_Pasar_610_Unit.pdf`;
+    } else if (scope === 'SANDANG_ALL') {
       targetList = sandangKiosks;
-      batchFileName = `Bundle_Surat_Pemberitahuan_Pasar_Sandang_318_Unit.pdf`;
-    } else if (scope === 'SAYUR') {
+      batchFileName = `Bundle_Surat_Pasar_Sandang_Semua_Blok_318_Unit.pdf`;
+    } else if (scope === 'SAYUR_ALL') {
       targetList = sayurKiosks;
-      batchFileName = `Bundle_Surat_Pemberitahuan_Pasar_Sayur_292_Unit.pdf`;
-    } else if (scope === 'BLOCK') {
+      batchFileName = `Bundle_Surat_Pasar_Sayur_Semua_Blok_292_Unit.pdf`;
+    } else if (scope === 'SANDANG_BLOCK') {
       const selectedBlock = batchBlockSelect.value;
-      targetList = kiosks.filter(k => {
+      targetList = sandangKiosks.filter(k => {
         const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
         return rawCode.toUpperCase().startsWith(selectedBlock);
       });
-      batchFileName = `Bundle_Surat_Pemberitahuan_Blok_${selectedBlock}_${targetList.length}_Pedagang.pdf`;
+      batchFileName = `Bundle_Surat_Pasar_Sandang_Blok_${selectedBlock}_${targetList.length}_Pedagang.pdf`;
+    } else if (scope === 'SAYUR_BLOCK') {
+      const selectedBlock = batchBlockSelect.value;
+      targetList = sayurKiosks.filter(k => {
+        const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
+        return rawCode.toUpperCase().startsWith(selectedBlock);
+      });
+      batchFileName = `Bundle_Surat_Pasar_Sayur_Blok_${selectedBlock}_${targetList.length}_Pedagang.pdf`;
     }
 
     if (targetList.length === 0) {
@@ -444,7 +484,7 @@ export function renderSuratView(container, targetKiosId = null) {
       doc.save(batchFileName);
 
       btnBatchGenerate.disabled = false;
-      updateBatchButtonLabel();
+      updateBatchScopeUI();
 
       statusAlertBox.classList.remove('hidden');
       statusAlertText.innerText = `Bundle PDF (${targetList.length} surat) berhasil diunduh instan!`;
