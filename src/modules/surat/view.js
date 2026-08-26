@@ -1,328 +1,364 @@
 import { spreadsheetService } from '../../services/SpreadsheetService.js';
 import { themeManager } from '../../shell/ThemeManager.js';
+import { pdfService } from '../../services/PdfService.js';
 import { authService, GOOGLE_API_URL } from '../../services/AuthService.js';
 import { API_SECURITY_TOKEN } from '../../utils/security.js';
 
-/**
- * Helper to ensure clean "Blok A1", "Blok B2", etc.
- */
-function getCleanBlokName(kiosk) {
-  if (!kiosk) return 'Blok -';
-  let blok = String(kiosk.blokKode || '').trim();
-  
-  if (!blok || blok.toUpperCase().includes('PASAR')) {
-    blok = String(kiosk.id || '').trim();
-  }
-
-  blok = blok.replace(/^(SND-|SYR-)/i, '').trim();
-
-  if (/^blok\s+/i.test(blok)) {
-    return blok.replace(/^blok\s+/i, 'Blok ');
-  }
-
-  return `Blok ${blok}`;
-}
-
-/**
- * Helper to extract clean "Sandang" or "Sayur"
- */
-function getCleanJenisPasar(kiosk) {
-  if (!kiosk) return 'Sandang';
-  const z = (kiosk.zona || '').toUpperCase();
-  return z.includes('SAYUR') ? 'Sayur' : 'Sandang';
-}
-
-export function renderSuratView(container, initialKiosId = null) {
+export function renderSuratView(container, targetKiosId = null) {
   const isDark = themeManager.isDark();
   const kiosks = spreadsheetService.loadKiosks();
 
-  // Current Date formatted in Indonesian standard
-  const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-  const now = new Date();
-  const defaultDateStr = `${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
-  const romanMonths = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
-  const defaultNoNaskah = `511.2/014/${romanMonths[now.getMonth()]}/${now.getFullYear()}`;
+  // Helper formatting
+  const getCleanBlokName = (k) => {
+    if (!k) return 'Blok A1';
+    let code = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '').trim();
+    return `Blok ${code}`;
+  };
 
-  // Find initial kiosk if provided
-  let selectedKiosk = kiosks.find(k => k.id === initialKiosId) || kiosks[0] || null;
+  const getCleanJenisPasar = (k) => {
+    if (!k) return 'Sandang';
+    return (k.zona || '').toUpperCase().includes('SAYUR') ? 'Sayur' : 'Sandang';
+  };
+
+  // Find target kiosk if provided
+  let selectedKiosk = kiosks.find(k => k.id === targetKiosId) || kiosks[0] || null;
+
+  // Extract unique blocks for Batch Printing
+  const uniqueBlocks = Array.from(
+    new Set(
+      kiosks.map(k => {
+        const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
+        const match = rawCode.match(/^[A-Za-z]+/);
+        return match ? match[0].toUpperCase() : null;
+      }).filter(Boolean)
+    )
+  ).sort();
 
   const cardBg = isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200 shadow-sm';
   const textPrimary = isDark ? 'text-slate-100' : 'text-slate-900';
   const textSecondary = isDark ? 'text-slate-400' : 'text-slate-600';
   const inputBg = isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900';
 
+  // Default values
+  const defaultNoNaskah = '511.2/014/VIII/2026';
+  const defaultDateStr = '26 Agustus 2026';
+
   container.innerHTML = `
-    <div class="p-6 space-y-5 w-full h-full overflow-y-auto ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}">
+    <div class="p-6 space-y-6 overflow-y-auto h-full ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}">
       
-      <!-- TOOLBAR HEADER -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 shrink-0 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
+      <!-- HEADER -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 class="text-xl font-extrabold ${textPrimary}">Penerbitan Surat Pemberitahuan Retribusi Sewa</h1>
-          <p class="text-xs ${textSecondary} mt-0.5">
-            Dibuat menggunakan Template Master Google Docs & tersimpan otomatis sebagai PDF di Google Drive
-          </p>
+          <p class="text-xs ${textSecondary} mt-0.5">Generator PDF Client-Side Super Kilat (0.2 Detik) sesuai Format Resmi Desa Karangpucung</p>
         </div>
 
-        <div class="flex items-center gap-2.5">
-          <!-- Refresh Button -->
-          <button id="refresh-data-btn" class="px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${cardBg} ${textPrimary} hover:border-emerald-500 shadow-sm">
-            <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-emerald-500"></i>
-            <span>Refresh Data</span>
-          </button>
+        <div class="flex items-center gap-2">
+          <span class="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 flex items-center gap-1.5 shadow-sm">
+            <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+            <span>Mesin Instan 0.2 Detik</span>
+          </span>
         </div>
       </div>
 
-      <!-- MAIN CARD (CLEAN FULL-WIDTH FORM) -->
-      <div class="border rounded-2xl p-6 space-y-6 ${cardBg}">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        <div class="flex items-center justify-between border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
-          <h2 class="text-sm font-bold ${textPrimary} flex items-center gap-2">
-            <i data-lucide="file-edit" class="w-4 h-4 text-emerald-500"></i>
-            <span>Parameter Surat Pemberitahuan</span>
-          </h2>
-          <span id="info-badge-summary" class="text-xs font-mono font-bold text-emerald-500">
-            ${selectedKiosk ? `${getCleanBlokName(selectedKiosk)} • ${selectedKiosk.pedagang} • ${selectedKiosk.sewaBulanan || 'Rp 225.000/thn'}` : ''}
-          </span>
-        </div>
-
-        <!-- FORM GRID (2 COLUMNS) -->
-        <div class="grid grid-cols-1 md:grid-cols-12 gap-5">
+        <!-- KOLOM KIRI: FORMULIR SURAT SATUAN & BATCH (7 COLS) -->
+        <div class="lg:col-span-7 space-y-5">
           
-          <!-- COLUMN 1: SELECTOR PEDAGANG / KIOS -->
-          <div class="md:col-span-6 space-y-1.5">
-            <label class="text-xs font-bold ${textSecondary}">Pilih Kios / Nama Pedagang:</label>
-            <select id="kiosk-select" class="w-full p-3 rounded-xl text-xs font-bold border focus:outline-none focus:border-emerald-500 ${inputBg}">
-              ${kiosks.map(k => `
-                <option value="${k.id}" ${selectedKiosk && selectedKiosk.id === k.id ? 'selected' : ''}>
-                  [${getCleanBlokName(k)}] ${k.pedagang === '-' ? '(KOSONG)' : k.pedagang} - Pasar ${getCleanJenisPasar(k)} (${k.sewaBulanan || 'Rp 225.000/thn'})
-                </option>
-              `).join('')}
-            </select>
-          </div>
-
-          <!-- COLUMN 2: SIFAT SURAT -->
-          <div class="md:col-span-6 space-y-1.5">
-            <label class="text-xs font-bold ${textSecondary}">Sifat Surat:</label>
-            <select id="input-sifat" class="w-full p-3 rounded-xl text-xs font-bold border focus:outline-none focus:border-emerald-500 ${inputBg}">
-              <option value="Biasa" selected>Biasa</option>
-              <option value="Penting">Penting / Segera</option>
-              <option value="Peringatan">Peringatan / Jatuh Tempo</option>
-            </select>
-          </div>
-
-          <!-- COLUMN 3: NOMOR NASKAH -->
-          <div class="md:col-span-6 space-y-1.5">
-            <label class="text-xs font-bold ${textSecondary}">Nomor Naskah / Surat:</label>
-            <input 
-              type="text" 
-              id="input-nomor-naskah" 
-              value="${defaultNoNaskah}"
-              class="w-full p-3 rounded-xl text-xs font-mono border focus:outline-none focus:border-emerald-500 ${inputBg}"
-              placeholder="misal: 511.2/014/VIII/2026"
-            />
-          </div>
-
-          <!-- COLUMN 4: TANGGAL NASKAH -->
-          <div class="md:col-span-6 space-y-1.5">
-            <label class="text-xs font-bold ${textSecondary}">Tanggal Naskah Surat:</label>
-            <input 
-              type="text" 
-              id="input-tanggal-naskah" 
-              value="${defaultDateStr}"
-              class="w-full p-3 rounded-xl text-xs font-bold border focus:outline-none focus:border-emerald-500 ${inputBg}"
-              placeholder="misal: 26 Agustus 2026"
-            />
-          </div>
-
-        </div>
-
-        <!-- CLOUD STORAGE INFO BANNER -->
-        <div class="p-3.5 rounded-xl border text-xs flex items-center justify-between gap-3 bg-emerald-500/10 border-emerald-500/30 text-emerald-500">
-          <div class="flex items-center gap-2">
-            <i data-lucide="cloud" class="w-4 h-4 shrink-0"></i>
-            <span>File PDF yang diterbitkan akan otomatis tersimpan rapi di subfolder <strong>Arsip_Surat_Pemberitahuan</strong> di Google Drive Desa.</span>
-          </div>
-          <span class="text-[11px] font-mono font-bold bg-emerald-500/20 px-2.5 py-1 rounded-lg shrink-0">
-            GOOGLE DRIVE CLOUD
-          </span>
-        </div>
-
-        <!-- BOTTOM CONTROLS, PROGRESS INDICATOR & RESULT BANNER -->
-        <div class="space-y-4 pt-3 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}">
-          
-          <!-- PROGRESS INDICATOR BAR -->
-          <div id="progress-indicator-box" class="hidden border rounded-2xl p-4 space-y-2.5 bg-slate-900 border-slate-700/80 shadow-lg">
-            <div class="flex items-center justify-between text-xs font-bold">
-              <span id="progress-status-label" class="text-emerald-400 flex items-center gap-2">
-                <i data-lucide="loader" class="w-4 h-4 animate-spin"></i>
-                <span id="progress-status-text">Memproses dokumen di Google Drive...</span>
-              </span>
-              <span id="progress-percent" class="font-mono text-slate-300">50%</span>
+          <!-- CARD 1: FORMULIR CETAK SATUAN -->
+          <div class="${cardBg} border rounded-2xl p-5 space-y-4">
+            <div class="flex items-center justify-between border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
+              <div class="flex items-center gap-2">
+                <div class="p-1.5 bg-emerald-500/10 text-emerald-500 rounded-lg">
+                  <i data-lucide="file-text" class="w-4 h-4"></i>
+                </div>
+                <h3 class="text-sm font-bold ${textPrimary}">Cetak Surat Perorangan (Satuan)</h3>
+              </div>
+              <span class="text-[11px] font-mono ${textSecondary}">${kiosks.length} Data Siap</span>
             </div>
-            <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden border border-slate-700">
-              <div id="progress-bar-fill" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-300" style="width: 50%;"></div>
-            </div>
-            <p id="progress-subtext" class="text-[11px] text-slate-400">Mengisi template Google Docs dan mengonversi menjadi file PDF...</p>
-          </div>
 
-          <!-- RESULT SUCCESS BANNER -->
-          <div id="result-status-card" class="hidden border rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 ${cardBg} border-emerald-500/50 bg-emerald-500/5 shadow-sm">
-            <div class="flex items-center gap-3 text-emerald-500 font-extrabold text-xs">
-              <i data-lucide="check-circle" class="w-5 h-5"></i>
-              <div>
-                <p id="result-status-title" class="text-sm">Surat PDF Berhasil Diterbitkan ke Google Drive!</p>
-                <p id="result-file-name" class="text-xs font-mono font-normal text-slate-400">Surat_Pemberitahuan.pdf</p>
+            <!-- Pilih Kios / Pedagang -->
+            <div class="space-y-1.5">
+              <label class="text-xs font-bold ${textSecondary}">Pilih Kios / Nama Pedagang:</label>
+              <select id="kiosk-select" class="w-full px-3 py-2.5 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}">
+                ${kiosks.map(k => `
+                  <option value="${k.id}" ${selectedKiosk && selectedKiosk.id === k.id ? 'selected' : ''}>
+                    ${getCleanBlokName(k)} • ${k.pedagang === '-' ? '(KOSONG)' : k.pedagang} • ${k.zona} (${k.sewaBulanan || 'Rp 225.000/thn'})
+                  </option>
+                `).join('')}
+              </select>
+            </div>
+
+            <!-- Metadata Surat Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div class="space-y-1">
+                <label class="text-[11px] font-bold ${textSecondary}">Nomor Naskah:</label>
+                <input type="text" id="input-no-naskah" value="${defaultNoNaskah}" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}" />
+              </div>
+
+              <div class="space-y-1">
+                <label class="text-[11px] font-bold ${textSecondary}">Tanggal Naskah:</label>
+                <input type="text" id="input-tgl-naskah" value="${defaultDateStr}" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}" />
+              </div>
+
+              <div class="space-y-1">
+                <label class="text-[11px] font-bold ${textSecondary}">Sifat Surat:</label>
+                <select id="input-sifat" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}">
+                  <option value="Biasa" selected>Biasa</option>
+                  <option value="Penting">Penting</option>
+                  <option value="Segera">Segera</option>
+                </select>
               </div>
             </div>
-            
-            <div class="flex items-center gap-2 w-full sm:w-auto">
-              <a 
-                id="btn-view-pdf" 
-                href="#" 
-                target="_blank" 
-                class="flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow transition-all cursor-pointer"
-              >
-                <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
-                <span>Buka PDF di Google Drive</span>
-              </a>
+
+            <!-- ACTION BUTTONS SATUAN -->
+            <div class="pt-2 flex flex-col sm:flex-row gap-2.5">
+              <button id="btn-generate-instant" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white p-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30 transition-all">
+                <i data-lucide="download" class="w-4 h-4"></i>
+                <span>Download PDF Satuan (0.2s)</span>
+              </button>
+
+              <button id="btn-preview-instant" class="border px-4 py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${cardBg} ${textPrimary} hover:border-emerald-500 shadow-sm">
+                <i data-lucide="eye" class="w-4 h-4 text-emerald-500"></i>
+                <span>Preview Layar</span>
+              </button>
             </div>
           </div>
 
-          <!-- GENERATE ACTION BUTTON -->
-          <button 
-            id="generate-pdf-btn" 
-            class="w-full bg-emerald-600 hover:bg-emerald-500 text-white p-3.5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all cursor-pointer"
-          >
-            <i data-lucide="file-check" class="w-4 h-4"></i>
-            <span id="btn-generate-text">Terbitkan Surat PDF & Simpan ke Drive</span>
-          </button>
+          <!-- CARD 2: CETAK MASSAL PER BLOK (BATCH GENERATOR) -->
+          <div class="${cardBg} border rounded-2xl p-5 space-y-4">
+            <div class="flex items-center justify-between border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
+              <div class="flex items-center gap-2">
+                <div class="p-1.5 bg-blue-500/10 text-blue-500 rounded-lg">
+                  <i data-lucide="layers" class="w-4 h-4"></i>
+                </div>
+                <h3 class="text-sm font-bold ${textPrimary}">Cetak Massal 1 Blok Sekaligus (Batch PDF)</h3>
+              </div>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-500">1 File Multi-Halaman</span>
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-xs font-bold ${textSecondary}">Pilih Blok Target:</label>
+              <div class="flex gap-2">
+                <select id="batch-block-select" class="flex-1 px-3 py-2.5 rounded-xl border text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none ${inputBg}">
+                  <option value="ALL">Semua Blok (Seluruh 610 Unit Pasar)</option>
+                  ${uniqueBlocks.map(b => {
+                    const count = kiosks.filter(k => {
+                      const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
+                      return rawCode.toUpperCase().startsWith(b);
+                    }).length;
+                    return `<option value="${b}">Blok ${b} (${count} Pedagang / Unit)</option>`;
+                  }).join('')}
+                </select>
+
+                <button id="btn-batch-generate" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 shadow-lg shadow-blue-900/30 transition-all shrink-0">
+                  <i data-lucide="printer" class="w-4 h-4"></i>
+                  <span>Cetak Massal</span>
+                </button>
+              </div>
+              <p class="text-[11px] ${textSecondary}">Menghasilkan 1 file PDF yang memuat seluruh surat pedagang di blok terpilih secara berurutan dan siap langsung diprint.</p>
+            </div>
+          </div>
+
+          <!-- NOTIFIKASI STATUS -->
+          <div id="status-alert-box" class="hidden p-3.5 rounded-xl border text-xs flex items-center justify-between gap-3 bg-emerald-500/10 border-emerald-500/30 text-emerald-500">
+            <div class="flex items-center gap-2">
+              <i data-lucide="check-circle-2" class="w-4 h-4 shrink-0"></i>
+              <span id="status-alert-text">Surat PDF berhasil diterbitkan instan!</span>
+            </div>
+          </div>
 
         </div>
 
-      </div>
+        <!-- KOLOM KANAN: LIVE PREVIEW DOKUMEN (5 COLS) -->
+        <div class="lg:col-span-5 space-y-4">
+          <div class="${cardBg} border rounded-2xl p-5 space-y-3 sticky top-4">
+            <div class="flex items-center justify-between border-b pb-2.5 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
+              <div class="flex items-center gap-2">
+                <i data-lucide="file-check" class="w-4 h-4 text-emerald-500"></i>
+                <h3 class="text-xs font-bold ${textPrimary}">Ringkasan Surat Terpilih</h3>
+              </div>
+              <span id="preview-badge-blok" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
+                ${selectedKiosk ? getCleanBlokName(selectedKiosk) : 'Blok A1'}
+              </span>
+            </div>
 
+            <!-- Mini Spec Sheet -->
+            <div class="text-xs space-y-2 font-mono ${isDark ? 'text-slate-300' : 'text-slate-700'}">
+              <div class="flex justify-between py-1 border-b border-slate-800/40">
+                <span class="${textSecondary}">Penyewa:</span>
+                <span id="preview-pedagang" class="font-bold ${textPrimary}">${selectedKiosk ? (selectedKiosk.pedagang === '-' ? 'Lahan Kosong' : selectedKiosk.pedagang) : '-'}</span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-slate-800/40">
+                <span class="${textSecondary}">Kawasan Pasar:</span>
+                <span id="preview-pasar" class="font-bold">${selectedKiosk ? selectedKiosk.zona : 'PASAR SANDANG'}</span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-slate-800/40">
+                <span class="${textSecondary}">Tipe Unit:</span>
+                <span id="preview-tipe" class="font-bold">${selectedKiosk ? (selectedKiosk.tipeKios || 'LOS') : 'LOS'}</span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-slate-800/40">
+                <span class="${textSecondary}">Ukuran & Luas:</span>
+                <span id="preview-luas" class="font-bold">${selectedKiosk ? `${selectedKiosk.luasDimensi || '200 x 200'} (${selectedKiosk.luasM2 || '4.0'} m²)` : '-'}</span>
+              </div>
+              <div class="flex justify-between py-1">
+                <span class="${textSecondary}">Biaya Sewa / Thn:</span>
+                <span id="preview-sewa" class="font-bold text-amber-500">${selectedKiosk ? (selectedKiosk.sewaBulanan || 'Rp 225.000/thn') : 'Rp 225.000/thn'}</span>
+              </div>
+            </div>
+
+            <div class="pt-2">
+              <div class="p-3 rounded-xl border text-[11px] leading-relaxed ${isDark ? 'bg-slate-900 border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'}">
+                <i data-lucide="info" class="w-3.5 h-3.5 inline mr-1 text-emerald-500"></i>
+                Dokumen dicetak menggunakan font <strong>Times New Roman</strong> standar kedinasan dengan garis ganda tebal-tipis, tabel 2 kolom rincian sewa, dan tanda tangan resmi PJ. Kepala Desa Karangpucung.
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
     </div>
   `;
 
-  // Attach interactive listeners
-  initSuratListeners();
+  // EVENT LISTENERS
+  const kioskSelect = container.querySelector('#kiosk-select');
+  const inputNo = container.querySelector('#input-no-naskah');
+  const inputTgl = container.querySelector('#input-tgl-naskah');
+  const inputSifat = container.querySelector('#input-sifat');
+  
+  const btnGenerateInstant = container.querySelector('#btn-generate-instant');
+  const btnPreviewInstant = container.querySelector('#btn-preview-instant');
+  const btnBatchGenerate = container.querySelector('#btn-batch-generate');
+  const batchBlockSelect = container.querySelector('#batch-block-select');
 
-  function initSuratListeners() {
-    const kioskSelect = container.querySelector('#kiosk-select');
-    const inputNo = container.querySelector('#input-nomor-naskah');
-    const inputTgl = container.querySelector('#input-tanggal-naskah');
-    const inputSifat = container.querySelector('#input-sifat');
-    const generateBtn = container.querySelector('#generate-pdf-btn');
-    const btnText = container.querySelector('#btn-generate-text');
-    const refreshBtn = container.querySelector('#refresh-data-btn');
+  const previewBadgeBlok = container.querySelector('#preview-badge-blok');
+  const previewPedagang = container.querySelector('#preview-pedagang');
+  const previewPasar = container.querySelector('#preview-pasar');
+  const previewTipe = container.querySelector('#preview-tipe');
+  const previewLuas = container.querySelector('#preview-luas');
+  const previewSewa = container.querySelector('#preview-sewa');
+  const statusAlertBox = container.querySelector('#status-alert-box');
+  const statusAlertText = container.querySelector('#status-alert-text');
 
-    const progressBox = container.querySelector('#progress-indicator-box');
-    const progressBarFill = container.querySelector('#progress-bar-fill');
-    const progressPercent = container.querySelector('#progress-percent');
-    const progressStatusText = container.querySelector('#progress-status-text');
-
-    const resultCard = container.querySelector('#result-status-card');
-    const resultFileName = container.querySelector('#result-file-name');
-    const btnViewPdf = container.querySelector('#btn-view-pdf');
-    const infoBadgeSummary = container.querySelector('#info-badge-summary');
-
-    kioskSelect.addEventListener('change', (e) => {
-      selectedKiosk = kiosks.find(k => k.id === e.target.value) || null;
-      if (selectedKiosk) {
-        infoBadgeSummary.innerText = `${getCleanBlokName(selectedKiosk)} • ${selectedKiosk.pedagang} • ${selectedKiosk.sewaBulanan || 'Rp 225.000/thn'}`;
-      }
-    });
-
-    refreshBtn.addEventListener('click', async () => {
-      refreshBtn.classList.add('animate-spin');
-      await spreadsheetService.fetchRemoteKiosks();
-      refreshBtn.classList.remove('animate-spin');
-      renderSuratView(container, selectedKiosk ? selectedKiosk.id : null);
-    });
-
-    // GENERATE GOOGLE DOCS TO DRIVE PDF TRIGGER
-    generateBtn.addEventListener('click', async () => {
-      if (!selectedKiosk) {
-        alert('Silakan pilih Kios/Pedagang terlebih dahulu!');
-        return;
-      }
-
-      const currentUser = authService.getCurrentUser();
-      const petugasName = currentUser ? `${currentUser.nama} (${currentUser.username})` : 'Petugas Pasar';
-
-      generateBtn.disabled = true;
-      generateBtn.className = 'w-full bg-slate-700 text-slate-300 p-3.5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow opacity-80 cursor-wait';
-      btnText.innerText = 'Memproses PDF di Google Drive...';
-      
-      progressBox.classList.remove('hidden');
-      resultCard.classList.add('hidden');
-      progressBarFill.style.width = '35%';
-      progressPercent.innerText = '35%';
-      progressStatusText.innerText = 'Mengisi template Google Docs master desa...';
-
-      try {
-        const cleanBlok = getCleanBlokName(selectedKiosk);
-        const cleanPasar = getCleanJenisPasar(selectedKiosk);
-
-        const payload = {
-          action: 'generateSuratPemberitahuan',
-          apiToken: API_SECURITY_TOKEN,
-          nomor_naskah: inputNo.value.trim() || defaultNoNaskah,
-          tanggal_naskah: inputTgl.value.trim() || defaultDateStr,
-          sifat: inputSifat.value || 'Biasa',
-          nama_pedagang: selectedKiosk.pedagang === '-' ? 'Penyewa Kios' : selectedKiosk.pedagang,
-          jenis_pasar: cleanPasar,
-          blok_kios: cleanBlok,
-          tipe_kios: selectedKiosk.tipeKios || 'LOS',
-          luas_dimensi: selectedKiosk.luasDimensi || '200 x 200',
-          luas_m2: selectedKiosk.luasM2 || '4.0',
-          biaya_sewa: selectedKiosk.sewaBulanan || 'Rp 225.000/thn',
-          user: petugasName
-        };
-
-        progressBarFill.style.width = '70%';
-        progressPercent.innerText = '70%';
-        progressStatusText.innerText = 'Mengonversi ke PDF & menyimpan ke Google Drive...';
-
-        const res = await fetch(GOOGLE_API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(payload),
-          redirect: 'follow'
-        });
-
-        const json = await res.json();
-
-        if (json.status === 'success' && (json.pdfUrl || json.pdfViewUrl)) {
-          progressBarFill.style.width = '100%';
-          progressPercent.innerText = '100%';
-          progressStatusText.innerText = 'Surat PDF Berhasil Disimpan ke Google Drive!';
-
-          resultFileName.innerText = json.fileName || 'Surat_Pemberitahuan.pdf';
-          btnViewPdf.href = json.pdfViewUrl || json.pdfUrl;
-          resultCard.classList.remove('hidden');
-
-          setTimeout(() => {
-            progressBox.classList.add('hidden');
-          }, 600);
-
-          resultCard.scrollIntoView({ behavior: 'smooth' });
-        } else {
-          progressBox.classList.add('hidden');
-          alert('Gagal membuat PDF: ' + (json.message || 'Respons server tidak valid'));
-        }
-      } catch (err) {
-        progressBox.classList.add('hidden');
-        console.error('Error generating document in Google Drive:', err);
-        alert('Terjadi kendala saat menghubungi server Google Drive: ' + err.toString());
-      } finally {
-        generateBtn.disabled = false;
-        btnText.innerText = 'Terbitkan Surat PDF & Simpan ke Drive';
-        generateBtn.className = 'w-full bg-emerald-600 hover:bg-emerald-500 text-white p-3.5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all cursor-pointer';
-        if (window.lucide) window.lucide.createIcons();
-      }
-    });
-
-    if (window.lucide) window.lucide.createIcons();
+  function updatePreview(k) {
+    if (!k) return;
+    previewBadgeBlok.innerText = getCleanBlokName(k);
+    previewPedagang.innerText = k.pedagang === '-' ? 'Lahan Kosong' : k.pedagang;
+    previewPasar.innerText = k.zona || 'PASAR SANDANG';
+    previewTipe.innerText = k.tipeKios || 'LOS';
+    previewLuas.innerText = `${k.luasDimensi || '200 x 200'} (${k.luasM2 || '4.0'} m²)`;
+    previewSewa.innerText = k.sewaBulanan || 'Rp 225.000/thn';
   }
+
+  kioskSelect.addEventListener('change', (e) => {
+    selectedKiosk = kiosks.find(k => k.id === e.target.value) || null;
+    updatePreview(selectedKiosk);
+  });
+
+  // 1. GENERATE INSTANT SATUAN (0.2s)
+  btnGenerateInstant.addEventListener('click', () => {
+    if (!selectedKiosk) {
+      alert('Silakan pilih kios terlebih dahulu!');
+      return;
+    }
+
+    const cleanBlok = getCleanBlokName(selectedKiosk);
+    const cleanPasar = getCleanJenisPasar(selectedKiosk);
+
+    const letterData = {
+      nomor_naskah: inputNo.value.trim() || defaultNoNaskah,
+      tanggal_naskah: inputTgl.value.trim() || defaultDateStr,
+      sifat: inputSifat.value || 'Biasa',
+      nama_pedagang: selectedKiosk.pedagang === '-' ? 'Penyewa Kios' : selectedKiosk.pedagang,
+      jenis_pasar: cleanPasar,
+      blok_kios: cleanBlok,
+      tipe_kios: selectedKiosk.tipeKios || 'LOS',
+      luas_dimensi: selectedKiosk.luasDimensi || '200 x 200',
+      luas_m2: selectedKiosk.luasM2 || '4.0',
+      biaya_sewa: selectedKiosk.sewaBulanan || 'Rp 225.000/thn'
+    };
+
+    const doc = pdfService.generateSuratPemberitahuan(letterData);
+    const fileName = `Surat_Pemberitahuan_${cleanBlok.replace(/\s+/g, '_')}_${letterData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+    
+    doc.save(fileName);
+
+    statusAlertBox.classList.remove('hidden');
+    statusAlertText.innerText = `Surat ${cleanBlok} berhasil diunduh instan (${fileName})`;
+    setTimeout(() => statusAlertBox.classList.add('hidden'), 5000);
+  });
+
+  // 2. PREVIEW INSTANT DI TAB BARU
+  btnPreviewInstant.addEventListener('click', () => {
+    if (!selectedKiosk) {
+      alert('Silakan pilih kios terlebih dahulu!');
+      return;
+    }
+
+    const cleanBlok = getCleanBlokName(selectedKiosk);
+    const cleanPasar = getCleanJenisPasar(selectedKiosk);
+
+    const letterData = {
+      nomor_naskah: inputNo.value.trim() || defaultNoNaskah,
+      tanggal_naskah: inputTgl.value.trim() || defaultDateStr,
+      sifat: inputSifat.value || 'Biasa',
+      nama_pedagang: selectedKiosk.pedagang === '-' ? 'Penyewa Kios' : selectedKiosk.pedagang,
+      jenis_pasar: cleanPasar,
+      blok_kios: cleanBlok,
+      tipe_kios: selectedKiosk.tipeKios || 'LOS',
+      luas_dimensi: selectedKiosk.luasDimensi || '200 x 200',
+      luas_m2: selectedKiosk.luasM2 || '4.0',
+      biaya_sewa: selectedKiosk.sewaBulanan || 'Rp 225.000/thn'
+    };
+
+    const doc = pdfService.generateSuratPemberitahuan(letterData);
+    const pdfBlob = doc.output('blob');
+    const blobUrl = URL.createObjectURL(pdfBlob);
+    window.open(blobUrl, '_blank');
+  });
+
+  // 3. BATCH GENERATOR (1 BLOK SEKALIGUS)
+  btnBatchGenerate.addEventListener('click', () => {
+    const selectedBlock = batchBlockSelect.value;
+    let targetList = kiosks;
+
+    if (selectedBlock !== 'ALL') {
+      targetList = kiosks.filter(k => {
+        const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
+        return rawCode.toUpperCase().startsWith(selectedBlock);
+      });
+    }
+
+    if (targetList.length === 0) {
+      alert('Tidak ada pedagang di blok terpilih!');
+      return;
+    }
+
+    btnBatchGenerate.disabled = true;
+    btnBatchGenerate.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin"></i><span>Memproses ${targetList.length} Halaman...</span>`;
+
+    setTimeout(() => {
+      const commonParams = {
+        nomor_naskah: inputNo.value.trim() || defaultNoNaskah,
+        tanggal_naskah: inputTgl.value.trim() || defaultDateStr,
+        sifat: inputSifat.value || 'Biasa'
+      };
+
+      const doc = pdfService.generateBatchSurat(targetList, commonParams);
+      const batchFileName = selectedBlock === 'ALL' 
+        ? `Bundle_Surat_Pemberitahuan_Semua_Blok_610_Unit.pdf` 
+        : `Bundle_Surat_Pemberitahuan_Blok_${selectedBlock}_${targetList.length}_Pedagang.pdf`;
+
+      doc.save(batchFileName);
+
+      btnBatchGenerate.disabled = false;
+      btnBatchGenerate.innerHTML = `<i data-lucide="printer" class="w-4 h-4"></i><span>Cetak Massal</span>`;
+
+      statusAlertBox.classList.remove('hidden');
+      statusAlertText.innerText = `Bundle PDF Blok ${selectedBlock} (${targetList.length} surat) berhasil diunduh instan!`;
+      setTimeout(() => statusAlertBox.classList.add('hidden'), 6000);
+    }, 100);
+  });
 }
