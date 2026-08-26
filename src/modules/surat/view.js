@@ -26,6 +26,15 @@ function getCleanBlokName(kiosk) {
   return `Blok ${blok}`;
 }
 
+/**
+ * Helper to extract clean "Sandang" or "Sayur"
+ */
+function getCleanJenisPasar(kiosk) {
+  if (!kiosk) return 'Sandang';
+  const z = (kiosk.zona || '').toUpperCase();
+  return z.includes('SAYUR') ? 'Sayur' : 'Sandang';
+}
+
 export function renderSuratView(container, initialKiosId = null) {
   const isDark = themeManager.isDark();
   const kiosks = spreadsheetService.loadKiosks();
@@ -87,7 +96,7 @@ export function renderSuratView(container, initialKiosId = null) {
               <select id="kiosk-select" class="w-full p-2.5 rounded-xl text-xs font-bold border focus:outline-none focus:border-emerald-500 ${inputBg}">
                 ${kiosks.map(k => `
                   <option value="${k.id}" ${selectedKiosk && selectedKiosk.id === k.id ? 'selected' : ''}>
-                    [${getCleanBlokName(k)}] ${k.pedagang === '-' ? '(KOSONG)' : k.pedagang} - ${k.zona}
+                    [${getCleanBlokName(k)}] ${k.pedagang === '-' ? '(KOSONG)' : k.pedagang} - Pasar ${getCleanJenisPasar(k)}
                   </option>
                 `).join('')}
               </select>
@@ -212,23 +221,39 @@ export function renderSuratView(container, initialKiosId = null) {
                 Berdasarkan Peraturan Desa (Perdes) Karangpucung Nomor 3 Tahun 2026 tentang Aset Desa, bersama ini kami beritahukan bahwa Pemerintah Desa Karangpucung akan melaksanakan penarikan sewa tahunan untuk fasilitas Kios/Los/Lemprakan di lingkungan Pasar Mukti Makmur Desa Karangpucung.
               </p>
 
-              <!-- TABEL RINCIAN TAGIHAN -->
-              <div class="border rounded-xl p-3 space-y-1.5 ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'}">
-                <div class="flex justify-between py-0.5 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}">
-                  <span class="${textSecondary}">Nama Penyewa:</span>
-                  <strong id="detail-nama" class="${textPrimary}">${selectedKiosk ? selectedKiosk.pedagang : '-'}</strong>
+              <!-- TABEL RINCIAN TAGIHAN 2-KOLOM SESUAI TEMPLATE BARU -->
+              <div class="border rounded-xl p-3.5 space-y-2 ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'}">
+                <div class="grid grid-cols-2 gap-4 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'} pb-2">
+                  <div>
+                    <span class="${textSecondary}">Pasar:</span>
+                    <strong id="detail-pasar" class="ml-1.5 text-emerald-500 font-bold">${getCleanJenisPasar(selectedKiosk)}</strong>
+                  </div>
+                  <div>
+                    <span class="${textSecondary}">Tipe Unit:</span>
+                    <strong id="detail-tipe" class="ml-1.5 ${textPrimary} font-bold">${selectedKiosk ? selectedKiosk.tipeKios || 'LOS' : 'LOS'}</strong>
+                  </div>
                 </div>
-                <div class="flex justify-between py-0.5 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}">
-                  <span class="${textSecondary}">Kios/Los/Lemprakan:</span>
-                  <strong id="detail-blok" class="text-emerald-500 font-mono">${getCleanBlokName(selectedKiosk)} (${selectedKiosk ? selectedKiosk.tipeKios : 'LOS'})</strong>
+
+                <div class="grid grid-cols-2 gap-4 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'} pb-2">
+                  <div>
+                    <span class="${textSecondary}">Ukuran:</span>
+                    <span id="detail-ukuran" class="ml-1.5 font-mono ${textPrimary}">${selectedKiosk ? selectedKiosk.luasDimensi || '200 x 200' : '-'}</span>
+                  </div>
+                  <div>
+                    <span class="${textSecondary}">Luas:</span>
+                    <span id="detail-luas" class="ml-1.5 font-mono ${textPrimary}">${selectedKiosk ? selectedKiosk.luasM2 || '4.0' : '-'} m²</span>
+                  </div>
                 </div>
-                <div class="flex justify-between py-0.5 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}">
-                  <span class="${textSecondary}">Ukuran / Luas:</span>
-                  <span id="detail-luas" class="${textPrimary}">${selectedKiosk ? `${selectedKiosk.luasDimensi || '200 x 200'} (${selectedKiosk.luasM2 || '4.0'} m²)` : '-'}</span>
-                </div>
-                <div class="flex justify-between py-0.5">
-                  <span class="${textSecondary}">Besaran Sewa Tahunan:</span>
-                  <strong id="detail-sewa" class="text-emerald-500 font-mono font-bold">${selectedKiosk ? selectedKiosk.sewaBulanan || 'Rp 225.000/thn' : '-'}</strong>
+
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <span class="${textSecondary}">Kios/Los/Lemprakan:</span>
+                    <strong id="detail-blok" class="ml-1.5 text-emerald-500 font-bold font-mono">${getCleanBlokName(selectedKiosk)}</strong>
+                  </div>
+                  <div>
+                    <span class="${textSecondary}">Biaya Sewa:</span>
+                    <strong id="detail-sewa" class="ml-1.5 text-emerald-500 font-mono font-bold">${selectedKiosk ? selectedKiosk.sewaBulanan || 'Rp 225.000/thn' : '-'}</strong>
+                  </div>
                 </div>
               </div>
 
@@ -319,6 +344,7 @@ export function renderSuratView(container, initialKiosId = null) {
 
       try {
         const cleanBlok = getCleanBlokName(selectedKiosk);
+        const cleanPasar = getCleanJenisPasar(selectedKiosk);
 
         const payload = {
           action: 'generateSuratPemberitahuan',
@@ -327,6 +353,7 @@ export function renderSuratView(container, initialKiosId = null) {
           tanggal_naskah: inputTgl.value.trim(),
           sifat: inputSifat.value,
           nama_pedagang: selectedKiosk.pedagang === '-' ? 'Penyewa Kios' : selectedKiosk.pedagang,
+          jenis_pasar: cleanPasar,
           blok_kios: cleanBlok,
           tipe_kios: selectedKiosk.tipeKios || 'LOS',
           luas_dimensi: selectedKiosk.luasDimensi || '200 x 200',
@@ -370,9 +397,11 @@ export function renderSuratView(container, initialKiosId = null) {
   function updatePreviewKioskDetails(kiosk) {
     if (!kiosk) return;
     container.querySelector('#preview-nama-pedagang').innerText = kiosk.pedagang === '-' ? 'Penyewa Kios' : kiosk.pedagang;
-    container.querySelector('#detail-nama').innerText = kiosk.pedagang === '-' ? '(Lahan Kosong)' : kiosk.pedagang;
-    container.querySelector('#detail-blok').innerText = `${getCleanBlokName(kiosk)} (${kiosk.tipeKios || 'LOS'})`;
-    container.querySelector('#detail-luas').innerText = `${kiosk.luasDimensi || '200 x 200'} (${kiosk.luasM2 || '4.0'} m²)`;
+    container.querySelector('#detail-pasar').innerText = getCleanJenisPasar(kiosk);
+    container.querySelector('#detail-tipe').innerText = kiosk.tipeKios || 'LOS';
+    container.querySelector('#detail-ukuran').innerText = kiosk.luasDimensi || '200 x 200';
+    container.querySelector('#detail-luas').innerText = `${kiosk.luasM2 || '4.0'} m²`;
+    container.querySelector('#detail-blok').innerText = getCleanBlokName(kiosk);
     container.querySelector('#detail-sewa').innerText = kiosk.sewaBulanan || 'Rp 225.000/thn';
   }
 }
