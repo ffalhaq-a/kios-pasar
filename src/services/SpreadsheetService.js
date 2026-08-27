@@ -277,6 +277,87 @@ class SpreadsheetService {
     link.click();
     document.body.removeChild(link);
   }
+
+  /**
+   * Log generated letter(s) to Google Sheets (Buku_Agenda_Surat) and Google Drive
+   * @param {Array<Object>} entries - [{ nomorSurat, tanggalSurat, perihal, lampiran, tanggalKirim, tujuan, ket }]
+   * @param {string|null} pdfBase64 - Base64 encoded PDF string
+   * @param {string|null} fileName - Output filename for Google Drive
+   * @returns {Promise<Object>}
+   */
+  async logSuratToAgenda(entries, pdfBase64 = null, fileName = null) {
+    if (!Array.isArray(entries) || entries.length === 0) {
+      return { success: false, message: 'Tidak ada data surat untuk dicatat.' };
+    }
+
+    // 1. Save to Local Agenda Cache immediately
+    try {
+      const localAgendaKey = 'pasar_buku_agenda_surat_v1';
+      const existing = JSON.parse(localStorage.getItem(localAgendaKey) || '[]');
+      const startNo = existing.length + 1;
+
+      const formattedLocal = entries.map((item, idx) => ({
+        no: startNo + idx,
+        nomorSurat: item.nomorSurat,
+        tanggalSurat: item.tanggalSurat,
+        perihal: item.perihal,
+        lampiran: item.lampiran || '-',
+        tanggalKirim: item.tanggalKirim || formatDateDDMMYYYY(new Date()),
+        tujuan: item.tujuan,
+        ket: item.ket || (pdfBase64 ? 'Tersimpan di Cloud' : 'Tercetak'),
+        createdAt: new Date().toISOString()
+      }));
+
+      const merged = [...formattedLocal, ...existing];
+      localStorage.setItem(localAgendaKey, JSON.stringify(merged.slice(0, 1000)));
+      this.notify();
+    } catch (e) {
+      console.warn('Error saving local agenda cache:', e);
+    }
+
+    // 2. Transmit to Google Apps Script (Drive + Spreadsheet)
+    try {
+      const res = await fetch(GOOGLE_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'logSurat',
+          apiToken: API_SECURITY_TOKEN,
+          entries: entries,
+          pdfBase64: pdfBase64 || null,
+          fileName: fileName || `Surat_${entries[0]?.nomorSurat || 'Pasar'}.pdf`
+        }),
+        redirect: 'follow'
+      });
+
+      const json = await res.json();
+      if (json && json.status === 'success') {
+        return { 
+          success: true, 
+          message: 'Berhasil dicatat di Buku Agenda & Google Drive!', 
+          driveUrl: json.driveUrl, 
+          totalLogged: entries.length 
+        };
+      }
+    } catch (e) {
+      console.warn('Remote Agenda Log offline or background sync:', e);
+    }
+
+    return { 
+      success: true, 
+      message: 'Tercatat di Buku Agenda Lokal.', 
+      totalLogged: entries.length 
+    };
+  }
+
+  getAgendaLogs() {
+    try {
+      const localAgendaKey = 'pasar_buku_agenda_surat_v1';
+      return JSON.parse(localStorage.getItem(localAgendaKey) || '[]');
+    } catch (e) {
+      return [];
+    }
+  }
 }
 
 export const spreadsheetService = new SpreadsheetService();
