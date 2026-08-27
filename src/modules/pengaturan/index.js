@@ -2,16 +2,16 @@ import { renderPengaturanView } from './view.js';
 
 export const pengaturanModule = {
   id: 'pengaturan',
-  name: 'Pengaturan Sistem',
+  title: 'Pengaturan Sistem',
   icon: 'settings',
   menus: [
     {
       label: 'Pengaturan Sistem',
-      path: '/pengaturan',
-      icon: 'settings'
+      icon: 'settings',
+      path: '/pengaturan'
     }
   ],
-  routes: {
-    '/pengaturan': (container) => renderPengaturanView(container)
+  views: {
+    '/pengaturan': renderPengaturanView
   }
 };
