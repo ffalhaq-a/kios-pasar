@@ -105,34 +105,30 @@ export function renderSuratView(container, targetKiosId = null) {
                 `).join('')}
               </select>
             </div>
-
-            <!-- Metadata Surat Grid (4 Columns) -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <!-- Metadata Surat Grid (2x2 Proporsional & Sejajar) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
               <div class="space-y-1">
-                <label class="text-[11px] font-bold ${textSecondary}">Nomor Naskah Awal:</label>
-                <input type="text" id="input-no-naskah" value="${defaultNoNaskah}" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}" />
-                <span class="text-[10px] text-slate-500">Acuan urutan cetak</span>
+                <label class="text-xs font-bold ${textSecondary} block">Nomor Naskah Awal:</label>
+                <input type="text" id="input-no-naskah" value="${defaultNoNaskah}" class="w-full px-3 py-2 rounded-xl border text-xs font-bold focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}" />
               </div>
 
               <div class="space-y-1">
-                <label class="text-[11px] font-bold ${textSecondary}">Tanggal Naskah:</label>
-                <input type="text" id="input-tgl-naskah" value="${defaultDateStr}" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}" />
-                <span class="text-[10px] text-slate-500">Tanggal tertulis di surat</span>
-              </div>
-
-              <div class="space-y-1">
-                <label class="text-[11px] font-bold ${textSecondary}">Tanggal Kirim / Distribusi:</label>
-                <input type="text" id="input-tgl-kirim" value="31 Agustus 2026" placeholder="contoh: 31 Agustus 2026" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}" />
-                <span class="text-[10px] text-emerald-500 font-semibold">Tercatat di Buku Agenda</span>
-              </div>
-
-              <div class="space-y-1">
-                <label class="text-[11px] font-bold ${textSecondary}">Sifat Surat:</label>
+                <label class="text-xs font-bold ${textSecondary} block">Sifat Surat:</label>
                 <select id="input-sifat" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}">
                   <option value="Biasa" selected>Biasa</option>
                   <option value="Penting">Penting</option>
                   <option value="Segera">Segera</option>
                 </select>
+              </div>
+
+              <div class="space-y-1">
+                <label class="text-xs font-bold ${textSecondary} block">Tanggal Naskah:</label>
+                <input type="text" id="input-tgl-naskah" value="${defaultDateStr}" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}" />
+              </div>
+
+              <div class="space-y-1">
+                <label class="text-xs font-bold ${textSecondary} block">Tanggal Kirim / Distribusi:</label>
+                <input type="text" id="input-tgl-kirim" value="31 Agustus 2026" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}" />
               </div>
             </div>
 
@@ -150,7 +146,7 @@ export function renderSuratView(container, targetKiosId = null) {
             </div>
           </div>
 
-          <!-- CARD 2: CETAK MASSAL BERJENJANG (SANDANG / SAYUR / BLOK) -->
+          <!-- CARD 2: BATCH PRINTING BERJENJANG -->
           <div class="${cardBg} border rounded-2xl p-5 space-y-4">
             <div class="flex items-center justify-between border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
               <div class="flex items-center gap-2">
@@ -161,21 +157,22 @@ export function renderSuratView(container, targetKiosId = null) {
               </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <!-- Scope Selector -->
+            <!-- 2-STAGE HIERARCHICAL CONTROLS -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <!-- Tahap 1: Pilih Lingkup / Kawasan -->
               <div class="space-y-1.5">
                 <label class="text-xs font-bold ${textSecondary}">Pilih Kawasan / Lingkup Cetak:</label>
                 <select id="batch-scope-select" class="w-full px-3 py-2.5 rounded-xl border text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none ${inputBg}">
                   <option value="ALL">🏢 Seluruh Pasar (Semua 610 Unit)</option>
-                  <option value="SANDANG_ALL">🟦 Pasar Sandang • Semua Blok (${sandangKiosks.length} Unit)</option>
+                  <option value="SANDANG_ALL" selected>🟦 Pasar Sandang • Semua Blok (318 Unit)</option>
                   <option value="SANDANG_BLOCK">🟦 Pasar Sandang • Pilih Blok Tertentu</option>
-                  <option value="SAYUR_ALL">🟩 Pasar Sayur • Semua Blok (${sayurKiosks.length} Unit)</option>
+                  <option value="SAYUR_ALL">🟩 Pasar Sayur • Semua Blok (292 Unit)</option>
                   <option value="SAYUR_BLOCK">🟩 Pasar Sayur • Pilih Blok Tertentu</option>
                 </select>
               </div>
 
-              <!-- Block Selector -->
-              <div id="batch-block-wrapper" class="space-y-1.5 opacity-50 pointer-events-none transition-all">
+              <!-- Tahap 2: Pilih Blok Spesifik (Kondisional) -->
+              <div id="batch-block-wrapper" class="space-y-1.5 transition-all opacity-50 pointer-events-none">
                 <label id="batch-block-label" class="text-xs font-bold ${textSecondary}">Pilih Blok:</label>
                 <select id="batch-block-select" class="w-full px-3 py-2.5 rounded-xl border text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none ${inputBg}">
                   <!-- Injected dynamically based on selected market -->
@@ -237,17 +234,6 @@ export function renderSuratView(container, targetKiosId = null) {
                 <span id="preview-sewa" class="font-bold text-amber-500">${selectedKiosk ? (selectedKiosk.sewaBulanan || 'Rp 225.000/thn') : 'Rp 225.000/thn'}</span>
               </div>
             </div>
-
-            <div class="pt-2">
-              <div class="p-2.5 rounded-xl border flex items-center justify-between text-xs font-bold ${isDark ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'}">
-                <span class="flex items-center gap-1.5">
-                  <i data-lucide="shield-check" class="w-4 h-4 text-emerald-500"></i>
-                  <span>Format Standar SRIKANDI (A4)</span>
-                </span>
-                <span class="text-[10px] text-emerald-500 font-mono">TTE Ready</span>
-              </div>
-            </div>
-
           </div>
         </div>
 
