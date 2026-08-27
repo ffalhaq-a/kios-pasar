@@ -33,7 +33,6 @@ export function generateSequentialNumber(templateStr, indexOffset = 0) {
   // Pattern 1: Delimited by slashes (e.g. "511.2/014/VIII/2026" or "511.2/001/Ds.Krp/VIII/2026")
   const parts = str.split('/');
   for (let i = 0; i < parts.length; i++) {
-    // Find the first part that is purely digits or starts with leading zeros
     if (/^\d+$/.test(parts[i])) {
       const rawNum = parts[i];
       const startNum = parseInt(rawNum, 10) || 1;
@@ -60,15 +59,6 @@ export function generateSequentialNumber(templateStr, indexOffset = 0) {
 
   // Fallback
   return `${str}-${String(1 + indexOffset).padStart(3, '0')}`;
-}
-
-// Helper for formatted Indonesian date
-export function getIndonesianDateStr(date = new Date()) {
-  const months = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-  ];
-  return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 // Official Default Template Configuration
@@ -98,13 +88,13 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
   tableCol2Offset: 80,  // mm from left margin to 2nd column
   tableColonRight: 24,  // mm from 2nd col to colon
 
-  // 5. METODE PEMBAYARAN
-  paragrafPembayaran: 'Pembayaran sewa tahunan tersebut dapat dilakukan pada batas waktu pembayaran mulai tanggal 31 Agustus 2026 sampai dengan selambat-lambatnya 7 September 2026, melalui metode berikut:',
-  bankNama: 'Bank Jawa Tengah',
-  bankRekening: '12345xxxx',
-  bankAtasNama: 'Pemerintah Desa Karangpucung',
-  bankCatatan: '(Mohon menyertakan bukti pembayaran setelah melakukan transfer)',
-  tunaiKeterangan: 'Datang langsung ke Balai Desa Karangpucung pada hari dan jam kerja.',
+  // 5. METODE PEMBAYARAN RESMI DESA
+  paragrafPembayaran: 'Pembayaran sewa tahunan tersebut dapat dilakukan pada batas waktu pembayaran mulai tanggal 31 Agustus 2026 sampai dengan selambat-lambatnya 14 September 2026, dengan cara sebagai berikut:',
+  bankNama: 'Bank Jateng',
+  bankRekening: '3065001968',
+  bankAtasNama: 'PEMERINTAH DESA KARANGPUCUNG',
+  tunaiKeterangan: 'Pembayaran Tunai datang langsung ke Balai Desa Karangpucung pada hari dan jam kerja.',
+  materaiKeterangan: 'Membawa Dua Materai 10.000 dan Bukti transfer (jika melakukan pembayaran transfer) untuk tanda tangan sewa.',
 
   // 6. PENUTUP
   paragrafPenutup: 'Demikian surat pemberitahuan ini kami sampaikan. Atas kerja sama dan partisipasi Bapak/Ibu dalam mendukung pembangunan desa, kami ucapkan terima kasih.',
@@ -128,7 +118,7 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
 
 class PdfService {
   constructor() {
-    this.storageKey = 'pasar_template_settings_v5';
+    this.storageKey = 'pasar_template_settings_v6';
     this.customLogoKey = 'pasar_custom_logo_v2';
     this.loadSettings();
   }
@@ -255,7 +245,7 @@ class PdfService {
   }
 
   /**
-   * Renders the complete official government layout
+   * Renders the complete official government layout with updated 3-point payment instructions
    */
   renderSingleLetterPage(doc, data) {
     const settings = this.getTemplateSettings();
@@ -376,7 +366,7 @@ class PdfService {
     // ==========================================
     // 4. PARAGRAF PEMBUKA (DENGAN PERDES NO 4/2025 & NO 3/2026 + ALINEA)
     // ==========================================
-    const yPembuka = yTujuan + 19;
+    const yPembuka = yTujuan + 18.5;
     const rawParagraph = (settings.paragrafPembuka || 'Berdasarkan Peraturan Desa (Perdes) Karangpucung Nomor 4 Tahun 2025 tentang Pungutan Pasar Mukti Makmur dan Nomor 3 Tahun 2026 tentang Aset Desa, bersama ini kami beritahukan bahwa Pemerintah Desa Karangpucung akan melaksanakan penarikan sewa tahunan untuk fasilitas Kios/Los/Lemprakan di lingkungan Pasar Mukti Makmur Desa Karangpucung.\nAdapun rincian tagihan sewa tahunan Saudara/i adalah sebagai berikut:').split('\n');
 
     let currentY = yPembuka;
@@ -385,32 +375,31 @@ class PdfService {
       if (!paraText.trim()) return;
 
       if (pIdx === 0 && alineaIndent > 0) {
-        // First line with indent
         const firstLineIndentWidth = contentWidth - alineaIndent;
         const lines = doc.splitTextToSize(paraText, firstLineIndentWidth);
 
         if (lines.length > 0) {
           doc.text(lines[0], marginLeft + alineaIndent, currentY, { align: alignMode, maxWidth: firstLineIndentWidth });
-          currentY += (5.2 * (lineSpacingFactor / 1.35));
+          currentY += (5.0 * (lineSpacingFactor / 1.35));
 
           if (lines.length > 1) {
             const restLines = doc.splitTextToSize(paraText.substring(lines[0].length).trim(), contentWidth);
             doc.text(restLines, marginLeft, currentY, { align: alignMode, maxWidth: contentWidth, lineHeightFactor: lineSpacingFactor });
-            currentY += (restLines.length * 5.2 * (lineSpacingFactor / 1.35));
+            currentY += (restLines.length * 5.0 * (lineSpacingFactor / 1.35));
           }
         }
       } else {
         const splitText = doc.splitTextToSize(paraText, contentWidth);
         doc.text(splitText, marginLeft, currentY, { align: alignMode, maxWidth: contentWidth, lineHeightFactor: lineSpacingFactor });
-        currentY += (splitText.length * 5.2 * (lineSpacingFactor / 1.35));
+        currentY += (splitText.length * 5.0 * (lineSpacingFactor / 1.35));
       }
-      currentY += 2;
+      currentY += 1.5;
     });
 
     // ==========================================
     // 5. TABEL RINCIAN TAGIHAN (2-COLUMN GRID WITH RULER POSITIONS)
     // ==========================================
-    const yTabel = currentY + 2;
+    const yTabel = currentY + 1.5;
 
     // Row 1
     doc.setFont(primaryFont, 'normal');
@@ -427,67 +416,77 @@ class PdfService {
 
     // Row 2
     doc.setFont(primaryFont, 'normal');
-    doc.text('Ukuran', marginLeft, yTabel + 5.5);
-    doc.text(':', colonLeftX, yTabel + 5.5);
+    doc.text('Ukuran', marginLeft, yTabel + 5.2);
+    doc.text(':', colonLeftX, yTabel + 5.2);
     doc.setFont(primaryFont, 'bold');
-    doc.text(data.luas_dimensi || '200 x 200', colonLeftX + 3, yTabel + 5.5);
+    doc.text(data.luas_dimensi || '200 x 200', colonLeftX + 3, yTabel + 5.2);
 
     doc.setFont(primaryFont, 'normal');
-    doc.text('Luas', col2X, yTabel + 5.5);
-    doc.text(':', colonRightX, yTabel + 5.5);
+    doc.text('Luas', col2X, yTabel + 5.2);
+    doc.text(':', colonRightX, yTabel + 5.2);
     doc.setFont(primaryFont, 'bold');
-    doc.text(`${data.luas_m2 || '4.0'} m²`, colonRightX + 3, yTabel + 5.5);
+    doc.text(`${data.luas_m2 || '4.0'} m²`, colonRightX + 3, yTabel + 5.2);
 
     // Row 3
     doc.setFont(primaryFont, 'normal');
-    doc.text('Kios/Los/Lemprakan', marginLeft, yTabel + 11);
-    doc.text(':', colonLeftX, yTabel + 11);
+    doc.text('Kios/Los/Lemprakan', marginLeft, yTabel + 10.4);
+    doc.text(':', colonLeftX, yTabel + 10.4);
     doc.setFont(primaryFont, 'bold');
-    doc.text(data.blok_kios || 'Blok A1', colonLeftX + 3, yTabel + 11);
+    doc.text(data.blok_kios || 'Blok A1', colonLeftX + 3, yTabel + 10.4);
 
     doc.setFont(primaryFont, 'normal');
-    doc.text('Biaya Sewa', col2X, yTabel + 11);
-    doc.text(':', colonRightX, yTabel + 11);
+    doc.text('Biaya Sewa', col2X, yTabel + 10.4);
+    doc.text(':', colonRightX, yTabel + 10.4);
     doc.setFont(primaryFont, 'bold');
-    doc.text(data.biaya_sewa || 'Rp 225.000/thn', colonRightX + 3, yTabel + 11);
+    doc.text(data.biaya_sewa || 'Rp 225.000/thn', colonRightX + 3, yTabel + 10.4);
 
     // ==========================================
-    // 6. INSTRUKSI PEMBAYARAN & PENUTUP
+    // 6. INSTRUKSI PEMBAYARAN RESMI (3 POIN) & PENUTUP
     // ==========================================
-    const yPembayaran = yTabel + 18;
+    const yPembayaran = yTabel + 16.5;
     
     doc.setFont(primaryFont, 'normal');
     doc.setFontSize(baseFontSize - 0.5);
-    const textInstruksi = settings.paragrafPembayaran || 'Pembayaran sewa tahunan tersebut dapat dilakukan pada batas waktu pembayaran mulai tanggal 31 Agustus 2026 sampai dengan selambat-lambatnya 7 September 2026, melalui metode berikut:';
-    doc.text(textInstruksi, marginLeft, yPembayaran, { maxWidth: contentWidth, align: alignMode, lineHeightFactor: 1.3 });
+    const textInstruksi = settings.paragrafPembayaran || 'Pembayaran sewa tahunan tersebut dapat dilakukan pada batas waktu pembayaran mulai tanggal 31 Agustus 2026 sampai dengan selambat-lambatnya 14 September 2026, dengan cara sebagai berikut:';
+    doc.text(textInstruksi, marginLeft, yPembayaran, { maxWidth: contentWidth, align: alignMode, lineHeightFactor: 1.25 });
 
-    const yMetode = yPembayaran + 10;
-    doc.text('1. Transfer Bank:', marginLeft, yMetode);
-    doc.text(settings.bankNama || 'Bank Jawa Tengah', marginLeft + 6, yMetode + 5);
-    doc.text(`No. Rekening : ${settings.bankRekening || '12345xxxx'}`, marginLeft + 6, yMetode + 9.5);
-    doc.text(`Atas Nama    : ${settings.bankAtasNama || 'Pemerintah Desa Karangpucung'}`, marginLeft + 6, yMetode + 14);
-    doc.text(settings.bankCatatan || '(Mohon menyertakan bukti pembayaran setelah melakukan transfer)', marginLeft + 6, yMetode + 18.5);
+    const yMetode = yPembayaran + 9.5;
+    
+    // Poin 1: Transfer Bank Jateng + Catatan Blok
+    const transferNote = `"${(data.blok_kios || 'BLOK A1').toUpperCase()} ${(data.jenis_pasar || 'SANDANG').toUpperCase()}"`;
+    const item1Text = `1. Transfer Bank Jateng No Rekening 3065001968 atas nama PEMERINTAH DESA KARANGPUCUNG. Menyertakan Nomor Surat Pemberitahuan sebagai nomor referensi dan catatan ${transferNote}.`;
+    const splitItem1 = doc.splitTextToSize(item1Text, contentWidth);
+    doc.text(splitItem1, marginLeft, yMetode, { maxWidth: contentWidth, align: alignMode, lineHeightFactor: 1.25 });
 
-    const yTunai = yMetode + 24;
-    doc.text('2. Pembayaran Tunai:', marginLeft, yTunai);
-    doc.text(settings.tunaiKeterangan || 'Datang langsung ke Balai Desa Karangpucung pada hari dan jam kerja.', marginLeft + 6, yTunai + 5);
+    // Poin 2: Tunai
+    const yItem2 = yMetode + (splitItem1.length * 4.3) + 1.5;
+    const item2Text = '2. Pembayaran Tunai datang langsung ke Balai Desa Karangpucung pada hari dan jam kerja.';
+    const splitItem2 = doc.splitTextToSize(item2Text, contentWidth);
+    doc.text(splitItem2, marginLeft, yItem2, { maxWidth: contentWidth, align: alignMode, lineHeightFactor: 1.25 });
 
-    const yPenutup = yTunai + 12;
+    // Poin 3: Dua Materai 10.000
+    const yItem3 = yItem2 + (splitItem2.length * 4.3) + 1.5;
+    const item3Text = '3. Membawa Dua Materai 10.000 dan Bukti transfer (jika melakukan pembayaran transfer) untuk tanda tangan sewa.';
+    const splitItem3 = doc.splitTextToSize(item3Text, contentWidth);
+    doc.text(splitItem3, marginLeft, yItem3, { maxWidth: contentWidth, align: alignMode, lineHeightFactor: 1.25 });
+
+    // Paragraf Penutup
+    const yPenutup = yItem3 + (splitItem3.length * 4.3) + 3.5;
     const penutupText = settings.paragrafPenutup || 'Demikian surat pemberitahuan ini kami sampaikan. Atas kerja sama dan partisipasi Bapak/Ibu dalam mendukung pembangunan desa, kami ucapkan terima kasih.';
-    doc.text(penutupText, marginLeft, yPenutup, { maxWidth: contentWidth, align: alignMode, lineHeightFactor: 1.35 });
+    doc.text(penutupText, marginLeft, yPenutup, { maxWidth: contentWidth, align: alignMode, lineHeightFactor: 1.3 });
 
     // ==========================================
     // 7. TANDA TANGAN KEPALA DESA (RUANG TTD BASAH & STEMPEL)
     // ==========================================
-    const yTtd = yPenutup + 12.5;
+    const yTtd = yPenutup + 9.5;
     const ttdCenterX = pageWidth - marginRight - 38;
 
     doc.setFont(primaryFont, 'normal');
     doc.setFontSize(baseFontSize);
     doc.text(settings.ttdJabatan || 'PJ. Kepala Desa Karangpucung', ttdCenterX, yTtd, { align: 'center' });
 
-    // Ruang Tanda Tangan & Cap Stempel Basah (~24mm)
-    const yNamaTtd = yTtd + 24;
+    // Ruang Tanda Tangan & Cap Stempel Basah (~23mm)
+    const yNamaTtd = yTtd + 23;
     doc.setFont(primaryFont, 'bold');
     doc.setFontSize(baseFontSize);
     doc.text(settings.ttdNama || 'A. ANJARNINGSIH, S.E.', ttdCenterX, yNamaTtd, { align: 'center' });
