@@ -418,7 +418,7 @@ export function renderSuratView(container, targetKiosId = null) {
         ket: `${cleanBlok} ${cleanPasar} - Sewa ${rentCalc.summary}`
       }];
 
-      spreadsheetService.logSuratToAgenda(agendaEntry, base64Data, fileName).then(res => {
+      spreadsheetService.logSuratToAgenda(agendaEntry, base64Data, fileName, selectedKiosk.zona || 'PASAR SANDANG').then(res => {
         if (res && res.success) {
           statusAlertText.innerText = `✅ Surat ${cleanBlok} berhasil diunduh & dicatat di Google Drive / Buku Agenda Spreadsheet!`;
         }
@@ -539,7 +539,9 @@ export function renderSuratView(container, targetKiosId = null) {
 
         const pdfDataUri = doc.output('datauristring');
         const base64Data = pdfDataUri.split(',')[1];
-        spreadsheetService.logSuratToAgenda(batchEntries, base64Data, batchFileName).then(res => {
+        const targetMarketZone = (scope.startsWith('SAYUR') || targetList[0]?.zona === 'PASAR SAYUR') ? 'PASAR SAYUR' : 'PASAR SANDANG';
+
+        spreadsheetService.logSuratToAgenda(batchEntries, base64Data, batchFileName, targetMarketZone).then(res => {
           if (res && res.success) {
             statusAlertText.innerText = `✅ Bundle PDF (${targetList.length} surat) berhasil dicatat otomatis di Buku Agenda Spreadsheet & Drive!`;
           }

@@ -283,9 +283,10 @@ class SpreadsheetService {
    * @param {Array<Object>} entries - [{ nomorSurat, tanggalSurat, perihal, lampiran, tanggalKirim, tujuan, ket }]
    * @param {string|null} pdfBase64 - Base64 encoded PDF string
    * @param {string|null} fileName - Output filename for Google Drive
+   * @param {string} marketZone - 'PASAR SANDANG' or 'PASAR SAYUR'
    * @returns {Promise<Object>}
    */
-  async logSuratToAgenda(entries, pdfBase64 = null, fileName = null) {
+  async logSuratToAgenda(entries, pdfBase64 = null, fileName = null, marketZone = 'PASAR SANDANG') {
     if (!Array.isArray(entries) || entries.length === 0) {
       return { success: false, message: 'Tidak ada data surat untuk dicatat.' };
     }
@@ -317,12 +318,15 @@ class SpreadsheetService {
 
     // 2. Transmit to Google Apps Script (Drive + Spreadsheet)
     try {
+      const cleanZone = String(marketZone || 'PASAR SANDANG').toUpperCase().includes('SAYUR') ? 'PASAR SAYUR' : 'PASAR SANDANG';
+
       const res = await fetch(GOOGLE_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
           action: 'logSurat',
           apiToken: API_SECURITY_TOKEN,
+          zona: cleanZone,
           entries: entries,
           pdfBase64: pdfBase64 || null,
           fileName: fileName || `Surat_${entries[0]?.nomorSurat || 'Pasar'}.pdf`
