@@ -18,19 +18,19 @@ export function toTitleCase(str) {
 
 /**
  * Smart sequential letter number generator
- * Automatically increments the number portion in any letter number format (e.g. 511.2/014/VIII/2026 -> 511.2/015/VIII/2026)
+ * Automatically increments the number portion in any letter number format (e.g. 400.10.2/90/2005 -> 400.10.2/91/2005)
  * @param {string} templateStr - Base letter number from user input
  * @param {number} indexOffset - Zero-based index for batch printing
  * @returns {string} - Computed sequential number
  */
 export function generateSequentialNumber(templateStr, indexOffset = 0) {
   if (!templateStr || typeof templateStr !== 'string') {
-    return `511.2/${String(1 + indexOffset).padStart(3, '0')}/VIII/2026`;
+    return `400.10.2/${90 + indexOffset}/2005`;
   }
 
   const str = templateStr.trim();
 
-  // Pattern 1: Delimited by slashes (e.g. "511.2/014/VIII/2026" or "511.2/001/Ds.Krp/VIII/2026")
+  // Pattern 1: Delimited by slashes (e.g. "400.10.2/90/2005" or "511.2/014/VIII/2026")
   const parts = str.split('/');
   for (let i = 0; i < parts.length; i++) {
     if (/^\d+$/.test(parts[i])) {
@@ -82,7 +82,7 @@ function drawJustifiedLine(doc, line, x, y, targetWidth, isLastLine = false) {
   const spaceWidth = totalSpaceNeeded / (words.length - 1);
   const normalSpaceWidth = doc.getTextWidth(' ');
 
-  // Guard against unnatural huge gaps (if line was too short)
+  // Guard against unnatural huge gaps
   if (spaceWidth > normalSpaceWidth * 3.5 || spaceWidth < 0) {
     doc.text(line.trim(), x, y, { align: 'left' });
     return;
@@ -185,7 +185,7 @@ function renderNumberedItem(doc, numStr, text, x, y, numIndent, textIndent, widt
   return curY + 1.2;
 }
 
-// Official Default Template Configuration (1 cm Margins & 11 pt Font)
+// Official Default Template Configuration (Margin Kiri/Kanan 1.5 cm, Atas/Bawah 1 cm, Default No. 400.10.2/90/2005)
 export const DEFAULT_TEMPLATE_SETTINGS = {
   // 1. KOP SURAT
   kopKabupaten: 'PEMERINTAH KABUPATEN CILACAP',
@@ -195,8 +195,8 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
   kopKota: 'CILACAP',
   kopKodePos: 'Kode Pos 53255',
 
-  // 2. METADATA & PERIHAL
-  defaultNoNaskah: '511.2/014/VIII/2026',
+  // 2. METADATA & PERIHAL (DEFAULT RESMI 400.10.2/90/2005)
+  defaultNoNaskah: '400.10.2/90/2005',
   defaultDateStr: '27 Agustus 2026',
   defaultSifat: 'Biasa',
   halSurat: 'Pemberitahuan Pembayaran Sewa Tahunan Pasar Mukti Makmur',
@@ -208,9 +208,9 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
   lineSpacing: 1.35,
 
   // 4. TABEL RINCIAN & PENJAJARAN TITIK DUA (RULER POSITIONS)
-  tableColonLeft: 40,   // mm from left margin to colon
-  tableCol2Offset: 100, // mm from left margin to 2nd column
-  tableColonRight: 26,  // mm from 2nd col to colon
+  tableColonLeft: 38,   // mm from left margin to colon
+  tableCol2Offset: 95,  // mm from left margin to 2nd column
+  tableColonRight: 25,  // mm from 2nd col to colon
 
   // 5. METODE PEMBAYARAN RESMI DESA
   paragrafPembayaran: 'Pembayaran sewa tahunan tersebut dapat dilakukan pada batas waktu pembayaran mulai tanggal 31 Agustus 2026 sampai dengan selambat-lambatnya 14 September 2026, dengan cara sebagai berikut:',
@@ -226,13 +226,13 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
   ttdNama: 'A. ANJARNINGSIH, S.E.',
   ttdNip: 'NIP. 19790507 2003 12 2 006',
 
-  // 8. FORMAT & MARGIN 1 CM (10 MM)
+  // 8. FORMAT & MARGIN: KIRI/KANAN 1.5 CM (15 MM), ATAS/BAWAH 1 CM (10 MM)
   fontFamily: 'times',
   fontSize: 11,
   marginTop: 10.0,   // 1 cm
   marginBottom: 10.0,// 1 cm
-  marginLeft: 10.0,  // 1 cm
-  marginRight: 10.0, // 1 cm
+  marginLeft: 15.0,  // 1.5 cm
+  marginRight: 15.0, // 1.5 cm
 
   // 9. CUSTOM LOGO
   customLogoBase64: null
@@ -240,7 +240,7 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
 
 class PdfService {
   constructor() {
-    this.storageKey = 'pasar_template_settings_v8';
+    this.storageKey = 'pasar_template_settings_v9';
     this.customLogoKey = 'pasar_custom_logo_v2';
     this.loadSettings();
   }
@@ -331,7 +331,7 @@ class PdfService {
     });
 
     const settings = this.getTemplateSettings();
-    const baseNomor = commonParams.nomor_naskah || settings.defaultNoNaskah || '511.2/014/VIII/2026';
+    const baseNomor = commonParams.nomor_naskah || settings.defaultNoNaskah || '400.10.2/90/2005';
     const baseTanggal = commonParams.tanggal_naskah || settings.defaultDateStr || '27 Agustus 2026';
     const baseSifat = commonParams.sifat || settings.defaultSifat || 'Biasa';
 
@@ -343,7 +343,7 @@ class PdfService {
       const cleanJenisPasar = (kiosk.zona || '').toUpperCase().includes('SAYUR') || String(kiosk.id || '').startsWith('SYR') ? 'Sayur' : 'Sandang';
       const cleanBlokKode = kiosk.blokKode ? (kiosk.blokKode.startsWith('Blok') ? kiosk.blokKode : `Blok ${kiosk.blokKode}`) : (kiosk.id || '-');
 
-      // Auto-increment sequential number based on input reference
+      // Auto-increment sequential number based on input reference (e.g. 400.10.2/90/2005 -> 400.10.2/91/2005)
       const currentSequentialNo = generateSequentialNumber(baseNomor, idx);
 
       const letterData = {
@@ -367,30 +367,30 @@ class PdfService {
   }
 
   /**
-   * Renders the complete official government layout with 1 cm margins and 100% exact justification
+   * Renders the complete official government layout with 1.5 cm Left/Right margins and exact justification
    */
   renderSingleLetterPage(doc, data) {
     const settings = this.getTemplateSettings();
     const pageWidth = doc.internal.pageSize.getWidth(); // 210 mm
     
-    // 1 cm Margins (10 mm)
-    const marginLeft = Number(settings.marginLeft) || 10.0;
-    const marginRight = Number(settings.marginRight) || 10.0;
+    // Left/Right: 1.5 cm (15 mm), Top/Bottom: 1.0 cm (10 mm)
+    const marginLeft = Number(settings.marginLeft) || 15.0;
+    const marginRight = Number(settings.marginRight) || 15.0;
     const marginTop = Number(settings.marginTop) || 10.0;
-    const contentWidth = pageWidth - marginLeft - marginRight; // 190 mm
+    const contentWidth = pageWidth - marginLeft - marginRight; // 180 mm
 
     const primaryFont = settings.fontFamily || 'times';
     const baseFontSize = Number(settings.fontSize) || 11;
     const alineaIndent = Number(settings.firstLineIndent) || 12.7;
 
-    const colonLeftX = marginLeft + (Number(settings.tableColonLeft) || 40);
-    const col2X = marginLeft + (Number(settings.tableCol2Offset) || 100);
-    const colonRightX = col2X + (Number(settings.tableColonRight) || 26);
+    const colonLeftX = marginLeft + (Number(settings.tableColonLeft) || 38);
+    const col2X = marginLeft + (Number(settings.tableCol2Offset) || 95);
+    const colonRightX = col2X + (Number(settings.tableColonRight) || 25);
 
     // ==========================================
     // 1. KOP SURAT RESMI KEDINASAN (HEADER)
     // ==========================================
-    const logoX = marginLeft + 2;
+    const logoX = marginLeft + 1;
     const logoY = marginTop + 1;
     const logoWidth = 20;
     const logoHeight = 24;
@@ -425,11 +425,11 @@ class PdfService {
     doc.text(settings.kopAlamat || 'Jalan Pramuka No. 09 Tlp. 02806261727', headerCenterX, marginTop + 20.5, { align: 'center' });
     doc.text(settings.kopKota || 'CILACAP', headerCenterX, marginTop + 25.0, { align: 'center' });
 
-    // Kode Pos (Right aligned under Kop)
+    // Kode Pos (Right aligned under Kop at 195 mm)
     doc.setFontSize(9.5);
     doc.text(settings.kopKodePos || 'Kode Pos 53255', pageWidth - marginRight, marginTop + 28.0, { align: 'right' });
 
-    // Double Border Lines below Kop (1 cm to 20 cm)
+    // Double Border Lines below Kop (15 mm to 195 mm)
     const lineY = marginTop + 30.0;
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.8);
@@ -445,7 +445,7 @@ class PdfService {
     doc.setFontSize(baseFontSize);
     doc.setTextColor(0, 0, 0);
 
-    // Date (Right Column)
+    // Date (Right Column at 195 mm)
     const dateText = data.tanggal_naskah || settings.defaultDateStr || '27 Agustus 2026';
     doc.text(`Cilacap, ${dateText}`, pageWidth - marginRight, startY, { align: 'right' });
 
@@ -455,7 +455,7 @@ class PdfService {
 
     doc.text('Nomor', marginLeft, startY + 4.5);
     doc.text(':', colColon, startY + 4.5);
-    doc.text(data.nomor_naskah || settings.defaultNoNaskah || '511.2/014/VIII/2026', colVal, startY + 4.5);
+    doc.text(data.nomor_naskah || settings.defaultNoNaskah || '400.10.2/90/2005', colVal, startY + 4.5);
 
     doc.text('Sifat', marginLeft, startY + 9.5);
     doc.text(':', colColon, startY + 9.5);
@@ -553,8 +553,10 @@ class PdfService {
     let curYBayar = renderParagraph(doc, paraBayar, marginLeft, yPembayaran, contentWidth, alineaIndent, 4.5);
     curYBayar += 1.5;
 
-    // Poin 1: Transfer Bank Jateng (Hanging Indent)
-    const transferNote = `"${(data.blok_kios || 'BLOK A1').toUpperCase()} ${(data.jenis_pasar || 'SANDANG').toUpperCase()}"`;
+    // Poin 1: Transfer Bank Jateng + Catatan "BLOK (A1 SANDANG)"
+    const rawBlokCode = (data.blok_kios || 'A1').replace(/^blok\s+/i, '').trim().toUpperCase();
+    const rawPasar = (data.jenis_pasar || 'Sandang').replace(/^pasar\s+/i, '').trim().toUpperCase();
+    const transferNote = `"BLOK (${rawBlokCode} ${rawPasar})"`;
     const item1Text = `Transfer Bank Jateng No Rekening 3065001968 atas nama PEMERINTAH DESA KARANGPUCUNG. Menyertakan Nomor Surat Pemberitahuan sebagai nomor referensi dan catatan ${transferNote}.`;
     curYBayar = renderNumberedItem(doc, '1.', item1Text, marginLeft, curYBayar, 6, alineaIndent, contentWidth, 4.3);
 

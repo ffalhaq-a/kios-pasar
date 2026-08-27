@@ -48,7 +48,7 @@ export function renderSuratView(container, targetKiosId = null) {
   const inputBg = isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900';
 
   // Default Initial Reference Values
-  const defaultNoNaskah = '511.2/014/VIII/2026';
+  const defaultNoNaskah = '400.10.2/90/2005';
   const defaultDateStr = '27 Agustus 2026';
   const defaultSifat = 'Biasa';
 
