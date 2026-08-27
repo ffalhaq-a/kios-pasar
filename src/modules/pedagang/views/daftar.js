@@ -1,5 +1,6 @@
 import { spreadsheetService, formatDateDDMMYYYY } from '../../../services/SpreadsheetService.js';
 import { themeManager } from '../../../shell/ThemeManager.js';
+import { rateService } from '../../../services/RateService.js';
 
 export function renderDaftarPedagangView(container) {
   const isDark = themeManager.isDark();
@@ -189,7 +190,9 @@ export function renderDaftarPedagangView(container) {
             ${item.luasDimensi ? `<span class="font-medium">${item.luasDimensi}</span>` : ''}
             ${item.luasM2 ? `<span class="text-[10px] text-emerald-500 font-bold ml-1">(${item.luasM2} m²)</span>` : ''}
           </td>
-          <td class="px-3 py-3 font-mono font-bold text-amber-500 whitespace-nowrap">${item.sewaBulanan}</td>
+          <td class="px-3 py-3 font-mono font-bold text-amber-500 whitespace-nowrap" title="${rateService.calculateRent(item.luasM2, item.tipeKios, item.sewaBulanan).summary}">
+            ${rateService.calculateRent(item.luasM2, item.tipeKios, item.sewaBulanan).formattedTotal}
+          </td>
           <td class="px-3 py-3 font-mono ${textSecondary} whitespace-nowrap">${formattedTglBayar}</td>
           <td class="px-3 py-3 font-mono font-bold text-amber-500 whitespace-nowrap">${formattedTglHabis}</td>
           <td class="px-3 py-3 whitespace-nowrap">${statusBadge}</td>
@@ -488,6 +491,15 @@ export function renderDaftarPedagangView(container) {
               </div>
             </div>
 
+            <!-- Live Kalkulasi Biaya Sewa Tahunan -->
+            <div class="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 text-xs font-bold flex items-center justify-between">
+              <span class="flex items-center gap-1.5">
+                <i data-lucide="calculator" class="w-4 h-4 text-emerald-500"></i>
+                <span>Estimasi Tagihan Sewa:</span>
+              </span>
+              <span id="edit-live-sewa-text" class="font-mono text-emerald-400 font-extrabold">-</span>
+            </div>
+
             <!-- Tanggal Pembayaran & Tanggal Habis Sewa dengan Auto Date (+1 Year) & Auto Status (Lunas) -->
             <div class="grid grid-cols-2 gap-3">
               <div>
@@ -653,13 +665,53 @@ export function renderDaftarPedagangView(container) {
     });
   }
 
+  let activeEditingKiosk = null;
+
+  function updateModalLiveSewa() {
+    if (!activeEditingKiosk) return;
+    const luasVal = container.querySelector('#edit-luas-input').value;
+    const rentCalc = rateService.calculateRent(luasVal, activeEditingKiosk.tipeKios, activeEditingKiosk.sewaBulanan);
+    const previewEl = container.querySelector('#edit-live-sewa-text');
+    if (previewEl) {
+      previewEl.innerText = rentCalc.summary;
+    }
+    return rentCalc;
+  }
+
+  // Dimension Parser -> Auto compute m2
+  const editDimensiInput = container.querySelector('#edit-dimensi-input');
+  const editLuasInput = container.querySelector('#edit-luas-input');
+
+  if (editDimensiInput && editLuasInput) {
+    editDimensiInput.addEventListener('input', (e) => {
+      const val = e.target.value;
+      const parts = val.split(/x|\*/i);
+      if (parts.length === 2) {
+        const p = parseFloat(parts[0].replace(/,/g, '.').trim()) || 0;
+        const l = parseFloat(parts[1].replace(/,/g, '.').trim()) || 0;
+        if (p > 0 && l > 0) {
+          const pM = p > 50 ? p / 100 : p;
+          const lM = l > 50 ? l / 100 : l;
+          const m2 = Math.round((pM * lM) * 100) / 100;
+          editLuasInput.value = m2.toFixed(2);
+          updateModalLiveSewa();
+        }
+      }
+    });
+
+    editLuasInput.addEventListener('input', () => {
+      updateModalLiveSewa();
+    });
+  }
+
   function openEditModal(targetId) {
     const item = kiosks.find(k => k.id === targetId);
     if (!item) return;
 
+    activeEditingKiosk = item;
     const modal = container.querySelector('#edit-merchant-modal');
     container.querySelector('#modal-edit-title').innerText = `Edit Pedagang ${item.blokKode || item.id}`;
-    container.querySelector('#modal-edit-subtitle').innerText = `ID Unik: ${item.id} • Zona: ${item.zona}`;
+    container.querySelector('#modal-edit-subtitle').innerText = `ID Unik: ${item.id} • Zona: ${item.zona} • Tipe: ${item.tipeKios || 'LOS'}`;
     container.querySelector('#edit-id-input').value = item.id;
     container.querySelector('#edit-nama-input').value = item.pedagang === '-' ? '' : item.pedagang;
     container.querySelector('#edit-nik-input').value = item.nik || '';
@@ -671,6 +723,8 @@ export function renderDaftarPedagangView(container) {
     container.querySelector('#edit-tgl-habis-input').value = item.tglHabisSewa === '-' ? '' : String(item.tglHabisSewa).split('T')[0];
     container.querySelector('#edit-status-bayar-input').value = item.statusBayar || 'belum_bayar';
     container.querySelector('#edit-hp-input').value = item.nomorHp || '';
+
+    updateModalLiveSewa();
 
     modal.classList.remove('hidden');
     if (window.lucide) window.lucide.createIcons();
@@ -690,13 +744,19 @@ export function renderDaftarPedagangView(container) {
       tglBayarVal = new Date().toISOString().slice(0, 10);
     }
 
+    const currentLuas = container.querySelector('#edit-luas-input').value.trim() || '4.0';
+    const rentCalc = activeEditingKiosk 
+      ? rateService.calculateRent(currentLuas, activeEditingKiosk.tipeKios, activeEditingKiosk.sewaBulanan)
+      : { formattedTotal: 'Rp 225.000/thn' };
+
     const updated = {
       pedagang: container.querySelector('#edit-nama-input').value.trim() || '-',
       nik: container.querySelector('#edit-nik-input').value.trim() || '-',
       alamat: container.querySelector('#edit-alamat-input').value.trim() || '-',
       kategori: container.querySelector('#edit-usaha-input').value.trim() || 'Umum',
       luasDimensi: container.querySelector('#edit-dimensi-input').value.trim() || '200 x 200',
-      luasM2: container.querySelector('#edit-luas-input').value.trim() || '4.0',
+      luasM2: currentLuas,
+      sewaBulanan: rentCalc.formattedTotal,
       tglPembayaran: tglBayarVal || '-',
       tglHabisSewa: container.querySelector('#edit-tgl-habis-input').value || '2026-12-31',
       statusBayar: statusVal,
