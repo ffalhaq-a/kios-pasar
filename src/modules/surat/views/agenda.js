@@ -3,8 +3,16 @@ import { spreadsheetService } from '../../../services/SpreadsheetService.js';
 import { escapeHTML } from '../../../utils/security.js';
 
 export function renderAgendaSuratView(container) {
+  if (!container) return;
+
   const isDark = themeManager.isDark();
-  const agendaLogs = spreadsheetService.getAgendaLogs();
+  let agendaLogs = [];
+  try {
+    agendaLogs = spreadsheetService.getAgendaLogs() || [];
+  } catch (e) {
+    console.warn('Error reading agenda logs:', e);
+    agendaLogs = [];
+  }
 
   const cardBg = isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200 shadow-sm';
   const textPrimary = isDark ? 'text-slate-100' : 'text-slate-900';
@@ -28,7 +36,7 @@ export function renderAgendaSuratView(container) {
           <!-- Total Terbit Badge -->
           <span class="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 flex items-center gap-1.5">
             <i data-lucide="file-check" class="w-3.5 h-3.5"></i>
-            <span>${agendaLogs.length} Surat Keluar</span>
+            <span>${agendaLogs.length} Surat Teragenda</span>
           </span>
 
           <button id="btn-export-agenda-csv" class="border px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${cardBg} ${textPrimary} hover:border-emerald-500 shadow-sm">
@@ -44,13 +52,16 @@ export function renderAgendaSuratView(container) {
           <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
           <input type="text" id="input-search-agenda" placeholder="Cari nomor surat, tujuan, atau blok..." class="w-full pl-9 pr-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}" />
         </div>
-        <p class="text-[11px] ${textSecondary}">
-          Tersinkronisasi otomatis ke Google Spreadsheet Sheet <b>"Buku_Agenda_Surat"</b>
-        </p>
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-lg">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Tersambung Google Sheets (Buku_Agenda_Surat)</span>
+          </span>
+        </div>
       </div>
 
       <!-- TABEL 8 KOLOM RESMI BUKU AGENDA SURAT -->
-      <div class="${cardBg} border rounded-2xl overflow-hidden">
+      <div class="${cardBg} border rounded-2xl overflow-hidden shadow-sm">
         <div class="overflow-x-auto">
           <table class="w-full text-xs text-left border-collapse" id="table-agenda-surat">
             <thead class="text-[10px] uppercase tracking-wider font-extrabold ${isDark ? 'bg-slate-900 text-slate-300 border-b border-slate-800' : 'bg-slate-100 text-slate-700 border-b border-slate-200'}">
@@ -68,10 +79,21 @@ export function renderAgendaSuratView(container) {
             <tbody id="tbody-agenda" class="divide-y ${isDark ? 'divide-slate-800 text-slate-300' : 'divide-slate-200 text-slate-700'}">
               ${agendaLogs.length === 0 ? `
                 <tr>
-                  <td colspan="8" class="p-8 text-center text-slate-500">
-                    <div class="flex flex-col items-center justify-center space-y-2">
-                      <i data-lucide="inbox" class="w-8 h-8 opacity-40"></i>
-                      <p class="text-xs">Belum ada surat yang diterbitkan. Silakan generate surat di menu <b>Surat Pemberitahuan</b>.</p>
+                  <td colspan="8" class="p-12 text-center text-slate-500">
+                    <div class="flex flex-col items-center justify-center space-y-3">
+                      <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
+                        <i data-lucide="book-open" class="w-6 h-6"></i>
+                      </div>
+                      <div class="space-y-1">
+                        <p class="text-sm font-bold ${textPrimary}">Belum Ada Catatan Agenda Surat</p>
+                        <p class="text-xs ${textSecondary} max-w-md mx-auto">
+                          Setiap surat yang Anda unduh di menu <b>Surat Pemberitahuan</b> akan otomatis dicatat nomornya di sini dan diarsipkan ke Google Drive / Google Sheets.
+                        </p>
+                      </div>
+                      <button id="btn-goto-surat-from-agenda" class="mt-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 shadow-lg shadow-emerald-900/30 transition-all">
+                        <i data-lucide="file-plus" class="w-4 h-4"></i>
+                        <span>Buka Surat Pemberitahuan</span>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -80,7 +102,7 @@ export function renderAgendaSuratView(container) {
                   <td class="px-3 py-2.5 text-center font-bold border-r ${isDark ? 'border-slate-800' : 'border-slate-200'}">
                     ${item.no || (idx + 1)}
                   </td>
-                  <td class="px-3.5 py-2.5 font-mono font-bold text-emerald-500 border-r ${isDark ? 'border-slate-800' : 'border-slate-200'}">
+                  <td class="px-3.5 py-2.5 font-mono font-bold text-emerald-500 border-r ${isDark ? 'border-slate-800' : 'border-slate-200'} whitespace-nowrap">
                     ${escapeHTML(item.nomorSurat)}
                   </td>
                   <td class="px-3.5 py-2.5 border-r ${isDark ? 'border-slate-800' : 'border-slate-200'} whitespace-nowrap">
@@ -112,6 +134,13 @@ export function renderAgendaSuratView(container) {
 
     </div>
   `;
+
+  if (window.lucide) window.lucide.createIcons();
+
+  // Button Navigate to Surat
+  container.querySelector('#btn-goto-surat-from-agenda')?.addEventListener('click', () => {
+    if (window._navigate) window._navigate('/surat/pemberitahuan');
+  });
 
   // Search Filter Handler
   const searchInput = container.querySelector('#input-search-agenda');
