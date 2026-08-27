@@ -62,7 +62,55 @@ class AuthService {
   saveUsersCache(users) {
     if (Array.isArray(users) && users.length > 0) {
       localStorage.setItem(this.usersCacheKey, JSON.stringify(users));
+      this.notify();
     }
+  }
+
+  addUser(user) {
+    const users = this.getCachedUsers();
+    const cleanUsername = String(user.username || '').toLowerCase().trim();
+    if (!cleanUsername) return { success: false, message: 'Username tidak boleh kosong!' };
+    
+    if (users.some(u => String(u.username).toLowerCase() === cleanUsername)) {
+      return { success: false, message: `Username "${cleanUsername}" sudah digunakan!` };
+    }
+
+    users.push({
+      username: cleanUsername,
+      password: user.password || '123456',
+      nama: user.nama || user.username,
+      role: user.role || 'PETUGAS'
+    });
+
+    this.saveUsersCache(users);
+    return { success: true, message: 'Pengguna berhasil ditambahkan!' };
+  }
+
+  updateUser(username, updatedFields) {
+    const users = this.getCachedUsers();
+    const idx = users.findIndex(u => String(u.username).toLowerCase() === String(username).toLowerCase());
+    if (idx === -1) return { success: false, message: 'Pengguna tidak ditemukan!' };
+
+    users[idx] = {
+      ...users[idx],
+      ...updatedFields,
+      username: users[idx].username // protect username change
+    };
+
+    this.saveUsersCache(users);
+    return { success: true, message: 'Data pengguna berhasil diperbarui!' };
+  }
+
+  deleteUser(username) {
+    const users = this.getCachedUsers();
+    const cleanUsername = String(username).toLowerCase();
+    if (cleanUsername === 'admin') {
+      return { success: false, message: 'Akun Super Admin utama tidak dapat dihapus!' };
+    }
+
+    const filtered = users.filter(u => String(u.username).toLowerCase() !== cleanUsername);
+    this.saveUsersCache(filtered);
+    return { success: true, message: 'Akun berhasil dihapus!' };
   }
 
   /**

@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { rateService } from './RateService.js';
 
 // Helper to convert ALL CAPS to Title Case (Kapital huruf depan)
 export function toTitleCase(str) {
@@ -240,7 +241,7 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
 
 class PdfService {
   constructor() {
-    this.storageKey = 'pasar_template_settings_v9';
+    this.storageKey = 'pasar_template_settings_v10';
     this.customLogoKey = 'pasar_custom_logo_v2';
     this.loadSettings();
   }
@@ -346,6 +347,8 @@ class PdfService {
       // Auto-increment sequential number based on input reference (e.g. 400.10.2/90/2005 -> 400.10.2/91/2005)
       const currentSequentialNo = generateSequentialNumber(baseNomor, idx);
 
+      const computedRate = kiosk.sewaBulanan || rateService.formatRupiah(rateService.getRateForType(kiosk.tipeKios));
+
       const letterData = {
         ...commonParams,
         nomor_naskah: currentSequentialNo,
@@ -357,7 +360,7 @@ class PdfService {
         tipe_kios: kiosk.tipeKios || 'LOS',
         luas_dimensi: kiosk.luasDimensi || '200 x 200',
         luas_m2: kiosk.luasM2 || '4.0',
-        biaya_sewa: kiosk.sewaBulanan || 'Rp 225.000/thn'
+        biaya_sewa: computedRate
       };
 
       this.renderSingleLetterPage(doc, letterData);
@@ -553,10 +556,10 @@ class PdfService {
     let curYBayar = renderParagraph(doc, paraBayar, marginLeft, yPembayaran, contentWidth, alineaIndent, 4.5);
     curYBayar += 1.5;
 
-    // Poin 1: Transfer Bank Jateng + Catatan "BLOK (A1 SANDANG)"
+    // Poin 1: Transfer Bank Jateng + Catatan "BLOK A1 SANDANG"
     const rawBlokCode = (data.blok_kios || 'A1').replace(/^blok\s+/i, '').trim().toUpperCase();
     const rawPasar = (data.jenis_pasar || 'Sandang').replace(/^pasar\s+/i, '').trim().toUpperCase();
-    const transferNote = `"BLOK (${rawBlokCode} ${rawPasar})"`;
+    const transferNote = `"BLOK ${rawBlokCode} ${rawPasar}"`;
     const item1Text = `Transfer Bank Jateng No Rekening 3065001968 atas nama PEMERINTAH DESA KARANGPUCUNG. Menyertakan Nomor Surat Pemberitahuan sebagai nomor referensi dan catatan ${transferNote}.`;
     curYBayar = renderNumberedItem(doc, '1.', item1Text, marginLeft, curYBayar, 6, alineaIndent, contentWidth, 4.3);
 
