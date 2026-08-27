@@ -47,10 +47,10 @@ export function renderSuratView(container, targetKiosId = null) {
   const textSecondary = isDark ? 'text-slate-400' : 'text-slate-600';
   const inputBg = isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900';
 
-  // Default SRIKANDI Tag Values
-  const defaultNoNaskah = '${nomor_naskah}';
-  const defaultDateStr = '${tanggal_naskah}';
-  const defaultSifat = '${sifat}';
+  // Default Initial Reference Values
+  const defaultNoNaskah = '511.2/014/VIII/2026';
+  const defaultDateStr = '27 Agustus 2026';
+  const defaultSifat = 'Biasa';
 
   container.innerHTML = `
     <div class="p-6 space-y-6 overflow-y-auto h-full ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}">
@@ -59,7 +59,7 @@ export function renderSuratView(container, targetKiosId = null) {
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 class="text-xl font-extrabold ${textPrimary}">Penerbitan Surat Pemberitahuan</h1>
-          <p class="text-xs ${textSecondary} mt-0.5">Format standar SRIKANDI • Cetak Satuan, Per Blok Sandang/Sayur, atau Per Kawasan</p>
+          <p class="text-xs ${textSecondary} mt-0.5">Penomoran Berurutan Otomatis • Cetak Satuan, Per Blok Sandang/Sayur, atau Per Kawasan</p>
         </div>
 
         <div class="flex items-center gap-2">
@@ -109,8 +109,9 @@ export function renderSuratView(container, targetKiosId = null) {
             <!-- Metadata Surat Grid -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div class="space-y-1">
-                <label class="text-[11px] font-bold ${textSecondary}">Nomor Naskah:</label>
+                <label class="text-[11px] font-bold ${textSecondary}">Nomor Naskah Awal:</label>
                 <input type="text" id="input-no-naskah" value="${defaultNoNaskah}" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}" />
+                <span class="text-[10px] text-slate-500">Acuan urutan cetak massal</span>
               </div>
 
               <div class="space-y-1">
@@ -121,8 +122,7 @@ export function renderSuratView(container, targetKiosId = null) {
               <div class="space-y-1">
                 <label class="text-[11px] font-bold ${textSecondary}">Sifat Surat:</label>
                 <select id="input-sifat" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}">
-                  <option value="${defaultSifat}" selected>\${sifat} (SRIKANDI)</option>
-                  <option value="Biasa">Biasa</option>
+                  <option value="Biasa" selected>Biasa</option>
                   <option value="Penting">Penting</option>
                   <option value="Segera">Segera</option>
                 </select>

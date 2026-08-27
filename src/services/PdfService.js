@@ -10,14 +10,68 @@ export function toTitleCase(str) {
     .split(' ')
     .map(word => {
       if (word.length === 0) return '';
-      // Retain periods in abbreviations like H., Hj., Drs.
       return word.charAt(0).toUpperCase() + word.slice(1);
     })
     .join(' ')
     .trim();
 }
 
-// Official Default Template Configuration formatted for SRIKANDI e-Office
+/**
+ * Smart sequential letter number generator
+ * Automatically increments the number portion in any letter number format (e.g. 511.2/014/VIII/2026 -> 511.2/015/VIII/2026)
+ * @param {string} templateStr - Base letter number from user input
+ * @param {number} indexOffset - Zero-based index for batch printing
+ * @returns {string} - Computed sequential number
+ */
+export function generateSequentialNumber(templateStr, indexOffset = 0) {
+  if (!templateStr || typeof templateStr !== 'string') {
+    return `511.2/${String(1 + indexOffset).padStart(3, '0')}/VIII/2026`;
+  }
+
+  const str = templateStr.trim();
+
+  // Pattern 1: Delimited by slashes (e.g. "511.2/014/VIII/2026" or "511.2/001/Ds.Krp/VIII/2026")
+  const parts = str.split('/');
+  for (let i = 0; i < parts.length; i++) {
+    // Find the first part that is purely digits or starts with leading zeros
+    if (/^\d+$/.test(parts[i])) {
+      const rawNum = parts[i];
+      const startNum = parseInt(rawNum, 10) || 1;
+      const nextNum = startNum + indexOffset;
+      const paddedNum = String(nextNum).padStart(rawNum.length, '0');
+      
+      const newParts = [...parts];
+      newParts[i] = paddedNum;
+      return newParts.join('/');
+    }
+  }
+
+  // Pattern 2: Any sequence of digits found in string
+  const match = str.match(/\d+/);
+  if (match) {
+    const rawNum = match[0];
+    const idx = match.index;
+    const startNum = parseInt(rawNum, 10) || 1;
+    const nextNum = startNum + indexOffset;
+    const paddedNum = String(nextNum).padStart(rawNum.length, '0');
+
+    return str.substring(0, idx) + paddedNum + str.substring(idx + rawNum.length);
+  }
+
+  // Fallback
+  return `${str}-${String(1 + indexOffset).padStart(3, '0')}`;
+}
+
+// Helper for formatted Indonesian date
+export function getIndonesianDateStr(date = new Date()) {
+  const months = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ];
+  return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+// Official Default Template Configuration
 export const DEFAULT_TEMPLATE_SETTINGS = {
   // 1. KOP SURAT
   kopKabupaten: 'PEMERINTAH KABUPATEN CILACAP',
@@ -27,10 +81,10 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
   kopKota: 'CILACAP',
   kopKodePos: 'Kode Pos 53255',
 
-  // 2. METADATA & PERIHAL (TAG SRIKANDI)
-  defaultNoNaskah: '${nomor_naskah}',
-  defaultDateStr: '${tanggal_naskah}',
-  defaultSifat: '${sifat}',
+  // 2. METADATA & PERIHAL
+  defaultNoNaskah: '511.2/014/VIII/2026',
+  defaultDateStr: '27 Agustus 2026',
+  defaultSifat: 'Biasa',
   halSurat: 'Pemberitahuan Pembayaran Sewa Tahunan Pasar Mukti Makmur',
 
   // 3. PARAGRAF PEMBUKA (PERDES NO 4/2025 & NO 3/2026) & ALINEA
@@ -55,9 +109,8 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
   // 6. PENUTUP
   paragrafPenutup: 'Demikian surat pemberitahuan ini kami sampaikan. Atas kerja sama dan partisipasi Bapak/Ibu dalam mendukung pembangunan desa, kami ucapkan terima kasih.',
 
-  // 7. TANDA TANGAN PEJABAT (TAG TTE SRIKANDI)
+  // 7. TANDA TANGAN PEJABAT
   ttdJabatan: 'PJ. Kepala Desa Karangpucung',
-  ttdTag: '${ttd_pengirim}',
   ttdNama: 'A. ANJARNINGSIH, S.E.',
   ttdNip: 'NIP. 19790507 2003 12 2 006',
 
@@ -75,7 +128,7 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
 
 class PdfService {
   constructor() {
-    this.storageKey = 'pasar_template_settings_v4';
+    this.storageKey = 'pasar_template_settings_v5';
     this.customLogoKey = 'pasar_custom_logo_v2';
     this.loadSettings();
   }
@@ -137,7 +190,7 @@ class PdfService {
   }
 
   /**
-   * Generates a single official notice letter (Surat Pemberitahuan) with SRIKANDI tags
+   * Generates a single official notice letter (Surat Pemberitahuan)
    * @param {Object} data 
    * @returns {jsPDF}
    */
@@ -153,7 +206,7 @@ class PdfService {
   }
 
   /**
-   * Generates multi-page batch notice letters in a single PDF file with SRIKANDI tags
+   * Generates multi-page batch notice letters in a single PDF file with sequential auto-increment numbering
    * @param {Array<Object>} kiosksList 
    * @param {Object} commonParams 
    * @returns {jsPDF}
@@ -166,6 +219,9 @@ class PdfService {
     });
 
     const settings = this.getTemplateSettings();
+    const baseNomor = commonParams.nomor_naskah || settings.defaultNoNaskah || '511.2/014/VIII/2026';
+    const baseTanggal = commonParams.tanggal_naskah || settings.defaultDateStr || '27 Agustus 2026';
+    const baseSifat = commonParams.sifat || settings.defaultSifat || 'Biasa';
 
     kiosksList.forEach((kiosk, idx) => {
       if (idx > 0) {
@@ -175,18 +231,21 @@ class PdfService {
       const cleanJenisPasar = (kiosk.zona || '').toUpperCase().includes('SAYUR') || String(kiosk.id || '').startsWith('SYR') ? 'Sayur' : 'Sandang';
       const cleanBlokKode = kiosk.blokKode ? (kiosk.blokKode.startsWith('Blok') ? kiosk.blokKode : `Blok ${kiosk.blokKode}`) : (kiosk.id || '-');
 
+      // Auto-increment sequential number based on input reference
+      const currentSequentialNo = generateSequentialNumber(baseNomor, idx);
+
       const letterData = {
-        nomor_naskah: commonParams.nomor_naskah || settings.defaultNoNaskah || '${nomor_naskah}',
-        tanggal_naskah: commonParams.tanggal_naskah || settings.defaultDateStr || '${tanggal_naskah}',
-        sifat: commonParams.sifat || settings.defaultSifat || '${sifat}',
+        ...commonParams,
+        nomor_naskah: currentSequentialNo,
+        tanggal_naskah: baseTanggal,
+        sifat: baseSifat,
         nama_pedagang: kiosk.pedagang === '-' ? 'Penyewa' : kiosk.pedagang,
         jenis_pasar: cleanJenisPasar,
         blok_kios: cleanBlokKode,
         tipe_kios: kiosk.tipeKios || 'LOS',
         luas_dimensi: kiosk.luasDimensi || '200 x 200',
         luas_m2: kiosk.luasM2 || '4.0',
-        biaya_sewa: kiosk.sewaBulanan || 'Rp 225.000/thn',
-        ...commonParams
+        biaya_sewa: kiosk.sewaBulanan || 'Rp 225.000/thn'
       };
 
       this.renderSingleLetterPage(doc, letterData);
@@ -268,15 +327,15 @@ class PdfService {
     doc.line(marginLeft, lineY + 1, pageWidth - marginRight, lineY + 1);
 
     // ==========================================
-    // 2. NOMOR NASKAH & TANGGAL (SRIKANDI TAGS)
+    // 2. NOMOR NASKAH & TANGGAL
     // ==========================================
     const startY = lineY + 7.5;
     doc.setFont(primaryFont, 'normal');
     doc.setFontSize(baseFontSize);
     doc.setTextColor(0, 0, 0);
 
-    // Date (Right Column: Cilacap, ${tanggal_naskah})
-    const dateText = data.tanggal_naskah || settings.defaultDateStr || '${tanggal_naskah}';
+    // Date (Right Column)
+    const dateText = data.tanggal_naskah || settings.defaultDateStr || '27 Agustus 2026';
     doc.text(`Cilacap, ${dateText}`, pageWidth - marginRight, startY, { align: 'right' });
 
     // Left Column Metadata
@@ -285,11 +344,11 @@ class PdfService {
 
     doc.text('Nomor', marginLeft, startY + 4.5);
     doc.text(':', colColon, startY + 4.5);
-    doc.text(data.nomor_naskah || settings.defaultNoNaskah || '${nomor_naskah}', colVal, startY + 4.5);
+    doc.text(data.nomor_naskah || settings.defaultNoNaskah || '511.2/014/VIII/2026', colVal, startY + 4.5);
 
     doc.text('Sifat', marginLeft, startY + 9.5);
     doc.text(':', colColon, startY + 9.5);
-    doc.text(data.sifat || settings.defaultSifat || '${sifat}', colVal, startY + 9.5);
+    doc.text(data.sifat || settings.defaultSifat || 'Biasa', colVal, startY + 9.5);
 
     doc.text('Lampiran', marginLeft, startY + 14.5);
     doc.text(':', colColon, startY + 14.5);
@@ -418,7 +477,7 @@ class PdfService {
     doc.text(penutupText, marginLeft, yPenutup, { maxWidth: contentWidth, align: alignMode, lineHeightFactor: 1.35 });
 
     // ==========================================
-    // 7. TANDA TANGAN KEPALA DESA (DENGAN TAG ${ttd_pengirim} SRIKANDI)
+    // 7. TANDA TANGAN KEPALA DESA (RUANG TTD BASAH & STEMPEL)
     // ==========================================
     const yTtd = yPenutup + 12.5;
     const ttdCenterX = pageWidth - marginRight - 38;
@@ -427,19 +486,13 @@ class PdfService {
     doc.setFontSize(baseFontSize);
     doc.text(settings.ttdJabatan || 'PJ. Kepala Desa Karangpucung', ttdCenterX, yTtd, { align: 'center' });
 
-    // SRIKANDI TTE TAG: ${ttd_pengirim}
-    const yTtdTag = yTtd + 13;
-    doc.setFont(primaryFont, 'normal');
-    doc.setFontSize(10.5);
-    doc.text(settings.ttdTag || '${ttd_pengirim}', ttdCenterX, yTtdTag, { align: 'center' });
-
-    // Signature Name
-    const yNamaTtd = yTtd + 26;
+    // Ruang Tanda Tangan & Cap Stempel Basah (~24mm)
+    const yNamaTtd = yTtd + 24;
     doc.setFont(primaryFont, 'bold');
     doc.setFontSize(baseFontSize);
     doc.text(settings.ttdNama || 'A. ANJARNINGSIH, S.E.', ttdCenterX, yNamaTtd, { align: 'center' });
     
-    // Underline
+    // Underline Name
     const nameWidth = doc.getTextWidth(settings.ttdNama || 'A. ANJARNINGSIH, S.E.');
     doc.setLineWidth(0.4);
     doc.line(ttdCenterX - (nameWidth / 2), yNamaTtd + 0.8, ttdCenterX + (nameWidth / 2), yNamaTtd + 0.8);
