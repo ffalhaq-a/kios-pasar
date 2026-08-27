@@ -61,86 +61,131 @@ export function generateSequentialNumber(templateStr, indexOffset = 0) {
   return `${str}-${String(1 + indexOffset).padStart(3, '0')}`;
 }
 
-// Helper to render justified paragraph with precise first-line indent
-function renderJustifiedParagraph(doc, text, x, y, width, indent, lineHeight = 4.8) {
-  if (!text) return y;
-  
-  if (indent > 0) {
-    const firstLineWidth = width - indent;
-    const words = text.split(' ');
-    let firstLineWords = [];
-    let currentIdx = 0;
+/**
+ * Mathematical word-spacing distribution to guarantee 100% exact right-margin justification
+ */
+function drawJustifiedLine(doc, line, x, y, targetWidth, isLastLine = false) {
+  if (!line || !line.trim()) return;
+  if (isLastLine) {
+    doc.text(line.trim(), x, y, { align: 'left' });
+    return;
+  }
 
-    while (currentIdx < words.length) {
-      const testLine = [...firstLineWords, words[currentIdx]].join(' ');
-      if (doc.getTextWidth(testLine) <= firstLineWidth) {
-        firstLineWords.push(words[currentIdx]);
-        currentIdx++;
-      } else {
-        break;
-      }
-    }
+  const words = line.trim().split(/\s+/);
+  if (words.length <= 1) {
+    doc.text(line.trim(), x, y, { align: 'left' });
+    return;
+  }
 
-    if (firstLineWords.length === words.length) {
-      doc.text(text, x + indent, y, { align: 'left' });
-      return y + lineHeight;
-    }
+  const wordsWidth = words.reduce((acc, w) => acc + doc.getTextWidth(w), 0);
+  const totalSpaceNeeded = targetWidth - wordsWidth;
+  const spaceWidth = totalSpaceNeeded / (words.length - 1);
+  const normalSpaceWidth = doc.getTextWidth(' ');
 
-    const firstLineText = firstLineWords.join(' ');
-    doc.text(firstLineText, x + indent, y, { align: 'justify', maxWidth: firstLineWidth });
+  // Guard against unnatural huge gaps (if line was too short)
+  if (spaceWidth > normalSpaceWidth * 3.5 || spaceWidth < 0) {
+    doc.text(line.trim(), x, y, { align: 'left' });
+    return;
+  }
 
-    const remainingText = words.slice(currentIdx).join(' ');
-    const restLines = doc.splitTextToSize(remainingText, width);
-
-    let curY = y + lineHeight;
-    restLines.forEach((line, idx) => {
-      if (idx === restLines.length - 1) {
-        doc.text(line, x, curY, { align: 'left' });
-      } else {
-        doc.text(line, x, curY, { align: 'justify', maxWidth: width });
-      }
-      curY += lineHeight;
-    });
-
-    return curY;
-  } else {
-    const lines = doc.splitTextToSize(text, width);
-    let curY = y;
-    lines.forEach((line, idx) => {
-      if (idx === lines.length - 1) {
-        doc.text(line, x, curY, { align: 'left' });
-      } else {
-        doc.text(line, x, curY, { align: 'justify', maxWidth: width });
-      }
-      curY += lineHeight;
-    });
-    return curY;
+  let curX = x;
+  for (let i = 0; i < words.length; i++) {
+    doc.text(words[i], curX, y);
+    curX += doc.getTextWidth(words[i]) + spaceWidth;
   }
 }
 
-// Helper for numbered list item with hanging indent
-function renderHangingNumberedItem(doc, numStr, text, x, y, numIndent, textIndent, width, lineHeight = 4.4) {
+/**
+ * Render justified paragraph with exact first-line indent
+ */
+function renderParagraph(doc, text, x, y, width, indent, lineHeight = 4.8) {
+  if (!text || !text.trim()) return y;
+
+  const words = text.trim().split(/\s+/);
+  let lines = [];
+  let currentLine = [];
+  let isFirstLine = true;
+
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
+    const allowedWidth = isFirstLine ? (width - indent) : width;
+    const testLine = [...currentLine, word].join(' ');
+
+    if (doc.getTextWidth(testLine) <= allowedWidth) {
+      currentLine.push(word);
+    } else {
+      if (currentLine.length === 0) {
+        lines.push({ text: word, isFirst: isFirstLine });
+      } else {
+        lines.push({ text: currentLine.join(' '), isFirst: isFirstLine });
+        currentLine = [word];
+        isFirstLine = false;
+      }
+    }
+  }
+
+  if (currentLine.length > 0) {
+    lines.push({ text: currentLine.join(' '), isFirst: isFirstLine });
+  }
+
+  let curY = y;
+  lines.forEach((l, idx) => {
+    const isLast = (idx === lines.length - 1);
+    const targetW = l.isFirst ? (width - indent) : width;
+    const lineX = l.isFirst ? (x + indent) : x;
+
+    drawJustifiedLine(doc, l.text, lineX, curY, targetW, isLast);
+    curY += lineHeight;
+  });
+
+  return curY;
+}
+
+/**
+ * Render numbered list item with hanging indent
+ */
+function renderNumberedItem(doc, numStr, text, x, y, numIndent, textIndent, width, lineHeight = 4.4) {
   const numX = x + numIndent;
   const textX = x + textIndent;
   const textWidth = width - textIndent;
 
-  doc.text(numStr, numX, y, { align: 'left' });
+  doc.text(numStr, numX, y);
 
-  const lines = doc.splitTextToSize(text, textWidth);
-  let curY = y;
-  lines.forEach((line, idx) => {
-    if (idx === lines.length - 1) {
-      doc.text(line, textX, curY, { align: 'left' });
+  const words = text.trim().split(/\s+/);
+  let lines = [];
+  let currentLine = [];
+
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
+    const testLine = [...currentLine, word].join(' ');
+
+    if (doc.getTextWidth(testLine) <= textWidth) {
+      currentLine.push(word);
     } else {
-      doc.text(line, textX, curY, { align: 'justify', maxWidth: textWidth });
+      if (currentLine.length === 0) {
+        lines.push(word);
+      } else {
+        lines.push(currentLine.join(' '));
+        currentLine = [word];
+      }
     }
+  }
+
+  if (currentLine.length > 0) {
+    lines.push(currentLine.join(' '));
+  }
+
+  let curY = y;
+  lines.forEach((lineText, idx) => {
+    const isLast = (idx === lines.length - 1);
+    drawJustifiedLine(doc, lineText, textX, curY, textWidth, isLast);
     curY += lineHeight;
   });
 
   return curY + 1.2;
 }
 
-// Official Default Template Configuration
+// Official Default Template Configuration (1 cm Margins & 11 pt Font)
 export const DEFAULT_TEMPLATE_SETTINGS = {
   // 1. KOP SURAT
   kopKabupaten: 'PEMERINTAH KABUPATEN CILACAP',
@@ -159,13 +204,13 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
   // 3. PARAGRAF PEMBUKA (PERDES NO 4/2025 & NO 3/2026) & ALINEA
   paragrafPembuka: 'Berdasarkan Peraturan Desa (Perdes) Karangpucung Nomor 4 Tahun 2025 tentang Pungutan Pasar Mukti Makmur dan Nomor 3 Tahun 2026 tentang Aset Desa, bersama ini kami beritahukan bahwa Pemerintah Desa Karangpucung akan melaksanakan penarikan sewa tahunan untuk fasilitas Kios/Los/Lemprakan di lingkungan Pasar Mukti Makmur Desa Karangpucung.\nAdapun rincian tagihan sewa tahunan Saudara/i adalah sebagai berikut:',
   firstLineIndent: 12.7, // mm (0.5 inch standard alinea)
-  textAlign: 'justify',  // justify | left
+  textAlign: 'justify',
   lineSpacing: 1.35,
 
   // 4. TABEL RINCIAN & PENJAJARAN TITIK DUA (RULER POSITIONS)
-  tableColonLeft: 36,   // mm from left margin to colon
-  tableCol2Offset: 80,  // mm from left margin to 2nd column
-  tableColonRight: 24,  // mm from 2nd col to colon
+  tableColonLeft: 40,   // mm from left margin to colon
+  tableCol2Offset: 100, // mm from left margin to 2nd column
+  tableColonRight: 26,  // mm from 2nd col to colon
 
   // 5. METODE PEMBAYARAN RESMI DESA
   paragrafPembayaran: 'Pembayaran sewa tahunan tersebut dapat dilakukan pada batas waktu pembayaran mulai tanggal 31 Agustus 2026 sampai dengan selambat-lambatnya 14 September 2026, dengan cara sebagai berikut:',
@@ -181,13 +226,13 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
   ttdNama: 'A. ANJARNINGSIH, S.E.',
   ttdNip: 'NIP. 19790507 2003 12 2 006',
 
-  // 8. FORMAT & MARGIN (INCH / MM)
+  // 8. FORMAT & MARGIN 1 CM (10 MM)
   fontFamily: 'times',
   fontSize: 11,
-  marginTop: 19.3,   // 0.76 inch
-  marginBottom: 19.3,// 0.76 inch
-  marginLeft: 25.4,  // 1 inch
-  marginRight: 25.4, // 1 inch
+  marginTop: 10.0,   // 1 cm
+  marginBottom: 10.0,// 1 cm
+  marginLeft: 10.0,  // 1 cm
+  marginRight: 10.0, // 1 cm
 
   // 9. CUSTOM LOGO
   customLogoBase64: null
@@ -195,7 +240,7 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
 
 class PdfService {
   constructor() {
-    this.storageKey = 'pasar_template_settings_v7';
+    this.storageKey = 'pasar_template_settings_v8';
     this.customLogoKey = 'pasar_custom_logo_v2';
     this.loadSettings();
   }
@@ -322,30 +367,31 @@ class PdfService {
   }
 
   /**
-   * Renders the complete official government layout with exact alignment, hanging indents, and extra signature spacing
+   * Renders the complete official government layout with 1 cm margins and 100% exact justification
    */
   renderSingleLetterPage(doc, data) {
     const settings = this.getTemplateSettings();
-    const pageWidth = doc.internal.pageSize.getWidth(); // 210mm
+    const pageWidth = doc.internal.pageSize.getWidth(); // 210 mm
     
-    const marginLeft = Number(settings.marginLeft) || 25.4;
-    const marginRight = Number(settings.marginRight) || 25.4;
-    const marginTop = Number(settings.marginTop) || 19.3;
-    const contentWidth = pageWidth - marginLeft - marginRight; // 159.2 mm
+    // 1 cm Margins (10 mm)
+    const marginLeft = Number(settings.marginLeft) || 10.0;
+    const marginRight = Number(settings.marginRight) || 10.0;
+    const marginTop = Number(settings.marginTop) || 10.0;
+    const contentWidth = pageWidth - marginLeft - marginRight; // 190 mm
 
     const primaryFont = settings.fontFamily || 'times';
     const baseFontSize = Number(settings.fontSize) || 11;
     const alineaIndent = Number(settings.firstLineIndent) || 12.7;
 
-    const colonLeftX = marginLeft + (Number(settings.tableColonLeft) || 36);
-    const col2X = marginLeft + (Number(settings.tableCol2Offset) || 80);
-    const colonRightX = col2X + (Number(settings.tableColonRight) || 24);
+    const colonLeftX = marginLeft + (Number(settings.tableColonLeft) || 40);
+    const col2X = marginLeft + (Number(settings.tableCol2Offset) || 100);
+    const colonRightX = col2X + (Number(settings.tableColonRight) || 26);
 
     // ==========================================
     // 1. KOP SURAT RESMI KEDINASAN (HEADER)
     // ==========================================
-    const logoX = marginLeft + 1;
-    const logoY = marginTop;
+    const logoX = marginLeft + 2;
+    const logoY = marginTop + 1;
     const logoWidth = 20;
     const logoHeight = 24;
 
@@ -368,28 +414,28 @@ class PdfService {
     doc.setFont(primaryFont, 'bold');
     doc.setFontSize(12);
     doc.setTextColor(0, 0, 0);
-    doc.text(settings.kopKabupaten || 'PEMERINTAH KABUPATEN CILACAP', headerCenterX, marginTop + 4, { align: 'center' });
-    doc.text(settings.kopKecamatan || 'KECAMATAN KARANGPUCUNG', headerCenterX, marginTop + 9, { align: 'center' });
+    doc.text(settings.kopKabupaten || 'PEMERINTAH KABUPATEN CILACAP', headerCenterX, marginTop + 4.5, { align: 'center' });
+    doc.text(settings.kopKecamatan || 'KECAMATAN KARANGPUCUNG', headerCenterX, marginTop + 9.5, { align: 'center' });
 
     doc.setFontSize(13.5);
-    doc.text(settings.kopDesa || 'PEMERINTAH DESA KARANGPUCUNG', headerCenterX, marginTop + 15, { align: 'center' });
+    doc.text(settings.kopDesa || 'PEMERINTAH DESA KARANGPUCUNG', headerCenterX, marginTop + 15.5, { align: 'center' });
 
     doc.setFont(primaryFont, 'normal');
     doc.setFontSize(9.5);
-    doc.text(settings.kopAlamat || 'Jalan Pramuka No. 09 Tlp. 02806261727', headerCenterX, marginTop + 20, { align: 'center' });
-    doc.text(settings.kopKota || 'CILACAP', headerCenterX, marginTop + 24.5, { align: 'center' });
+    doc.text(settings.kopAlamat || 'Jalan Pramuka No. 09 Tlp. 02806261727', headerCenterX, marginTop + 20.5, { align: 'center' });
+    doc.text(settings.kopKota || 'CILACAP', headerCenterX, marginTop + 25.0, { align: 'center' });
 
     // Kode Pos (Right aligned under Kop)
     doc.setFontSize(9.5);
-    doc.text(settings.kopKodePos || 'Kode Pos 53255', pageWidth - marginRight, marginTop + 27.5, { align: 'right' });
+    doc.text(settings.kopKodePos || 'Kode Pos 53255', pageWidth - marginRight, marginTop + 28.0, { align: 'right' });
 
-    // Double Border Lines below Kop
-    const lineY = marginTop + 29.5;
+    // Double Border Lines below Kop (1 cm to 20 cm)
+    const lineY = marginTop + 30.0;
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.8);
     doc.line(marginLeft, lineY, pageWidth - marginRight, lineY);
     doc.setLineWidth(0.25);
-    doc.line(marginLeft, lineY + 1, pageWidth - marginRight, lineY + 1);
+    doc.line(marginLeft, lineY + 1.0, pageWidth - marginRight, lineY + 1.0);
 
     // ==========================================
     // 2. NOMOR NASKAH & TANGGAL
@@ -429,7 +475,7 @@ class PdfService {
     // ==========================================
     // 3. TUJUAN SURAT (KEPADA YTH - TITLE CASE: Napsiyah Blok A1 Pasar Sandang)
     // ==========================================
-    const yTujuan = startY + 31;
+    const yTujuan = startY + 31.0;
     const merchantTitle = toTitleCase(data.nama_pedagang);
     const blokName = data.blok_kios || 'Blok A1';
     const pasarName = (data.jenis_pasar || 'Sandang').startsWith('Pasar') ? data.jenis_pasar : `Pasar ${data.jenis_pasar || 'Sandang'}`;
@@ -439,15 +485,15 @@ class PdfService {
     doc.text('Tempat', marginLeft + 7.5, yTujuan + 10.5);
 
     // ==========================================
-    // 4. PARAGRAF PEMBUKA (DENGAN PERDES NO 4/2025 & NO 3/2026 + ALINEA JUSTIFY)
+    // 4. PARAGRAF PEMBUKA (100% EXACT JUSTIFY & ALINEA)
     // ==========================================
-    const yPembuka = yTujuan + 18;
+    const yPembuka = yTujuan + 18.0;
     const para1 = 'Berdasarkan Peraturan Desa (Perdes) Karangpucung Nomor 4 Tahun 2025 tentang Pungutan Pasar Mukti Makmur dan Nomor 3 Tahun 2026 tentang Aset Desa, bersama ini kami beritahukan bahwa Pemerintah Desa Karangpucung akan melaksanakan penarikan sewa tahunan untuk fasilitas Kios/Los/Lemprakan di lingkungan Pasar Mukti Makmur Desa Karangpucung.';
     const para2 = 'Adapun rincian tagihan sewa tahunan Saudara/i adalah sebagai berikut:';
 
-    let currentY = renderJustifiedParagraph(doc, para1, marginLeft, yPembuka, contentWidth, alineaIndent, 4.8);
+    let currentY = renderParagraph(doc, para1, marginLeft, yPembuka, contentWidth, alineaIndent, 4.8);
     currentY += 1.0;
-    currentY = renderJustifiedParagraph(doc, para2, marginLeft, currentY, contentWidth, 0, 4.8);
+    currentY = renderParagraph(doc, para2, marginLeft, currentY, contentWidth, 0, 4.8);
 
     // ==========================================
     // 5. TABEL RINCIAN TAGIHAN (2-COLUMN GRID WITH RULER POSITIONS)
@@ -504,31 +550,31 @@ class PdfService {
     const paraBayar = settings.paragrafPembayaran || 'Pembayaran sewa tahunan tersebut dapat dilakukan pada batas waktu pembayaran mulai tanggal 31 Agustus 2026 sampai dengan selambat-lambatnya 14 September 2026, dengan cara sebagai berikut:';
     
     // Paragraf Pembayaran dengan Alinea Menjorok Lurus
-    let curYBayar = renderJustifiedParagraph(doc, paraBayar, marginLeft, yPembayaran, contentWidth, alineaIndent, 4.5);
+    let curYBayar = renderParagraph(doc, paraBayar, marginLeft, yPembayaran, contentWidth, alineaIndent, 4.5);
     curYBayar += 1.5;
 
     // Poin 1: Transfer Bank Jateng (Hanging Indent)
     const transferNote = `"${(data.blok_kios || 'BLOK A1').toUpperCase()} ${(data.jenis_pasar || 'SANDANG').toUpperCase()}"`;
     const item1Text = `Transfer Bank Jateng No Rekening 3065001968 atas nama PEMERINTAH DESA KARANGPUCUNG. Menyertakan Nomor Surat Pemberitahuan sebagai nomor referensi dan catatan ${transferNote}.`;
-    curYBayar = renderHangingNumberedItem(doc, '1.', item1Text, marginLeft, curYBayar, 6, alineaIndent, contentWidth, 4.3);
+    curYBayar = renderNumberedItem(doc, '1.', item1Text, marginLeft, curYBayar, 6, alineaIndent, contentWidth, 4.3);
 
     // Poin 2: Pembayaran Tunai (Hanging Indent)
     const item2Text = 'Pembayaran Tunai datang langsung ke Balai Desa Karangpucung pada hari dan jam kerja.';
-    curYBayar = renderHangingNumberedItem(doc, '2.', item2Text, marginLeft, curYBayar, 6, alineaIndent, contentWidth, 4.3);
+    curYBayar = renderNumberedItem(doc, '2.', item2Text, marginLeft, curYBayar, 6, alineaIndent, contentWidth, 4.3);
 
     // Poin 3: Dua Materai 10.000 (Hanging Indent)
     const item3Text = 'Membawa Dua Materai 10.000 dan Bukti transfer (jika melakukan pembayaran transfer) untuk tanda tangan sewa.';
-    curYBayar = renderHangingNumberedItem(doc, '3.', item3Text, marginLeft, curYBayar, 6, alineaIndent, contentWidth, 4.3);
+    curYBayar = renderNumberedItem(doc, '3.', item3Text, marginLeft, curYBayar, 6, alineaIndent, contentWidth, 4.3);
 
     // Paragraf Penutup (Alinea Menjorok Lurus)
     curYBayar += 2.0;
     const penutupText = settings.paragrafPenutup || 'Demikian surat pemberitahuan ini kami sampaikan. Atas kerja sama dan partisipasi Bapak/Ibu dalam mendukung pembangunan desa, kami ucapkan terima kasih.';
-    const yPenutupDone = renderJustifiedParagraph(doc, penutupText, marginLeft, curYBayar, contentWidth, alineaIndent, 4.6);
+    const yPenutupDone = renderParagraph(doc, penutupText, marginLeft, curYBayar, contentWidth, alineaIndent, 4.6);
 
     // ==========================================
     // 7. TANDA TANGAN KEPALA DESA (EXTRA ENTER / SPASI VERTIKAL LEBIH LEGA)
     // ==========================================
-    const yTtd = yPenutupDone + 7.5; // Extra spacing / enter
+    const yTtd = yPenutupDone + 7.5;
     const ttdCenterX = pageWidth - marginRight - 38;
 
     doc.setFont(primaryFont, 'normal');
