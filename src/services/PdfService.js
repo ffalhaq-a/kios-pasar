@@ -347,7 +347,8 @@ class PdfService {
       // Auto-increment sequential number based on input reference (e.g. 400.10.2/90/2005 -> 400.10.2/91/2005)
       const currentSequentialNo = generateSequentialNumber(baseNomor, idx);
 
-      const computedRate = kiosk.sewaBulanan || rateService.formatRupiah(rateService.getRateForType(kiosk.tipeKios));
+      const rentCalc = rateService.calculateRent(kiosk.luasM2, kiosk.tipeKios, kiosk.sewaBulanan);
+      const computedRate = rentCalc.formattedTotal;
 
       const letterData = {
         ...commonParams,

@@ -1,6 +1,7 @@
 import { spreadsheetService } from '../../services/SpreadsheetService.js';
 import { themeManager } from '../../shell/ThemeManager.js';
 import { pdfService, toTitleCase, generateSequentialNumber } from '../../services/PdfService.js';
+import { rateService } from '../../services/RateService.js';
 
 export function renderSuratView(container, targetKiosId = null) {
   const isDark = themeManager.isDark();
@@ -277,12 +278,14 @@ export function renderSuratView(container, targetKiosId = null) {
 
   function updatePreview(k) {
     if (!k) return;
+    const rentCalc = rateService.calculateRent(k.luasM2, k.tipeKios, k.sewaBulanan);
+
     previewBadgeBlok.innerText = getCleanBlokName(k);
     previewPedagang.innerText = k.pedagang === '-' ? 'Lahan Kosong' : k.pedagang;
     previewPasar.innerText = k.zona || 'PASAR SANDANG';
     previewTipe.innerText = k.tipeKios || 'LOS';
     previewLuas.innerText = `${k.luasDimensi || '200 x 200'} (${k.luasM2 || '4.0'} m²)`;
-    previewSewa.innerText = k.sewaBulanan || 'Rp 225.000/thn';
+    previewSewa.innerText = rentCalc.summary;
   }
 
   kioskSelect.addEventListener('change', (e) => {
@@ -375,6 +378,7 @@ export function renderSuratView(container, targetKiosId = null) {
 
     const cleanBlok = getCleanBlokName(selectedKiosk);
     const cleanPasar = getCleanJenisPasar(selectedKiosk);
+    const rentCalc = rateService.calculateRent(selectedKiosk.luasM2, selectedKiosk.tipeKios, selectedKiosk.sewaBulanan);
 
     const letterData = {
       nomor_naskah: inputNo.value.trim() || defaultNoNaskah,
@@ -386,7 +390,7 @@ export function renderSuratView(container, targetKiosId = null) {
       tipe_kios: selectedKiosk.tipeKios || 'LOS',
       luas_dimensi: selectedKiosk.luasDimensi || '200 x 200',
       luas_m2: selectedKiosk.luasM2 || '4.0',
-      biaya_sewa: selectedKiosk.sewaBulanan || 'Rp 225.000/thn'
+      biaya_sewa: rentCalc.formattedTotal
     };
 
     const doc = pdfService.generateSuratPemberitahuan(letterData);
@@ -411,7 +415,7 @@ export function renderSuratView(container, targetKiosId = null) {
         lampiran: '-',
         tanggalKirim: customTglKirim || letterData.tanggal_naskah,
         tujuan: `${toTitleCase(letterData.nama_pedagang)} ${cleanBlok} ${cleanPasar}`,
-        ket: `${cleanBlok} ${cleanPasar} - Sewa ${letterData.biaya_sewa}`
+        ket: `${cleanBlok} ${cleanPasar} - Sewa ${rentCalc.summary}`
       }];
 
       spreadsheetService.logSuratToAgenda(agendaEntry, base64Data, fileName).then(res => {
@@ -433,6 +437,7 @@ export function renderSuratView(container, targetKiosId = null) {
 
     const cleanBlok = getCleanBlokName(selectedKiosk);
     const cleanPasar = getCleanJenisPasar(selectedKiosk);
+    const rentCalc = rateService.calculateRent(selectedKiosk.luasM2, selectedKiosk.tipeKios, selectedKiosk.sewaBulanan);
 
     const letterData = {
       nomor_naskah: inputNo.value.trim() || defaultNoNaskah,
@@ -444,7 +449,7 @@ export function renderSuratView(container, targetKiosId = null) {
       tipe_kios: selectedKiosk.tipeKios || 'LOS',
       luas_dimensi: selectedKiosk.luasDimensi || '200 x 200',
       luas_m2: selectedKiosk.luasM2 || '4.0',
-      biaya_sewa: selectedKiosk.sewaBulanan || 'Rp 225.000/thn'
+      biaya_sewa: rentCalc.formattedTotal
     };
 
     const doc = pdfService.generateSuratPemberitahuan(letterData);
@@ -519,6 +524,7 @@ export function renderSuratView(container, targetKiosId = null) {
           const cleanKioskPasar = getCleanJenisPasar(kiosk);
           const currentSequentialNo = generateSequentialNumber(baseNomor, idx);
           const merchantName = kiosk.pedagang === '-' ? 'Penyewa' : kiosk.pedagang;
+          const rentCalc = rateService.calculateRent(kiosk.luasM2, kiosk.tipeKios, kiosk.sewaBulanan);
 
           return {
             nomorSurat: currentSequentialNo,
@@ -527,7 +533,7 @@ export function renderSuratView(container, targetKiosId = null) {
             lampiran: '-',
             tanggalKirim: customTglKirim || commonParams.tanggal_naskah,
             tujuan: `${toTitleCase(merchantName)} ${cleanKioskBlok} ${cleanKioskPasar}`,
-            ket: `${cleanKioskBlok} ${cleanKioskPasar} - Sewa ${kiosk.sewaBulanan || 'Rp 225.000/thn'}`
+            ket: `${cleanKioskBlok} ${cleanKioskPasar} - Sewa ${rentCalc.summary}`
           };
         });
 
