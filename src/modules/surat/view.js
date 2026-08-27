@@ -106,17 +106,24 @@ export function renderSuratView(container, targetKiosId = null) {
               </select>
             </div>
 
-            <!-- Metadata Surat Grid -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <!-- Metadata Surat Grid (4 Columns) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div class="space-y-1">
                 <label class="text-[11px] font-bold ${textSecondary}">Nomor Naskah Awal:</label>
                 <input type="text" id="input-no-naskah" value="${defaultNoNaskah}" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}" />
-                <span class="text-[10px] text-slate-500">Acuan urutan cetak massal</span>
+                <span class="text-[10px] text-slate-500">Acuan urutan cetak</span>
               </div>
 
               <div class="space-y-1">
                 <label class="text-[11px] font-bold ${textSecondary}">Tanggal Naskah:</label>
                 <input type="text" id="input-tgl-naskah" value="${defaultDateStr}" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}" />
+                <span class="text-[10px] text-slate-500">Tanggal tertulis di surat</span>
+              </div>
+
+              <div class="space-y-1">
+                <label class="text-[11px] font-bold ${textSecondary}">Tanggal Kirim / Distribusi:</label>
+                <input type="text" id="input-tgl-kirim" value="31 Agustus 2026" placeholder="contoh: 31 Agustus 2026" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}" />
+                <span class="text-[10px] text-emerald-500 font-semibold">Tercatat di Buku Agenda</span>
               </div>
 
               <div class="space-y-1">
@@ -252,6 +259,7 @@ export function renderSuratView(container, targetKiosId = null) {
   const kioskSelect = container.querySelector('#kiosk-select');
   const inputNo = container.querySelector('#input-no-naskah');
   const inputTgl = container.querySelector('#input-tgl-naskah');
+  const inputTglKirim = container.querySelector('#input-tgl-kirim');
   const inputSifat = container.querySelector('#input-sifat');
   const uploadLogoInput = container.querySelector('#upload-logo-input');
   
@@ -408,12 +416,14 @@ export function renderSuratView(container, targetKiosId = null) {
     try {
       const pdfDataUri = doc.output('datauristring');
       const base64Data = pdfDataUri.split(',')[1];
+      const customTglKirim = inputTglKirim ? inputTglKirim.value.trim() : letterData.tanggal_naskah;
+
       const agendaEntry = [{
         nomorSurat: letterData.nomor_naskah,
         tanggalSurat: letterData.tanggal_naskah,
         perihal: 'Pemberitahuan Pembayaran Sewa Tahunan Pasar Mukti Makmur',
         lampiran: '-',
-        tanggalKirim: letterData.tanggal_naskah,
+        tanggalKirim: customTglKirim || letterData.tanggal_naskah,
         tujuan: `${toTitleCase(letterData.nama_pedagang)} ${cleanBlok} ${cleanPasar}`,
         ket: `${cleanBlok} ${cleanPasar} - Sewa ${letterData.biaya_sewa}`
       }];
@@ -516,6 +526,8 @@ export function renderSuratView(container, targetKiosId = null) {
       // Automatic Batch Logging to Google Sheets (8 Columns) & Google Drive
       try {
         const baseNomor = commonParams.nomor_naskah;
+        const customTglKirim = inputTglKirim ? inputTglKirim.value.trim() : commonParams.tanggal_naskah;
+
         const batchEntries = targetList.map((kiosk, idx) => {
           const cleanKioskBlok = getCleanBlokName(kiosk);
           const cleanKioskPasar = getCleanJenisPasar(kiosk);
@@ -527,7 +539,7 @@ export function renderSuratView(container, targetKiosId = null) {
             tanggalSurat: commonParams.tanggal_naskah,
             perihal: 'Pemberitahuan Pembayaran Sewa Tahunan Pasar Mukti Makmur',
             lampiran: '-',
-            tanggalKirim: commonParams.tanggal_naskah,
+            tanggalKirim: customTglKirim || commonParams.tanggal_naskah,
             tujuan: `${toTitleCase(merchantName)} ${cleanKioskBlok} ${cleanKioskPasar}`,
             ket: `${cleanKioskBlok} ${cleanKioskPasar} - Sewa ${kiosk.sewaBulanan || 'Rp 225.000/thn'}`
           };

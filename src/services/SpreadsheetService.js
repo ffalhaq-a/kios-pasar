@@ -358,6 +358,36 @@ class SpreadsheetService {
       return [];
     }
   }
+
+  /**
+   * Fetch fresh real-time agenda logs from Google Sheets (Buku_Agenda_Surat)
+   */
+  async fetchRemoteAgenda() {
+    try {
+      const res = await fetch(`${GOOGLE_API_URL}?action=getAgendaSurat&apiToken=${encodeURIComponent(API_SECURITY_TOKEN)}`, {
+        redirect: 'follow'
+      });
+      const json = await res.json();
+      if (json && json.status === 'success' && Array.isArray(json.data)) {
+        const localAgendaKey = 'pasar_buku_agenda_surat_v1';
+        localStorage.setItem(localAgendaKey, JSON.stringify(json.data));
+        this.notify();
+        return { success: true, count: json.data.length, data: json.data };
+      }
+    } catch (e) {
+      console.warn('Error fetching remote agenda:', e);
+    }
+    return { success: false, data: this.getAgendaLogs() };
+  }
+
+  /**
+   * Clear local agenda logs cache
+   */
+  clearLocalAgenda() {
+    const localAgendaKey = 'pasar_buku_agenda_surat_v1';
+    localStorage.removeItem(localAgendaKey);
+    this.notify();
+  }
 }
 
 export const spreadsheetService = new SpreadsheetService();

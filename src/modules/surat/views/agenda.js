@@ -33,12 +33,19 @@ export function renderAgendaSuratView(container) {
         </div>
 
         <div class="flex items-center gap-2">
-          <!-- Total Terbit Badge -->
-          <span class="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 flex items-center gap-1.5">
-            <i data-lucide="file-check" class="w-3.5 h-3.5"></i>
-            <span>${agendaLogs.length} Surat Teragenda</span>
-          </span>
+          <!-- Tombol Sinkronisasi Cloud -->
+          <button id="btn-sync-cloud-agenda" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-emerald-900/20">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            <span>Sinkronkan dari Sheets</span>
+          </button>
 
+          <!-- Tombol Bersihkan Cache -->
+          <button id="btn-clear-local-agenda" class="border px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${cardBg} text-rose-500 hover:border-rose-500 shadow-sm" title="Bersihkan Riwayat Lokal">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <span>Reset Cache</span>
+          </button>
+
+          <!-- Tombol Export CSV -->
           <button id="btn-export-agenda-csv" class="border px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${cardBg} ${textPrimary} hover:border-emerald-500 shadow-sm">
             <i data-lucide="download" class="w-3.5 h-3.5 text-emerald-500"></i>
             <span>Export CSV</span>
@@ -46,7 +53,7 @@ export function renderAgendaSuratView(container) {
         </div>
       </div>
 
-      <!-- SEARCH & FILTER BAR -->
+      <!-- SEARCH & STATUS BAR -->
       <div class="${cardBg} border rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
         <div class="relative w-full sm:w-80">
           <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
@@ -56,6 +63,9 @@ export function renderAgendaSuratView(container) {
           <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-lg">
             <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
             <span>Tersambung Google Sheets (Buku_Agenda_Surat)</span>
+          </span>
+          <span class="text-xs font-bold px-2.5 py-1 rounded-lg ${isDark ? 'bg-slate-900 text-slate-300' : 'bg-slate-100 text-slate-700'}">
+            ${agendaLogs.length} Surat Teragenda
           </span>
         </div>
       </div>
@@ -90,10 +100,12 @@ export function renderAgendaSuratView(container) {
                           Setiap surat yang Anda unduh di menu <b>Surat Pemberitahuan</b> akan otomatis dicatat nomornya di sini dan diarsipkan ke Google Drive / Google Sheets.
                         </p>
                       </div>
-                      <button id="btn-goto-surat-from-agenda" class="mt-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 shadow-lg shadow-emerald-900/30 transition-all">
-                        <i data-lucide="file-plus" class="w-4 h-4"></i>
-                        <span>Buka Surat Pemberitahuan</span>
-                      </button>
+                      <div class="flex items-center justify-center gap-2 pt-2">
+                        <button id="btn-goto-surat-from-agenda" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 shadow-lg shadow-emerald-900/30 transition-all">
+                          <i data-lucide="file-plus" class="w-4 h-4"></i>
+                          <span>Buka Surat Pemberitahuan</span>
+                        </button>
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -114,7 +126,7 @@ export function renderAgendaSuratView(container) {
                   <td class="px-3 py-2.5 text-center border-r ${isDark ? 'border-slate-800' : 'border-slate-200'}">
                     ${escapeHTML(item.lampiran || '-')}
                   </td>
-                  <td class="px-3.5 py-2.5 border-r ${isDark ? 'border-slate-800' : 'border-slate-200'} whitespace-nowrap">
+                  <td class="px-3.5 py-2.5 border-r ${isDark ? 'border-slate-800' : 'border-slate-200'} whitespace-nowrap font-medium text-emerald-500">
                     ${escapeHTML(item.tanggalKirim)}
                   </td>
                   <td class="px-3.5 py-2.5 font-bold ${textPrimary} border-r ${isDark ? 'border-slate-800' : 'border-slate-200'}">
@@ -141,6 +153,35 @@ export function renderAgendaSuratView(container) {
   container.querySelector('#btn-goto-surat-from-agenda')?.addEventListener('click', () => {
     if (window._navigate) window._navigate('/surat/pemberitahuan');
   });
+
+  // Sync Cloud Handler
+  const btnSync = container.querySelector('#btn-sync-cloud-agenda');
+  if (btnSync) {
+    btnSync.addEventListener('click', async () => {
+      btnSync.disabled = true;
+      btnSync.innerHTML = `<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i><span>Menyinkronkan...</span>`;
+      if (window.lucide) window.lucide.createIcons();
+
+      const res = await spreadsheetService.fetchRemoteAgenda();
+      btnSync.disabled = false;
+      btnSync.innerHTML = `<i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i><span>Sinkronkan dari Sheets</span>`;
+      
+      alert(res.success ? `✅ Berhasil menyinkronkan ${res.count} surat dari Google Sheets!` : '⚠️ Tidak ada data baru atau Google Sheets belum terisi.');
+      renderAgendaSuratView(container);
+    });
+  }
+
+  // Clear Local Cache Handler
+  const btnClear = container.querySelector('#btn-clear-local-agenda');
+  if (btnClear) {
+    btnClear.addEventListener('click', () => {
+      if (confirm('Bersihkan riwayat buku agenda lokal pada browser ini?')) {
+        spreadsheetService.clearLocalAgenda();
+        alert('✅ Cache riwayat lokal berhasil dibersihkan!');
+        renderAgendaSuratView(container);
+      }
+    });
+  }
 
   // Search Filter Handler
   const searchInput = container.querySelector('#input-search-agenda');
