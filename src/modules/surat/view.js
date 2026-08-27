@@ -1,6 +1,6 @@
 import { spreadsheetService } from '../../services/SpreadsheetService.js';
 import { themeManager } from '../../shell/ThemeManager.js';
-import { pdfService } from '../../services/PdfService.js';
+import { pdfService, toTitleCase, generateSequentialNumber } from '../../services/PdfService.js';
 
 export function renderSuratView(container, targetKiosId = null) {
   const isDark = themeManager.isDark();
@@ -403,6 +403,29 @@ export function renderSuratView(container, targetKiosId = null) {
     statusAlertBox.classList.remove('hidden');
     statusAlertText.innerText = `Surat ${cleanBlok} berhasil diunduh (${fileName})`;
     setTimeout(() => statusAlertBox.classList.add('hidden'), 5000);
+
+    // Automatic Google Drive Upload & 8-Column Agenda Logging
+    try {
+      const pdfDataUri = doc.output('datauristring');
+      const base64Data = pdfDataUri.split(',')[1];
+      const agendaEntry = [{
+        nomorSurat: letterData.nomor_naskah,
+        tanggalSurat: letterData.tanggal_naskah,
+        perihal: 'Pemberitahuan Pembayaran Sewa Tahunan Pasar Mukti Makmur',
+        lampiran: '-',
+        tanggalKirim: letterData.tanggal_naskah,
+        tujuan: `${toTitleCase(letterData.nama_pedagang)} ${cleanBlok} ${cleanPasar}`,
+        ket: `${cleanBlok} ${cleanPasar} - Sewa ${letterData.biaya_sewa}`
+      }];
+
+      spreadsheetService.logSuratToAgenda(agendaEntry, base64Data, fileName).then(res => {
+        if (res && res.success) {
+          statusAlertText.innerText = `✅ Surat ${cleanBlok} berhasil diunduh & dicatat di Google Drive / Buku Agenda Spreadsheet!`;
+        }
+      });
+    } catch (err) {
+      console.warn('Logging error:', err);
+    }
   });
 
   // 2. PREVIEW INSTANT DI TAB BARU
@@ -487,8 +510,39 @@ export function renderSuratView(container, targetKiosId = null) {
       updateBatchScopeUI();
 
       statusAlertBox.classList.remove('hidden');
-      statusAlertText.innerText = `Bundle PDF (${targetList.length} surat) berhasil diunduh instan!`;
+      statusAlertText.innerText = `Bundle PDF (${targetList.length} surat) berhasil diunduh! Menyimpan ke Google Drive & Buku Agenda...`;
       setTimeout(() => statusAlertBox.classList.add('hidden'), 6000);
+
+      // Automatic Batch Logging to Google Sheets (8 Columns) & Google Drive
+      try {
+        const baseNomor = commonParams.nomor_naskah;
+        const batchEntries = targetList.map((kiosk, idx) => {
+          const cleanKioskBlok = getCleanBlokName(kiosk);
+          const cleanKioskPasar = getCleanJenisPasar(kiosk);
+          const currentSequentialNo = generateSequentialNumber(baseNomor, idx);
+          const merchantName = kiosk.pedagang === '-' ? 'Penyewa' : kiosk.pedagang;
+
+          return {
+            nomorSurat: currentSequentialNo,
+            tanggalSurat: commonParams.tanggal_naskah,
+            perihal: 'Pemberitahuan Pembayaran Sewa Tahunan Pasar Mukti Makmur',
+            lampiran: '-',
+            tanggalKirim: commonParams.tanggal_naskah,
+            tujuan: `${toTitleCase(merchantName)} ${cleanKioskBlok} ${cleanKioskPasar}`,
+            ket: `${cleanKioskBlok} ${cleanKioskPasar} - Sewa ${kiosk.sewaBulanan || 'Rp 225.000/thn'}`
+          };
+        });
+
+        const pdfDataUri = doc.output('datauristring');
+        const base64Data = pdfDataUri.split(',')[1];
+        spreadsheetService.logSuratToAgenda(batchEntries, base64Data, batchFileName).then(res => {
+          if (res && res.success) {
+            statusAlertText.innerText = `✅ Bundle PDF (${targetList.length} surat) berhasil dicatat otomatis di Buku Agenda Spreadsheet & Drive!`;
+          }
+        });
+      } catch (err) {
+        console.warn('Batch logging error:', err);
+      }
     }, 100);
   });
 }

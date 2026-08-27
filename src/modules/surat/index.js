@@ -1,5 +1,6 @@
 import { renderSuratView } from './view.js';
 import { renderTemplateEditorView } from './views/template.js';
+import { renderAgendaSuratView } from './views/agenda.js';
 
 export const SuratModule = {
   id: 'surat',
@@ -16,6 +17,12 @@ export const SuratModule = {
           label: 'Surat Pemberitahuan',
           icon: 'file-text',
           path: '/surat/pemberitahuan'
+        },
+        {
+          id: 'surat-agenda',
+          label: 'Buku Agenda Surat',
+          icon: 'book-open',
+          path: '/surat/agenda'
         },
         {
           id: 'surat-template',
@@ -39,6 +46,9 @@ export const SuratModule = {
       const initialKiosId = urlParams.get('kiosId') || window._selectedKiosIdForSurat || null;
       window._selectedKiosIdForSurat = null;
       renderSuratView(container, initialKiosId);
+    },
+    '/surat/agenda': (container) => {
+      renderAgendaSuratView(container);
     },
     '/surat/template': (container) => {
       renderTemplateEditorView(container);
