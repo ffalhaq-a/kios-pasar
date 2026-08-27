@@ -61,6 +61,85 @@ export function generateSequentialNumber(templateStr, indexOffset = 0) {
   return `${str}-${String(1 + indexOffset).padStart(3, '0')}`;
 }
 
+// Helper to render justified paragraph with precise first-line indent
+function renderJustifiedParagraph(doc, text, x, y, width, indent, lineHeight = 4.8) {
+  if (!text) return y;
+  
+  if (indent > 0) {
+    const firstLineWidth = width - indent;
+    const words = text.split(' ');
+    let firstLineWords = [];
+    let currentIdx = 0;
+
+    while (currentIdx < words.length) {
+      const testLine = [...firstLineWords, words[currentIdx]].join(' ');
+      if (doc.getTextWidth(testLine) <= firstLineWidth) {
+        firstLineWords.push(words[currentIdx]);
+        currentIdx++;
+      } else {
+        break;
+      }
+    }
+
+    if (firstLineWords.length === words.length) {
+      doc.text(text, x + indent, y, { align: 'left' });
+      return y + lineHeight;
+    }
+
+    const firstLineText = firstLineWords.join(' ');
+    doc.text(firstLineText, x + indent, y, { align: 'justify', maxWidth: firstLineWidth });
+
+    const remainingText = words.slice(currentIdx).join(' ');
+    const restLines = doc.splitTextToSize(remainingText, width);
+
+    let curY = y + lineHeight;
+    restLines.forEach((line, idx) => {
+      if (idx === restLines.length - 1) {
+        doc.text(line, x, curY, { align: 'left' });
+      } else {
+        doc.text(line, x, curY, { align: 'justify', maxWidth: width });
+      }
+      curY += lineHeight;
+    });
+
+    return curY;
+  } else {
+    const lines = doc.splitTextToSize(text, width);
+    let curY = y;
+    lines.forEach((line, idx) => {
+      if (idx === lines.length - 1) {
+        doc.text(line, x, curY, { align: 'left' });
+      } else {
+        doc.text(line, x, curY, { align: 'justify', maxWidth: width });
+      }
+      curY += lineHeight;
+    });
+    return curY;
+  }
+}
+
+// Helper for numbered list item with hanging indent
+function renderHangingNumberedItem(doc, numStr, text, x, y, numIndent, textIndent, width, lineHeight = 4.4) {
+  const numX = x + numIndent;
+  const textX = x + textIndent;
+  const textWidth = width - textIndent;
+
+  doc.text(numStr, numX, y, { align: 'left' });
+
+  const lines = doc.splitTextToSize(text, textWidth);
+  let curY = y;
+  lines.forEach((line, idx) => {
+    if (idx === lines.length - 1) {
+      doc.text(line, textX, curY, { align: 'left' });
+    } else {
+      doc.text(line, textX, curY, { align: 'justify', maxWidth: textWidth });
+    }
+    curY += lineHeight;
+  });
+
+  return curY + 1.2;
+}
+
 // Official Default Template Configuration
 export const DEFAULT_TEMPLATE_SETTINGS = {
   // 1. KOP SURAT
@@ -93,8 +172,6 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
   bankNama: 'Bank Jateng',
   bankRekening: '3065001968',
   bankAtasNama: 'PEMERINTAH DESA KARANGPUCUNG',
-  tunaiKeterangan: 'Pembayaran Tunai datang langsung ke Balai Desa Karangpucung pada hari dan jam kerja.',
-  materaiKeterangan: 'Membawa Dua Materai 10.000 dan Bukti transfer (jika melakukan pembayaran transfer) untuk tanda tangan sewa.',
 
   // 6. PENUTUP
   paragrafPenutup: 'Demikian surat pemberitahuan ini kami sampaikan. Atas kerja sama dan partisipasi Bapak/Ibu dalam mendukung pembangunan desa, kami ucapkan terima kasih.',
@@ -118,7 +195,7 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
 
 class PdfService {
   constructor() {
-    this.storageKey = 'pasar_template_settings_v6';
+    this.storageKey = 'pasar_template_settings_v7';
     this.customLogoKey = 'pasar_custom_logo_v2';
     this.loadSettings();
   }
@@ -245,7 +322,7 @@ class PdfService {
   }
 
   /**
-   * Renders the complete official government layout with updated 3-point payment instructions
+   * Renders the complete official government layout with exact alignment, hanging indents, and extra signature spacing
    */
   renderSingleLetterPage(doc, data) {
     const settings = this.getTemplateSettings();
@@ -258,8 +335,6 @@ class PdfService {
 
     const primaryFont = settings.fontFamily || 'times';
     const baseFontSize = Number(settings.fontSize) || 11;
-    const lineSpacingFactor = Number(settings.lineSpacing) || 1.35;
-    const alignMode = settings.textAlign === 'left' ? 'left' : 'justify';
     const alineaIndent = Number(settings.firstLineIndent) || 12.7;
 
     const colonLeftX = marginLeft + (Number(settings.tableColonLeft) || 36);
@@ -364,37 +439,15 @@ class PdfService {
     doc.text('Tempat', marginLeft + 7.5, yTujuan + 10.5);
 
     // ==========================================
-    // 4. PARAGRAF PEMBUKA (DENGAN PERDES NO 4/2025 & NO 3/2026 + ALINEA)
+    // 4. PARAGRAF PEMBUKA (DENGAN PERDES NO 4/2025 & NO 3/2026 + ALINEA JUSTIFY)
     // ==========================================
-    const yPembuka = yTujuan + 18.5;
-    const rawParagraph = (settings.paragrafPembuka || 'Berdasarkan Peraturan Desa (Perdes) Karangpucung Nomor 4 Tahun 2025 tentang Pungutan Pasar Mukti Makmur dan Nomor 3 Tahun 2026 tentang Aset Desa, bersama ini kami beritahukan bahwa Pemerintah Desa Karangpucung akan melaksanakan penarikan sewa tahunan untuk fasilitas Kios/Los/Lemprakan di lingkungan Pasar Mukti Makmur Desa Karangpucung.\nAdapun rincian tagihan sewa tahunan Saudara/i adalah sebagai berikut:').split('\n');
+    const yPembuka = yTujuan + 18;
+    const para1 = 'Berdasarkan Peraturan Desa (Perdes) Karangpucung Nomor 4 Tahun 2025 tentang Pungutan Pasar Mukti Makmur dan Nomor 3 Tahun 2026 tentang Aset Desa, bersama ini kami beritahukan bahwa Pemerintah Desa Karangpucung akan melaksanakan penarikan sewa tahunan untuk fasilitas Kios/Los/Lemprakan di lingkungan Pasar Mukti Makmur Desa Karangpucung.';
+    const para2 = 'Adapun rincian tagihan sewa tahunan Saudara/i adalah sebagai berikut:';
 
-    let currentY = yPembuka;
-
-    rawParagraph.forEach((paraText, pIdx) => {
-      if (!paraText.trim()) return;
-
-      if (pIdx === 0 && alineaIndent > 0) {
-        const firstLineIndentWidth = contentWidth - alineaIndent;
-        const lines = doc.splitTextToSize(paraText, firstLineIndentWidth);
-
-        if (lines.length > 0) {
-          doc.text(lines[0], marginLeft + alineaIndent, currentY, { align: alignMode, maxWidth: firstLineIndentWidth });
-          currentY += (5.0 * (lineSpacingFactor / 1.35));
-
-          if (lines.length > 1) {
-            const restLines = doc.splitTextToSize(paraText.substring(lines[0].length).trim(), contentWidth);
-            doc.text(restLines, marginLeft, currentY, { align: alignMode, maxWidth: contentWidth, lineHeightFactor: lineSpacingFactor });
-            currentY += (restLines.length * 5.0 * (lineSpacingFactor / 1.35));
-          }
-        }
-      } else {
-        const splitText = doc.splitTextToSize(paraText, contentWidth);
-        doc.text(splitText, marginLeft, currentY, { align: alignMode, maxWidth: contentWidth, lineHeightFactor: lineSpacingFactor });
-        currentY += (splitText.length * 5.0 * (lineSpacingFactor / 1.35));
-      }
-      currentY += 1.5;
-    });
+    let currentY = renderJustifiedParagraph(doc, para1, marginLeft, yPembuka, contentWidth, alineaIndent, 4.8);
+    currentY += 1.0;
+    currentY = renderJustifiedParagraph(doc, para2, marginLeft, currentY, contentWidth, 0, 4.8);
 
     // ==========================================
     // 5. TABEL RINCIAN TAGIHAN (2-COLUMN GRID WITH RULER POSITIONS)
@@ -416,77 +469,74 @@ class PdfService {
 
     // Row 2
     doc.setFont(primaryFont, 'normal');
-    doc.text('Ukuran', marginLeft, yTabel + 5.2);
-    doc.text(':', colonLeftX, yTabel + 5.2);
+    doc.text('Ukuran', marginLeft, yTabel + 5.0);
+    doc.text(':', colonLeftX, yTabel + 5.0);
     doc.setFont(primaryFont, 'bold');
-    doc.text(data.luas_dimensi || '200 x 200', colonLeftX + 3, yTabel + 5.2);
+    doc.text(data.luas_dimensi || '200 x 200', colonLeftX + 3, yTabel + 5.0);
 
     doc.setFont(primaryFont, 'normal');
-    doc.text('Luas', col2X, yTabel + 5.2);
-    doc.text(':', colonRightX, yTabel + 5.2);
+    doc.text('Luas', col2X, yTabel + 5.0);
+    doc.text(':', colonRightX, yTabel + 5.0);
     doc.setFont(primaryFont, 'bold');
-    doc.text(`${data.luas_m2 || '4.0'} m²`, colonRightX + 3, yTabel + 5.2);
+    doc.text(`${data.luas_m2 || '4.0'} m²`, colonRightX + 3, yTabel + 5.0);
 
     // Row 3
     doc.setFont(primaryFont, 'normal');
-    doc.text('Kios/Los/Lemprakan', marginLeft, yTabel + 10.4);
-    doc.text(':', colonLeftX, yTabel + 10.4);
+    doc.text('Kios/Los/Lemprakan', marginLeft, yTabel + 10.0);
+    doc.text(':', colonLeftX, yTabel + 10.0);
     doc.setFont(primaryFont, 'bold');
-    doc.text(data.blok_kios || 'Blok A1', colonLeftX + 3, yTabel + 10.4);
+    doc.text(data.blok_kios || 'Blok A1', colonLeftX + 3, yTabel + 10.0);
 
     doc.setFont(primaryFont, 'normal');
-    doc.text('Biaya Sewa', col2X, yTabel + 10.4);
-    doc.text(':', colonRightX, yTabel + 10.4);
+    doc.text('Biaya Sewa', col2X, yTabel + 10.0);
+    doc.text(':', colonRightX, yTabel + 10.0);
     doc.setFont(primaryFont, 'bold');
-    doc.text(data.biaya_sewa || 'Rp 225.000/thn', colonRightX + 3, yTabel + 10.4);
+    doc.text(data.biaya_sewa || 'Rp 225.000/thn', colonRightX + 3, yTabel + 10.0);
 
     // ==========================================
-    // 6. INSTRUKSI PEMBAYARAN RESMI (3 POIN) & PENUTUP
+    // 6. INSTRUKSI PEMBAYARAN RESMI (ALINEA + HANGING INDENT POIN 1,2,3)
     // ==========================================
-    const yPembayaran = yTabel + 16.5;
+    const yPembayaran = yTabel + 16.0;
     
     doc.setFont(primaryFont, 'normal');
     doc.setFontSize(baseFontSize - 0.5);
-    const textInstruksi = settings.paragrafPembayaran || 'Pembayaran sewa tahunan tersebut dapat dilakukan pada batas waktu pembayaran mulai tanggal 31 Agustus 2026 sampai dengan selambat-lambatnya 14 September 2026, dengan cara sebagai berikut:';
-    doc.text(textInstruksi, marginLeft, yPembayaran, { maxWidth: contentWidth, align: alignMode, lineHeightFactor: 1.25 });
 
-    const yMetode = yPembayaran + 9.5;
+    const paraBayar = settings.paragrafPembayaran || 'Pembayaran sewa tahunan tersebut dapat dilakukan pada batas waktu pembayaran mulai tanggal 31 Agustus 2026 sampai dengan selambat-lambatnya 14 September 2026, dengan cara sebagai berikut:';
     
-    // Poin 1: Transfer Bank Jateng + Catatan Blok
+    // Paragraf Pembayaran dengan Alinea Menjorok Lurus
+    let curYBayar = renderJustifiedParagraph(doc, paraBayar, marginLeft, yPembayaran, contentWidth, alineaIndent, 4.5);
+    curYBayar += 1.5;
+
+    // Poin 1: Transfer Bank Jateng (Hanging Indent)
     const transferNote = `"${(data.blok_kios || 'BLOK A1').toUpperCase()} ${(data.jenis_pasar || 'SANDANG').toUpperCase()}"`;
-    const item1Text = `1. Transfer Bank Jateng No Rekening 3065001968 atas nama PEMERINTAH DESA KARANGPUCUNG. Menyertakan Nomor Surat Pemberitahuan sebagai nomor referensi dan catatan ${transferNote}.`;
-    const splitItem1 = doc.splitTextToSize(item1Text, contentWidth);
-    doc.text(splitItem1, marginLeft, yMetode, { maxWidth: contentWidth, align: alignMode, lineHeightFactor: 1.25 });
+    const item1Text = `Transfer Bank Jateng No Rekening 3065001968 atas nama PEMERINTAH DESA KARANGPUCUNG. Menyertakan Nomor Surat Pemberitahuan sebagai nomor referensi dan catatan ${transferNote}.`;
+    curYBayar = renderHangingNumberedItem(doc, '1.', item1Text, marginLeft, curYBayar, 6, alineaIndent, contentWidth, 4.3);
 
-    // Poin 2: Tunai
-    const yItem2 = yMetode + (splitItem1.length * 4.3) + 1.5;
-    const item2Text = '2. Pembayaran Tunai datang langsung ke Balai Desa Karangpucung pada hari dan jam kerja.';
-    const splitItem2 = doc.splitTextToSize(item2Text, contentWidth);
-    doc.text(splitItem2, marginLeft, yItem2, { maxWidth: contentWidth, align: alignMode, lineHeightFactor: 1.25 });
+    // Poin 2: Pembayaran Tunai (Hanging Indent)
+    const item2Text = 'Pembayaran Tunai datang langsung ke Balai Desa Karangpucung pada hari dan jam kerja.';
+    curYBayar = renderHangingNumberedItem(doc, '2.', item2Text, marginLeft, curYBayar, 6, alineaIndent, contentWidth, 4.3);
 
-    // Poin 3: Dua Materai 10.000
-    const yItem3 = yItem2 + (splitItem2.length * 4.3) + 1.5;
-    const item3Text = '3. Membawa Dua Materai 10.000 dan Bukti transfer (jika melakukan pembayaran transfer) untuk tanda tangan sewa.';
-    const splitItem3 = doc.splitTextToSize(item3Text, contentWidth);
-    doc.text(splitItem3, marginLeft, yItem3, { maxWidth: contentWidth, align: alignMode, lineHeightFactor: 1.25 });
+    // Poin 3: Dua Materai 10.000 (Hanging Indent)
+    const item3Text = 'Membawa Dua Materai 10.000 dan Bukti transfer (jika melakukan pembayaran transfer) untuk tanda tangan sewa.';
+    curYBayar = renderHangingNumberedItem(doc, '3.', item3Text, marginLeft, curYBayar, 6, alineaIndent, contentWidth, 4.3);
 
-    // Paragraf Penutup
-    const yPenutup = yItem3 + (splitItem3.length * 4.3) + 3.5;
+    // Paragraf Penutup (Alinea Menjorok Lurus)
+    curYBayar += 2.0;
     const penutupText = settings.paragrafPenutup || 'Demikian surat pemberitahuan ini kami sampaikan. Atas kerja sama dan partisipasi Bapak/Ibu dalam mendukung pembangunan desa, kami ucapkan terima kasih.';
-    doc.text(penutupText, marginLeft, yPenutup, { maxWidth: contentWidth, align: alignMode, lineHeightFactor: 1.3 });
+    const yPenutupDone = renderJustifiedParagraph(doc, penutupText, marginLeft, curYBayar, contentWidth, alineaIndent, 4.6);
 
     // ==========================================
-    // 7. TANDA TANGAN KEPALA DESA (RUANG TTD BASAH & STEMPEL)
+    // 7. TANDA TANGAN KEPALA DESA (EXTRA ENTER / SPASI VERTIKAL LEBIH LEGA)
     // ==========================================
-    const yTtd = yPenutup + 9.5;
+    const yTtd = yPenutupDone + 7.5; // Extra spacing / enter
     const ttdCenterX = pageWidth - marginRight - 38;
 
     doc.setFont(primaryFont, 'normal');
     doc.setFontSize(baseFontSize);
     doc.text(settings.ttdJabatan || 'PJ. Kepala Desa Karangpucung', ttdCenterX, yTtd, { align: 'center' });
 
-    // Ruang Tanda Tangan & Cap Stempel Basah (~23mm)
-    const yNamaTtd = yTtd + 23;
+    // Ruang Tanda Tangan & Cap Stempel Basah (~21mm)
+    const yNamaTtd = yTtd + 21;
     doc.setFont(primaryFont, 'bold');
     doc.setFontSize(baseFontSize);
     doc.text(settings.ttdNama || 'A. ANJARNINGSIH, S.E.', ttdCenterX, yNamaTtd, { align: 'center' });
@@ -498,7 +548,7 @@ class PdfService {
 
     doc.setFont(primaryFont, 'bold');
     doc.setFontSize(baseFontSize - 1);
-    doc.text(settings.ttdNip || 'NIP. 19790507 2003 12 2 006', ttdCenterX, yNamaTtd + 5.2, { align: 'center' });
+    doc.text(settings.ttdNip || 'NIP. 19790507 2003 12 2 006', ttdCenterX, yNamaTtd + 5.0, { align: 'center' });
   }
 
   /**
