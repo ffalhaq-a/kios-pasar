@@ -106,7 +106,7 @@ export function renderSuratView(container, targetKiosId = null) {
                 `).join('')}
               </select>
             </div>
-            <!-- Metadata Surat Grid (2x2 Proporsional & Sejajar) -->
+            <!-- Metadata Surat Grid (2x3 Proporsional & Sejajar) -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
               <div class="space-y-1">
                 <label class="text-xs font-bold ${textSecondary} block">Nomor Naskah Awal:</label>
@@ -130,6 +130,25 @@ export function renderSuratView(container, targetKiosId = null) {
               <div class="space-y-1">
                 <label class="text-xs font-bold ${textSecondary} block">Tanggal Kirim / Distribusi:</label>
                 <input type="text" id="input-tgl-kirim" value="31 Agustus 2026" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}" />
+              </div>
+
+              <div class="space-y-1">
+                <label class="text-xs font-bold ${textSecondary} block">Ukuran Huruf (Font Size):</label>
+                <select id="input-font-size" class="w-full px-3 py-2 rounded-xl border text-xs font-bold text-emerald-500 focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}">
+                  <option value="11">11 pt (Kompak/Ramping)</option>
+                  <option value="11.5">11.5 pt (Sedang)</option>
+                  <option value="12" selected>12 pt (Standar Resmi - Sangat Jelas)</option>
+                  <option value="12.5">12.5 pt (Besar & Tegas)</option>
+                  <option value="13">13 pt (Ekstra Besar)</option>
+                </select>
+              </div>
+
+              <div class="space-y-1">
+                <label class="text-xs font-bold ${textSecondary} block">Jenis Huruf (Typography):</label>
+                <select id="input-font-family" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}">
+                  <option value="times" selected>Times New Roman (Klasik Resmi)</option>
+                  <option value="helvetica">Arial / Sans-Serif (Modern)</option>
+                </select>
               </div>
             </div>
 
@@ -248,6 +267,8 @@ export function renderSuratView(container, targetKiosId = null) {
   const inputTgl = container.querySelector('#input-tgl-naskah');
   const inputTglKirim = container.querySelector('#input-tgl-kirim');
   const inputSifat = container.querySelector('#input-sifat');
+  const inputFontSize = container.querySelector('#input-font-size');
+  const inputFontFamily = container.querySelector('#input-font-family');
   const uploadLogoInput = container.querySelector('#upload-logo-input');
   
   const btnGotoTemplate = container.querySelector('#btn-goto-template');
@@ -384,6 +405,8 @@ export function renderSuratView(container, targetKiosId = null) {
       nomor_naskah: inputNo.value.trim() || defaultNoNaskah,
       tanggal_naskah: inputTgl.value.trim() || defaultDateStr,
       sifat: inputSifat.value || defaultSifat,
+      fontSize: Number(inputFontSize?.value || 12),
+      fontFamily: inputFontFamily?.value || 'times',
       nama_pedagang: selectedKiosk.pedagang === '-' ? 'Penyewa Kios' : selectedKiosk.pedagang,
       jenis_pasar: cleanPasar,
       blok_kios: cleanBlok,
@@ -443,6 +466,8 @@ export function renderSuratView(container, targetKiosId = null) {
       nomor_naskah: inputNo.value.trim() || defaultNoNaskah,
       tanggal_naskah: inputTgl.value.trim() || defaultDateStr,
       sifat: inputSifat.value || defaultSifat,
+      fontSize: Number(inputFontSize?.value || 12),
+      fontFamily: inputFontFamily?.value || 'times',
       nama_pedagang: selectedKiosk.pedagang === '-' ? 'Penyewa Kios' : selectedKiosk.pedagang,
       jenis_pasar: cleanPasar,
       blok_kios: cleanBlok,
@@ -501,7 +526,9 @@ export function renderSuratView(container, targetKiosId = null) {
       const commonParams = {
         nomor_naskah: inputNo.value.trim() || defaultNoNaskah,
         tanggal_naskah: inputTgl.value.trim() || defaultDateStr,
-        sifat: inputSifat.value || defaultSifat
+        sifat: inputSifat.value || defaultSifat,
+        fontSize: Number(inputFontSize?.value || 12),
+        fontFamily: inputFontFamily?.value || 'times'
       };
 
       const doc = pdfService.generateBatchSurat(targetList, commonParams);

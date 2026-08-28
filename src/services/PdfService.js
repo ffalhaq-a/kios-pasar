@@ -229,7 +229,7 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
 
   // 8. FORMAT & MARGIN: KIRI/KANAN 1.5 CM (15 MM), ATAS/BAWAH 1 CM (10 MM)
   fontFamily: 'times',
-  fontSize: 11,
+  fontSize: 12,
   marginTop: 10.0,   // 1 cm
   marginBottom: 10.0,// 1 cm
   marginLeft: 15.0,  // 1.5 cm
@@ -384,7 +384,7 @@ class PdfService {
     const contentWidth = pageWidth - marginLeft - marginRight; // 180 mm
 
     const primaryFont = settings.fontFamily || 'times';
-    const baseFontSize = Number(settings.fontSize) || 11;
+    const baseFontSize = Number(data.fontSize || settings.fontSize) || 12;
     const alineaIndent = Number(settings.firstLineIndent) || 12.7;
 
     const colonLeftX = marginLeft + (Number(settings.tableColonLeft) || 38);
