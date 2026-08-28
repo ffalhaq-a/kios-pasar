@@ -549,33 +549,33 @@ class PdfService {
     const yPembayaran = yTabel + 16.0;
     
     doc.setFont(primaryFont, 'normal');
-    doc.setFontSize(baseFontSize - 0.5);
+    doc.setFontSize(baseFontSize);
 
     const paraBayar = settings.paragrafPembayaran || 'Pembayaran sewa tahunan tersebut dapat dilakukan pada batas waktu pembayaran mulai tanggal 31 Agustus 2026 sampai dengan selambat-lambatnya 14 September 2026, dengan cara sebagai berikut:';
     
     // Paragraf Pembayaran dengan Alinea Menjorok Lurus
-    let curYBayar = renderParagraph(doc, paraBayar, marginLeft, yPembayaran, contentWidth, alineaIndent, 4.5);
+    let curYBayar = renderParagraph(doc, paraBayar, marginLeft, yPembayaran, contentWidth, alineaIndent, 4.8);
     curYBayar += 1.5;
 
-    // Poin 1: Transfer Bank Jateng + Catatan "BLOK A1 SANDANG"
+    // Poin 1: Transfer Bank Jateng + Catatan "BLOK A1 SANDANG" saat transfer
     const rawBlokCode = (data.blok_kios || 'A1').replace(/^blok\s+/i, '').trim().toUpperCase();
     const rawPasar = (data.jenis_pasar || 'Sandang').replace(/^pasar\s+/i, '').trim().toUpperCase();
     const transferNote = `"BLOK ${rawBlokCode} ${rawPasar}"`;
-    const item1Text = `Transfer Bank Jateng No Rekening 3065001968 atas nama PEMERINTAH DESA KARANGPUCUNG. Menyertakan Nomor Surat Pemberitahuan sebagai nomor referensi dan catatan ${transferNote}.`;
-    curYBayar = renderNumberedItem(doc, '1.', item1Text, marginLeft, curYBayar, 6, alineaIndent, contentWidth, 4.3);
+    const item1Text = `Transfer Bank Jateng No Rekening 3065001968 atas nama PEMERINTAH DESA KARANGPUCUNG, menyertakan catatan ${transferNote} saat transfer.`;
+    curYBayar = renderNumberedItem(doc, '1.', item1Text, marginLeft, curYBayar, 0, 5.5, contentWidth, 4.6);
 
     // Poin 2: Pembayaran Tunai (Hanging Indent)
     const item2Text = 'Pembayaran Tunai datang langsung ke Balai Desa Karangpucung pada hari dan jam kerja.';
-    curYBayar = renderNumberedItem(doc, '2.', item2Text, marginLeft, curYBayar, 6, alineaIndent, contentWidth, 4.3);
+    curYBayar = renderNumberedItem(doc, '2.', item2Text, marginLeft, curYBayar, 0, 5.5, contentWidth, 4.6);
 
     // Poin 3: Dua Materai 10.000 (Hanging Indent)
     const item3Text = 'Membawa Dua Materai 10.000 dan Bukti transfer (jika melakukan pembayaran transfer) untuk tanda tangan sewa.';
-    curYBayar = renderNumberedItem(doc, '3.', item3Text, marginLeft, curYBayar, 6, alineaIndent, contentWidth, 4.3);
+    curYBayar = renderNumberedItem(doc, '3.', item3Text, marginLeft, curYBayar, 0, 5.5, contentWidth, 4.6);
 
     // Paragraf Penutup (Alinea Menjorok Lurus)
     curYBayar += 2.0;
     const penutupText = settings.paragrafPenutup || 'Demikian surat pemberitahuan ini kami sampaikan. Atas kerja sama dan partisipasi Bapak/Ibu dalam mendukung pembangunan desa, kami ucapkan terima kasih.';
-    const yPenutupDone = renderParagraph(doc, penutupText, marginLeft, curYBayar, contentWidth, alineaIndent, 4.6);
+    const yPenutupDone = renderParagraph(doc, penutupText, marginLeft, curYBayar, contentWidth, alineaIndent, 4.8);
 
     // ==========================================
     // 7. TANDA TANGAN KEPALA DESA (EXTRA ENTER / SPASI VERTIKAL LEBIH LEGA)
