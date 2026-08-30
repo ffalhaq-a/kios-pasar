@@ -448,6 +448,49 @@ class SpreadsheetService {
       return { success: true, localOnly: true };
     }
   }
+  /**
+   * Generate Surat Perjanjian via Google Docs Template API
+   */
+  async generateRemotePerjanjianDoc(data) {
+    try {
+      const res = await fetch(GOOGLE_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'generatePerjanjian',
+          apiToken: API_SECURITY_TOKEN,
+          ...data
+        }),
+        redirect: 'follow'
+      });
+      return await res.json();
+    } catch (e) {
+      console.warn('Error generating remote perjanjian:', e);
+      return { status: 'error', message: e.message };
+    }
+  }
+
+  /**
+   * Generate Kwitansi via Google Docs Template API
+   */
+  async generateRemoteKwitansiDoc(data) {
+    try {
+      const res = await fetch(GOOGLE_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'generateKwitansi',
+          apiToken: API_SECURITY_TOKEN,
+          ...data
+        }),
+        redirect: 'follow'
+      });
+      return await res.json();
+    } catch (e) {
+      console.warn('Error generating remote kwitansi:', e);
+      return { status: 'error', message: e.message };
+    }
+  }
 }
 
 export const spreadsheetService = new SpreadsheetService();
