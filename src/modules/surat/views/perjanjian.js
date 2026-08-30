@@ -432,58 +432,81 @@ export function renderPerjanjianView(container, initialKiosId = null) {
     };
   }
 
-  // 1. GENERATE SATUAN
-  btnGenerateInstant.addEventListener('click', () => {
+  // 1. GENERATE VIA GOOGLE DOCS & DRIVE
+  btnGenerateInstant.addEventListener('click', async () => {
     if (!selectedKiosk) {
       alert('Silakan pilih kios terlebih dahulu!');
       return;
     }
 
     const itemData = buildPerjanjianData(selectedKiosk);
-    const doc = pdfService.generateSuratPerjanjian(itemData);
-    const fileName = `Surat_Perjanjian_${itemData.blok_kios.replace(/\s+/g, '_')}_${itemData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-    
-    doc.save(fileName);
+    btnGenerateInstant.disabled = true;
+    const originalBtnHtml = btnGenerateInstant.innerHTML;
+    btnGenerateInstant.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin"></i><span>Memproses Google Docs & Drive...</span>`;
+    if (window.lucide) window.lucide.createIcons();
 
     statusAlertBox.classList.remove('hidden');
-    statusAlertText.innerText = `Surat Perjanjian ${itemData.blok_kios} berhasil diunduh (${fileName})`;
-    setTimeout(() => statusAlertBox.classList.add('hidden'), 5000);
+    statusAlertText.innerText = `⏳ Sedang membuat Surat Perjanjian di Google Drive...`;
 
     try {
-      const pdfDataUri = doc.output('datauristring');
-      const base64Data = pdfDataUri.split(',')[1];
-      const agendaEntry = [{
-        nomorSurat: itemData.nomor_perjanjian,
-        tanggalSurat: itemData.tanggal,
-        perihal: 'Surat Perjanjian Sewa Tanah/Bangunan Pasar Mukti Makmur',
-        lampiran: '-',
-        tanggalKirim: itemData.tanggal,
-        tujuan: `${toTitleCase(itemData.nama_pedagang)} ${itemData.blok_kios} ${itemData.jenis_pasar}`,
-        ket: `Perjanjian ${itemData.blok_kios} - Rp ${itemData.biaya_sewa_angka}`
-      }];
-
-      spreadsheetService.logPerjanjianToAgenda(agendaEntry, base64Data, fileName, selectedKiosk.zona || 'PASAR SANDANG').then(res => {
-        if (res && res.success) {
-          statusAlertText.innerText = `✅ Perjanjian ${itemData.blok_kios} berhasil diunduh & diarsipkan ke Google Drive!`;
-        }
-      });
-    } catch (e) {
-      console.warn('Logging error:', e);
+      const res = await spreadsheetService.generateRemotePerjanjianDoc(itemData);
+      if (res && res.status === 'success' && res.pdfUrl) {
+        statusAlertText.innerText = `✅ Berhasil! File tersimpan di Google Drive: ${res.folderPath || 'Pasar'} / ${res.fileName}`;
+        window.open(res.pdfUrl, '_blank');
+      } else {
+        // Fallback local PDF if error
+        const doc = pdfService.generateSuratPerjanjian(itemData);
+        const fileName = `Surat_Perjanjian_${itemData.blok_kios.replace(/\s+/g, '_')}_${itemData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+        doc.save(fileName);
+        statusAlertText.innerText = `⚠️ Google Docs offline. Surat Perjanjian diunduh secara lokal (${fileName}).`;
+      }
+    } catch (err) {
+      console.warn('Remote doc error:', err);
+      const doc = pdfService.generateSuratPerjanjian(itemData);
+      const fileName = `Surat_Perjanjian_${itemData.blok_kios.replace(/\s+/g, '_')}_${itemData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+      doc.save(fileName);
+      statusAlertText.innerText = `Surat Perjanjian berhasil diunduh (${fileName})`;
+    } finally {
+      btnGenerateInstant.disabled = false;
+      btnGenerateInstant.innerHTML = originalBtnHtml;
+      if (window.lucide) window.lucide.createIcons();
+      setTimeout(() => statusAlertBox.classList.add('hidden'), 8000);
     }
   });
 
   // 2. PREVIEW LAYAR
-  btnPreviewInstant.addEventListener('click', () => {
+  btnPreviewInstant.addEventListener('click', async () => {
     if (!selectedKiosk) {
       alert('Silakan pilih kios terlebih dahulu!');
       return;
     }
 
     const itemData = buildPerjanjianData(selectedKiosk);
-    const doc = pdfService.generateSuratPerjanjian(itemData);
-    const pdfBlob = doc.output('blob');
-    const blobUrl = URL.createObjectURL(pdfBlob);
-    window.open(blobUrl, '_blank');
+    btnPreviewInstant.disabled = true;
+    const originalPreviewHtml = btnPreviewInstant.innerHTML;
+    btnPreviewInstant.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin text-amber-500"></i><span>Memuat...</span>`;
+    if (window.lucide) window.lucide.createIcons();
+
+    try {
+      const res = await spreadsheetService.generateRemotePerjanjianDoc(itemData);
+      if (res && res.status === 'success' && res.pdfUrl) {
+        window.open(res.pdfUrl, '_blank');
+      } else {
+        const doc = pdfService.generateSuratPerjanjian(itemData);
+        const pdfBlob = doc.output('blob');
+        const blobUrl = URL.createObjectURL(pdfBlob);
+        window.open(blobUrl, '_blank');
+      }
+    } catch (err) {
+      const doc = pdfService.generateSuratPerjanjian(itemData);
+      const pdfBlob = doc.output('blob');
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      window.open(blobUrl, '_blank');
+    } finally {
+      btnPreviewInstant.disabled = false;
+      btnPreviewInstant.innerHTML = originalPreviewHtml;
+      if (window.lucide) window.lucide.createIcons();
+    }
   });
 
   // 3. BATCH GENERATOR

@@ -238,10 +238,14 @@ export function renderDaftarPedagangView(container) {
     });
 
     tbody.querySelectorAll('.create-kwitansi-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const targetId = btn.getAttribute('data-kwitansi-id');
         const kiosk = kiosks.find(k => k.id === targetId);
         if (!kiosk) return;
+
+        const originalBtnHtml = btn.innerHTML;
+        btn.innerHTML = `<i data-lucide="loader" class="w-3 h-3 animate-spin"></i><span>...</span>`;
+        if (window.lucide) window.lucide.createIcons();
 
         const cleanJenisPasar = (kiosk.zona || '').toUpperCase().includes('SAYUR') || String(kiosk.id || '').startsWith('SYR') ? 'Sayur' : 'Sandang';
         const cleanBlokKode = kiosk.blokKode ? (kiosk.blokKode.startsWith('Blok') ? kiosk.blokKode : `Blok ${kiosk.blokKode}`) : (kiosk.id || '-');
@@ -262,31 +266,28 @@ export function renderDaftarPedagangView(container) {
           luas_dimensi: kiosk.luasDimensi || '200 x 200',
           luas_m2: kiosk.luasM2 || '4.0',
           jumlah_unit: `${rentCalc.unitCount || 1} Unit Usaha`,
+          biaya_sewa: `Rp ${formattedSewaRupiah}`,
           biaya_sewa_angka: formattedSewaRupiah,
           biaya_sewa_terbilang: terbilangSewa,
           tanggal_bayar: kiosk.tglPembayaran && kiosk.tglPembayaran !== '-' ? kiosk.tglPembayaran : '31 Agustus 2026'
         };
 
-        const doc = pdfService.generateKwitansi(kwitansiData);
-        const fileName = `Kwitansi_${cleanBlokKode.replace(/\s+/g, '_')}_${kwitansiData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-        doc.save(fileName);
-
-        // Upload & Log to Spreadsheet/Drive
         try {
-          const pdfDataUri = doc.output('datauristring');
-          const base64Data = pdfDataUri.split(',')[1];
-          const entry = [{
-            nomorKwitansi: kwitansiData.nomor_kwitansi,
-            tanggal: kwitansiData.tanggal_bayar,
-            namaPedagang: kwitansiData.nama_pedagang,
-            blok: cleanBlokKode,
-            pasar: cleanJenisPasar,
-            nominal: formattedSewaRupiah,
-            keterangan: `Kwitansi Sewa ${cleanBlokKode} ${cleanJenisPasar}`
-          }];
-          spreadsheetService.logKwitansiToAgenda(entry, base64Data, fileName, kiosk.zona || 'PASAR SANDANG');
+          const res = await spreadsheetService.generateRemoteKwitansiDoc(kwitansiData);
+          if (res && res.status === 'success' && res.pdfUrl) {
+            window.open(res.pdfUrl, '_blank');
+          } else {
+            const doc = pdfService.generateKwitansi(kwitansiData);
+            const fileName = `Kwitansi_${cleanBlokKode.replace(/\s+/g, '_')}_${kwitansiData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+            doc.save(fileName);
+          }
         } catch (e) {
-          console.warn('Error saving kwitansi log:', e);
+          const doc = pdfService.generateKwitansi(kwitansiData);
+          const fileName = `Kwitansi_${cleanBlokKode.replace(/\s+/g, '_')}_${kwitansiData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+          doc.save(fileName);
+        } finally {
+          btn.innerHTML = originalBtnHtml;
+          if (window.lucide) window.lucide.createIcons();
         }
       });
     });
