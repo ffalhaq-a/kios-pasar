@@ -393,6 +393,62 @@ class SpreadsheetService {
     this.notify();
   }
 
+  // ==========================================
+  // PERJANJIAN HISTORY LOGS
+  // ==========================================
+  getPerjanjianLogs() {
+    try {
+      const key = 'pasar_buku_perjanjian_logs_v1';
+      return JSON.parse(localStorage.getItem(key) || '[]');
+    } catch (e) {
+      return [];
+    }
+  }
+
+  savePerjanjianLog(item) {
+    try {
+      const key = 'pasar_buku_perjanjian_logs_v1';
+      const existing = this.getPerjanjianLogs();
+      existing.unshift({
+        id: 'PRJ-' + Date.now(),
+        timestamp: new Date().toISOString(),
+        ...item
+      });
+      localStorage.setItem(key, JSON.stringify(existing.slice(0, 500)));
+      this.notify();
+    } catch (e) {
+      console.warn('Error saving local perjanjian log:', e);
+    }
+  }
+
+  // ==========================================
+  // KWITANSI HISTORY LOGS
+  // ==========================================
+  getKwitansiLogs() {
+    try {
+      const key = 'pasar_buku_kwitansi_logs_v1';
+      return JSON.parse(localStorage.getItem(key) || '[]');
+    } catch (e) {
+      return [];
+    }
+  }
+
+  saveKwitansiLog(item) {
+    try {
+      const key = 'pasar_buku_kwitansi_logs_v1';
+      const existing = this.getKwitansiLogs();
+      existing.unshift({
+        id: 'KW-' + Date.now(),
+        timestamp: new Date().toISOString(),
+        ...item
+      });
+      localStorage.setItem(key, JSON.stringify(existing.slice(0, 500)));
+      this.notify();
+    } catch (e) {
+      console.warn('Error saving local kwitansi log:', e);
+    }
+  }
+
   /**
    * Log Surat Perjanjian to Google Sheets & Google Drive
    */

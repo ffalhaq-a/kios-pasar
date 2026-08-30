@@ -89,6 +89,102 @@ export function angkaKeTerbilang(angka) {
 }
 
 /**
+ * Format any date input to clean standard Indonesian date format (e.g. "31 Agustus 2026")
+ * Strips out any time, GMT, or ISO components cleanly.
+ */
+export function formatIndonesianDateClean(dateInput) {
+  if (!dateInput || dateInput === '-' || dateInput === 'null' || dateInput === 'undefined') {
+    return '31 Agustus 2026';
+  }
+
+  const str = String(dateInput).trim();
+  if (!str || str === '-') return '31 Agustus 2026';
+
+  const monthNames = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ];
+
+  // If contains time part like "00:00:00 GMT+0700", parse via Date
+  if (str.includes('GMT') || str.includes(':') || str.includes('T')) {
+    const cleanDateObj = new Date(str);
+    if (!isNaN(cleanDateObj.getTime())) {
+      const d = cleanDateObj.getDate();
+      const m = monthNames[cleanDateObj.getMonth()];
+      const y = cleanDateObj.getFullYear();
+      return `${d} ${m} ${y}`;
+    }
+  }
+
+  // If already Indonesian format like "31 Agustus 2026"
+  if (/^\d{1,2}\s+[A-Za-z]+\s+\d{4}$/.test(str)) {
+    return str;
+  }
+
+  // If DD/MM/YYYY
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)) {
+    const parts = str.split('/');
+    const d = parseInt(parts[0], 10);
+    const mIdx = parseInt(parts[1], 10) - 1;
+    const y = parts[2];
+    return `${d} ${monthNames[mIdx] || 'Agustus'} ${y}`;
+  }
+
+  // If YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+    const parts = str.split('T')[0].split('-');
+    const y = parts[0];
+    const mIdx = parseInt(parts[1], 10) - 1;
+    const d = parseInt(parts[2], 10);
+    return `${d} ${monthNames[mIdx] || 'Agustus'} ${y}`;
+  }
+
+  return str;
+}
+
+/**
+ * Smart sequential auto-numbering based on existing logs from database
+ * @param {'perjanjian'|'kwitansi'|'surat'} type
+ * @param {Array} existingLogs
+ * @returns {string} next auto-incremented string
+ */
+export function getSmartNextNumber(type, existingLogs = []) {
+  if (type === 'perjanjian') {
+    let maxNum = 0;
+    if (Array.isArray(existingLogs) && existingLogs.length > 0) {
+      existingLogs.forEach(row => {
+        const no = String(row.nomorSurat || row.nomorPerjanjian || row.noPerjanjian || (Array.isArray(row) ? row[1] : '') || '').trim();
+        const match = no.match(/^(\d+)/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      });
+    }
+    const nextVal = maxNum > 0 ? maxNum + 1 : 1;
+    return `${String(nextVal).padStart(3, '0')} / KRPC / 2026`;
+  }
+
+  if (type === 'kwitansi') {
+    let maxNum = 0;
+    if (Array.isArray(existingLogs) && existingLogs.length > 0) {
+      existingLogs.forEach(row => {
+        const no = String(row.nomorKwitansi || row.noKwitansi || row.nomorSurat || (Array.isArray(row) ? row[1] : '') || '').trim();
+        const match = no.match(/(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      });
+    }
+    const nextVal = maxNum > 0 ? maxNum + 1 : 1;
+    return `KW/2026/${String(nextVal).padStart(3, '0')}`;
+  }
+
+  return '400.10.2/90/2005';
+}
+
+/**
  * Mathematical word-spacing distribution to guarantee 100% exact right-margin justification
  */
 function drawJustifiedLine(doc, line, x, y, targetWidth, isLastLine = false) {

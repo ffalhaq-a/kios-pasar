@@ -238,57 +238,10 @@ export function renderDaftarPedagangView(container) {
     });
 
     tbody.querySelectorAll('.create-kwitansi-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
+      btn.addEventListener('click', () => {
         const targetId = btn.getAttribute('data-kwitansi-id');
-        const kiosk = kiosks.find(k => k.id === targetId);
-        if (!kiosk) return;
-
-        const originalBtnHtml = btn.innerHTML;
-        btn.innerHTML = `<i data-lucide="loader" class="w-3 h-3 animate-spin"></i><span>...</span>`;
-        if (window.lucide) window.lucide.createIcons();
-
-        const cleanJenisPasar = (kiosk.zona || '').toUpperCase().includes('SAYUR') || String(kiosk.id || '').startsWith('SYR') ? 'Sayur' : 'Sandang';
-        const cleanBlokKode = kiosk.blokKode ? (kiosk.blokKode.startsWith('Blok') ? kiosk.blokKode : `Blok ${kiosk.blokKode}`) : (kiosk.id || '-');
-        const rentCalc = rateService.calculateRent(kiosk.luasM2, kiosk.tipeKios, kiosk.sewaBulanan);
-
-        const rawNumericSewa = parseInt(String(rentCalc.totalAnnualRent || rentCalc.formattedTotal).replace(/[^0-9]/g, ''), 10) || 250000;
-        const formattedSewaRupiah = new Intl.NumberFormat('id-ID').format(rawNumericSewa);
-        const terbilangSewa = angkaKeTerbilang(rawNumericSewa);
-
-        const kwitansiData = {
-          nomor_kwitansi: `KW/2026/${String(targetId).replace(/[^0-9]/g, '').padStart(3, '0') || '001'}`,
-          nama_pedagang: kiosk.pedagang === '-' ? 'Penyewa Kios' : kiosk.pedagang,
-          nik: kiosk.nik || '-',
-          jenis_pasar: cleanJenisPasar,
-          blok_kios: cleanBlokKode,
-          tipe_kios: kiosk.tipeKios || 'LOS',
-          kategori: kiosk.kategori || 'Umum',
-          luas_dimensi: kiosk.luasDimensi || '200 x 200',
-          luas_m2: kiosk.luasM2 || '4.0',
-          jumlah_unit: `${rentCalc.unitCount || 1} Unit Usaha`,
-          biaya_sewa: `Rp ${formattedSewaRupiah}`,
-          biaya_sewa_angka: formattedSewaRupiah,
-          biaya_sewa_terbilang: terbilangSewa,
-          tanggal_bayar: kiosk.tglPembayaran && kiosk.tglPembayaran !== '-' ? kiosk.tglPembayaran : '31 Agustus 2026'
-        };
-
-        try {
-          const res = await spreadsheetService.generateRemoteKwitansiDoc(kwitansiData);
-          if (res && res.status === 'success' && res.pdfUrl) {
-            window.open(res.pdfUrl, '_blank');
-          } else {
-            const doc = pdfService.generateKwitansi(kwitansiData);
-            const fileName = `Kwitansi_${cleanBlokKode.replace(/\s+/g, '_')}_${kwitansiData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-            doc.save(fileName);
-          }
-        } catch (e) {
-          const doc = pdfService.generateKwitansi(kwitansiData);
-          const fileName = `Kwitansi_${cleanBlokKode.replace(/\s+/g, '_')}_${kwitansiData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-          doc.save(fileName);
-        } finally {
-          btn.innerHTML = originalBtnHtml;
-          if (window.lucide) window.lucide.createIcons();
-        }
+        window._selectedKiosIdForKwitansi = targetId;
+        if (window._navigate) window._navigate('/surat/kwitansi');
       });
     });
 

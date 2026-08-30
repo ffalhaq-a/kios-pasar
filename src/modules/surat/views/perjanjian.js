@@ -1,11 +1,13 @@
 import { spreadsheetService } from '../../../services/SpreadsheetService.js';
 import { themeManager } from '../../../shell/ThemeManager.js';
-import { pdfService, toTitleCase, generateSequentialNumber, angkaKeTerbilang } from '../../../services/PdfService.js';
+import { pdfService, toTitleCase, generateSequentialNumber, angkaKeTerbilang, formatIndonesianDateClean, getSmartNextNumber } from '../../../services/PdfService.js';
 import { rateService } from '../../../services/RateService.js';
+import { showProgressModal, updateProgressModal, closeProgressModal } from '../../../components/ProgressModal.js';
 
 export function renderPerjanjianView(container, initialKiosId = null) {
   const isDark = themeManager.isDark();
   const kiosks = spreadsheetService.loadKiosks();
+  const perjanjianLogs = spreadsheetService.getPerjanjianLogs();
 
   let selectedKiosk = kiosks.find(k => k.id === initialKiosId) || kiosks[0] || null;
 
@@ -14,8 +16,8 @@ export function renderPerjanjianView(container, initialKiosId = null) {
   const textSecondary = isDark ? 'text-slate-400' : 'text-slate-600';
   const inputBg = isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900';
 
-  const defaultNoPerjanjian = '001 / KRPC / 2026';
-  const defaultDateStr = '31 Agustus 2026';
+  const defaultNoPerjanjian = getSmartNextNumber('perjanjian', perjanjianLogs);
+  const defaultDateStr = formatIndonesianDateClean(new Date());
   const defaultDayStr = 'Senin';
 
   // Extract unique blocks
@@ -440,37 +442,65 @@ export function renderPerjanjianView(container, initialKiosId = null) {
     }
 
     const itemData = buildPerjanjianData(selectedKiosk);
-    btnGenerateInstant.disabled = true;
-    const originalBtnHtml = btnGenerateInstant.innerHTML;
-    btnGenerateInstant.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin"></i><span>Memproses Google Docs & Drive...</span>`;
-    if (window.lucide) window.lucide.createIcons();
 
-    statusAlertBox.classList.remove('hidden');
-    statusAlertText.innerText = `⏳ Sedang membuat Surat Perjanjian di Google Drive...`;
+    showProgressModal({
+      title: 'Memproses Surat Perjanjian Kontrak',
+      steps: [
+        '1. Menyiapkan parameter kontrak 8 pasal & data pedagang...',
+        '2. Mengisi template Google Docs Perjanjian...',
+        '3. Membuat subfolder & menyimpan ke Google Drive...',
+        '4. Mencatat riwayat ke database Spreadsheet...'
+      ],
+      currentStep: 0,
+      message: 'Menyiapkan data kontrak...'
+    });
 
     try {
+      setTimeout(() => updateProgressModal({ currentStep: 1, message: 'Mengisi template Google Docs Perjanjian...' }), 400);
+      setTimeout(() => updateProgressModal({ currentStep: 2, message: 'Menyimpan PDF ke Google Drive...' }), 900);
+
       const res = await spreadsheetService.generateRemotePerjanjianDoc(itemData);
-      if (res && res.status === 'success' && res.pdfUrl) {
-        statusAlertText.innerText = `✅ Berhasil! File tersimpan di Google Drive: ${res.folderPath || 'Pasar'} / ${res.fileName}`;
-        window.open(res.pdfUrl, '_blank');
-      } else {
-        // Fallback local PDF if error
-        const doc = pdfService.generateSuratPerjanjian(itemData);
-        const fileName = `Surat_Perjanjian_${itemData.blok_kios.replace(/\s+/g, '_')}_${itemData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-        doc.save(fileName);
-        statusAlertText.innerText = `⚠️ Google Docs offline. Surat Perjanjian diunduh secara lokal (${fileName}).`;
-      }
+
+      updateProgressModal({ currentStep: 3, message: 'Mencatat riwayat ke database Spreadsheet...' });
+
+      // Save local history log
+      spreadsheetService.savePerjanjianLog({
+        nomorPerjanjian: itemData.nomor_perjanjian,
+        tanggalAkad: itemData.tanggal,
+        hari: itemData.hari,
+        namaPedagang: itemData.nama_pedagang,
+        nik: itemData.nik,
+        blok: itemData.blok_kios,
+        pasar: itemData.jenis_pasar,
+        biayaSewa: itemData.biaya_sewa_angka,
+        driveUrl: res?.pdfUrl || '',
+        fileName: res?.fileName || `Perjanjian_${itemData.blok_kios}.pdf`
+      });
+
+      setTimeout(() => {
+        closeProgressModal();
+        if (res && res.status === 'success' && res.pdfUrl) {
+          statusAlertBox.classList.remove('hidden');
+          statusAlertText.innerText = `✅ Perjanjian ${itemData.blok_kios} tersimpan di Google Drive: ${res.folderPath || 'Pasar'} / ${res.fileName}`;
+          window.open(res.pdfUrl, '_blank');
+        } else {
+          const doc = pdfService.generateSuratPerjanjian(itemData);
+          const fileName = `Surat_Perjanjian_${itemData.blok_kios.replace(/\s+/g, '_')}_${itemData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+          doc.save(fileName);
+          statusAlertBox.classList.remove('hidden');
+          statusAlertText.innerText = `Surat Perjanjian berhasil diunduh (${fileName})`;
+        }
+        setTimeout(() => statusAlertBox.classList.add('hidden'), 8000);
+      }, 500);
+
     } catch (err) {
       console.warn('Remote doc error:', err);
+      closeProgressModal();
       const doc = pdfService.generateSuratPerjanjian(itemData);
       const fileName = `Surat_Perjanjian_${itemData.blok_kios.replace(/\s+/g, '_')}_${itemData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
       doc.save(fileName);
+      statusAlertBox.classList.remove('hidden');
       statusAlertText.innerText = `Surat Perjanjian berhasil diunduh (${fileName})`;
-    } finally {
-      btnGenerateInstant.disabled = false;
-      btnGenerateInstant.innerHTML = originalBtnHtml;
-      if (window.lucide) window.lucide.createIcons();
-      setTimeout(() => statusAlertBox.classList.add('hidden'), 8000);
     }
   });
 

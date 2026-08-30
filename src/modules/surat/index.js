@@ -2,6 +2,7 @@ import { renderSuratView } from './view.js';
 import { renderTemplateEditorView } from './views/template.js';
 import { renderAgendaSuratView } from './views/agenda.js';
 import { renderPerjanjianView } from './views/perjanjian.js';
+import { renderKwitansiView } from './views/kwitansi.js';
 
 export const SuratModule = {
   id: 'surat',
@@ -26,8 +27,14 @@ export const SuratModule = {
           path: '/surat/perjanjian'
         },
         {
+          id: 'surat-kwitansi',
+          label: 'Kwitansi Kas Desa',
+          icon: 'receipt',
+          path: '/surat/kwitansi'
+        },
+        {
           id: 'surat-agenda',
-          label: 'Buku Agenda Surat',
+          label: 'Buku Agenda & Riwayat',
           icon: 'book-open',
           path: '/surat/agenda'
         },
@@ -53,6 +60,12 @@ export const SuratModule = {
       const initialKiosId = urlParams.get('kiosId') || window._selectedKiosIdForPerjanjian || null;
       window._selectedKiosIdForPerjanjian = null;
       renderPerjanjianView(container, initialKiosId);
+    },
+    '/surat/kwitansi': (container) => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const initialKiosId = urlParams.get('kiosId') || window._selectedKiosIdForKwitansi || null;
+      window._selectedKiosIdForKwitansi = null;
+      renderKwitansiView(container, initialKiosId);
     },
     '/surat/agenda': (container) => {
       renderAgendaSuratView(container);
