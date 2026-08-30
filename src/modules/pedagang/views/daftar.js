@@ -1,6 +1,7 @@
 import { spreadsheetService, formatDateDDMMYYYY } from '../../../services/SpreadsheetService.js';
 import { themeManager } from '../../../shell/ThemeManager.js';
 import { rateService } from '../../../services/RateService.js';
+import { pdfService, toTitleCase, angkaKeTerbilang } from '../../../services/PdfService.js';
 
 export function renderDaftarPedagangView(container) {
   const isDark = themeManager.isDark();
@@ -197,12 +198,20 @@ export function renderDaftarPedagangView(container) {
           <td class="px-3 py-3 font-mono font-bold text-amber-500 whitespace-nowrap">${formattedTglHabis}</td>
           <td class="px-3 py-3 whitespace-nowrap">${statusBadge}</td>
           <td class="px-3 py-3 text-right whitespace-nowrap">
-            <div class="flex items-center justify-end gap-1.5">
-              <button data-surat-id="${item.id}" class="create-surat-btn ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'} border px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center gap-1" title="Terbitkan Surat Pemberitahuan">
+            <div class="flex items-center justify-end gap-1">
+              <button data-surat-id="${item.id}" class="create-surat-btn ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'} border px-2 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1" title="Terbitkan Surat Pemberitahuan">
                 <i data-lucide="file-text" class="w-3 h-3 text-emerald-500"></i>
                 <span>Surat</span>
               </button>
-              <button data-edit-id="${item.id}" class="edit-merchant-btn bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-[11px] font-bold shadow transition-all flex items-center gap-1">
+              <button data-perjanjian-id="${item.id}" class="create-perjanjian-btn ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'} border px-2 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1" title="Terbitkan Surat Perjanjian Sewa">
+                <i data-lucide="file-signature" class="w-3 h-3 text-amber-500"></i>
+                <span>Akad</span>
+              </button>
+              <button data-kwitansi-id="${item.id}" class="create-kwitansi-btn ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'} border px-2 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1" title="Cetak Kwitansi Pembayaran">
+                <i data-lucide="receipt" class="w-3 h-3 text-blue-500"></i>
+                <span>Kwitansi</span>
+              </button>
+              <button data-edit-id="${item.id}" class="edit-merchant-btn bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded-lg text-[10px] font-bold shadow transition-all flex items-center gap-1" title="Edit Data Pedagang">
                 <i data-lucide="edit-2" class="w-3 h-3"></i>
                 <span>Edit</span>
               </button>
@@ -217,6 +226,68 @@ export function renderDaftarPedagangView(container) {
         const targetId = btn.getAttribute('data-surat-id');
         window._selectedKiosIdForSurat = targetId;
         if (window._navigate) window._navigate('/surat/pemberitahuan');
+      });
+    });
+
+    tbody.querySelectorAll('.create-perjanjian-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.getAttribute('data-perjanjian-id');
+        window._selectedKiosIdForPerjanjian = targetId;
+        if (window._navigate) window._navigate('/surat/perjanjian');
+      });
+    });
+
+    tbody.querySelectorAll('.create-kwitansi-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.getAttribute('data-kwitansi-id');
+        const kiosk = kiosks.find(k => k.id === targetId);
+        if (!kiosk) return;
+
+        const cleanJenisPasar = (kiosk.zona || '').toUpperCase().includes('SAYUR') || String(kiosk.id || '').startsWith('SYR') ? 'Sayur' : 'Sandang';
+        const cleanBlokKode = kiosk.blokKode ? (kiosk.blokKode.startsWith('Blok') ? kiosk.blokKode : `Blok ${kiosk.blokKode}`) : (kiosk.id || '-');
+        const rentCalc = rateService.calculateRent(kiosk.luasM2, kiosk.tipeKios, kiosk.sewaBulanan);
+
+        const rawNumericSewa = parseInt(String(rentCalc.totalAnnualRent || rentCalc.formattedTotal).replace(/[^0-9]/g, ''), 10) || 250000;
+        const formattedSewaRupiah = new Intl.NumberFormat('id-ID').format(rawNumericSewa);
+        const terbilangSewa = angkaKeTerbilang(rawNumericSewa);
+
+        const kwitansiData = {
+          nomor_kwitansi: `KW/2026/${String(targetId).replace(/[^0-9]/g, '').padStart(3, '0') || '001'}`,
+          nama_pedagang: kiosk.pedagang === '-' ? 'Penyewa Kios' : kiosk.pedagang,
+          nik: kiosk.nik || '-',
+          jenis_pasar: cleanJenisPasar,
+          blok_kios: cleanBlokKode,
+          tipe_kios: kiosk.tipeKios || 'LOS',
+          kategori: kiosk.kategori || 'Umum',
+          luas_dimensi: kiosk.luasDimensi || '200 x 200',
+          luas_m2: kiosk.luasM2 || '4.0',
+          jumlah_unit: `${rentCalc.unitCount || 1} Unit Usaha`,
+          biaya_sewa_angka: formattedSewaRupiah,
+          biaya_sewa_terbilang: terbilangSewa,
+          tanggal_bayar: kiosk.tglPembayaran && kiosk.tglPembayaran !== '-' ? kiosk.tglPembayaran : '31 Agustus 2026'
+        };
+
+        const doc = pdfService.generateKwitansi(kwitansiData);
+        const fileName = `Kwitansi_${cleanBlokKode.replace(/\s+/g, '_')}_${kwitansiData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+        doc.save(fileName);
+
+        // Upload & Log to Spreadsheet/Drive
+        try {
+          const pdfDataUri = doc.output('datauristring');
+          const base64Data = pdfDataUri.split(',')[1];
+          const entry = [{
+            nomorKwitansi: kwitansiData.nomor_kwitansi,
+            tanggal: kwitansiData.tanggal_bayar,
+            namaPedagang: kwitansiData.nama_pedagang,
+            blok: cleanBlokKode,
+            pasar: cleanJenisPasar,
+            nominal: formattedSewaRupiah,
+            keterangan: `Kwitansi Sewa ${cleanBlokKode} ${cleanJenisPasar}`
+          }];
+          spreadsheetService.logKwitansiToAgenda(entry, base64Data, fileName, kiosk.zona || 'PASAR SANDANG');
+        } catch (e) {
+          console.warn('Error saving kwitansi log:', e);
+        }
       });
     });
 

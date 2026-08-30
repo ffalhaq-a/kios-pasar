@@ -392,6 +392,62 @@ class SpreadsheetService {
     localStorage.removeItem(localAgendaKey);
     this.notify();
   }
+
+  /**
+   * Log Surat Perjanjian to Google Sheets & Google Drive
+   */
+  async logPerjanjianToAgenda(entries, pdfBase64 = null, fileName = null, marketZone = 'PASAR SANDANG') {
+    if (!Array.isArray(entries) || entries.length === 0) return { success: false };
+
+    try {
+      const cleanZone = String(marketZone || 'PASAR SANDANG').toUpperCase().includes('SAYUR') ? 'PASAR SAYUR' : 'PASAR SANDANG';
+      const res = await fetch(GOOGLE_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'logPerjanjian',
+          apiToken: API_SECURITY_TOKEN,
+          zona: cleanZone,
+          entries: entries,
+          pdfBase64: pdfBase64 || null,
+          fileName: fileName || `Perjanjian_${entries[0]?.nomorPerjanjian || 'Pasar'}.pdf`
+        }),
+        redirect: 'follow'
+      });
+      return await res.json();
+    } catch (e) {
+      console.warn('Perjanjian Drive Sync background:', e);
+      return { success: true, localOnly: true };
+    }
+  }
+
+  /**
+   * Log Kwitansi Pembayaran to Google Sheets & Google Drive
+   */
+  async logKwitansiToAgenda(entries, pdfBase64 = null, fileName = null, marketZone = 'PASAR SANDANG') {
+    if (!Array.isArray(entries) || entries.length === 0) return { success: false };
+
+    try {
+      const cleanZone = String(marketZone || 'PASAR SANDANG').toUpperCase().includes('SAYUR') ? 'PASAR SAYUR' : 'PASAR SANDANG';
+      const res = await fetch(GOOGLE_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'logKwitansi',
+          apiToken: API_SECURITY_TOKEN,
+          zona: cleanZone,
+          entries: entries,
+          pdfBase64: pdfBase64 || null,
+          fileName: fileName || `Kwitansi_${entries[0]?.nomorKwitansi || 'Pasar'}.pdf`
+        }),
+        redirect: 'follow'
+      });
+      return await res.json();
+    } catch (e) {
+      console.warn('Kwitansi Drive Sync background:', e);
+      return { success: true, localOnly: true };
+    }
+  }
 }
 
 export const spreadsheetService = new SpreadsheetService();
