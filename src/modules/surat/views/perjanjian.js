@@ -2,7 +2,6 @@ import { spreadsheetService } from '../../../services/SpreadsheetService.js';
 import { themeManager } from '../../../shell/ThemeManager.js';
 import { pdfService, toTitleCase, generateSequentialNumber, angkaKeTerbilang, formatIndonesianDateClean, getSmartNextNumber } from '../../../services/PdfService.js';
 import { rateService } from '../../../services/RateService.js';
-import { showProgressModal, updateProgressModal, closeProgressModal } from '../../../components/ProgressModal.js';
 
 export function renderPerjanjianView(container, initialKiosId = null) {
   const isDark = themeManager.isDark();
@@ -191,9 +190,9 @@ export function renderPerjanjianView(container, initialKiosId = null) {
 
             <!-- ACTION BUTTONS SATUAN -->
             <div class="pt-2">
-              <button id="btn-generate-instant" class="w-full bg-amber-600 hover:bg-amber-500 text-white p-3.5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-amber-900/30 transition-all">
-                <i data-lucide="cloud-download" class="w-4 h-4"></i>
-                <span>Generate PDF (Google Doc) & Simpan di Drive</span>
+              <button id="btn-generate-instant" class="w-full bg-amber-600 hover:bg-amber-500 text-white p-3.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-amber-900/30 transition-all">
+                <i data-lucide="file-check" class="w-4 h-4"></i>
+                <span>Terbitkan Naskah Perjanjian Resmi</span>
               </button>
             </div>
           </div>
@@ -412,26 +411,13 @@ export function renderPerjanjianView(container, initialKiosId = null) {
     }
 
     const itemData = buildPerjanjianData(selectedKiosk);
-    showProgressModal({
-      title: 'Menerbitkan Surat Perjanjian Sewa',
-      subtitle: `Memproses kontrak 8 pasal untuk ${itemData.nama_pedagang} (${itemData.blok_kios})`,
-      currentStep: 0,
-      totalSteps: 4,
-      steps: [
-        'Mengirim data ke server Google Apps Script',
-        'Mengisi template naskah Google Docs (8 Pasal)',
-        'Mengonversi naskah ke PDF & menyimpan di Drive',
-        'Mencatat riwayat ke database Spreadsheet (HISTORI)'
-      ]
-    });
+    const originalBtnContent = btnGenerateInstant.innerHTML;
+    btnGenerateInstant.disabled = true;
+    btnGenerateInstant.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin text-white"></i><span>Menerbitkan Naskah Perjanjian...</span>`;
+    if (window.lucide) window.lucide.createIcons();
 
     try {
-      setTimeout(() => updateProgressModal({ currentStep: 1, message: 'Mengisi template kontrak Google Docs...' }), 400);
-      setTimeout(() => updateProgressModal({ currentStep: 2, message: 'Menyimpan PDF ke Google Drive...' }), 900);
-
       const res = await spreadsheetService.generateRemotePerjanjianDoc(itemData);
-
-      updateProgressModal({ currentStep: 3, message: 'Mencatat riwayat ke database Spreadsheet...' });
 
       // Save local history log
       spreadsheetService.savePerjanjianLog({
@@ -445,28 +431,28 @@ export function renderPerjanjianView(container, initialKiosId = null) {
         fileName: res?.fileName || `Perjanjian_${itemData.blok_kios}.pdf`
       });
 
-      setTimeout(() => {
-        closeProgressModal();
-        if (res && res.status === 'success' && res.pdfUrl) {
-          statusAlertBox.classList.remove('hidden');
-          statusAlertText.innerText = `✅ Surat Perjanjian ${itemData.blok_kios} tersimpan di Google Drive: ${res.folderPath || 'Pasar'} / ${res.fileName}`;
-          window.open(res.pdfUrl, '_blank');
-        } else {
-          const doc = pdfService.generateSuratPerjanjian(itemData);
-          const fileName = `Surat_Perjanjian_${itemData.blok_kios.replace(/\s+/g, '_')}_${itemData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-          doc.save(fileName);
-          statusAlertBox.classList.remove('hidden');
-          statusAlertText.innerText = `Surat Perjanjian berhasil diunduh (${fileName})`;
-        }
-        setTimeout(() => statusAlertBox.classList.add('hidden'), 8000);
-      }, 500);
+      if (res && res.status === 'success' && res.pdfUrl) {
+        statusAlertBox.classList.remove('hidden');
+        statusAlertText.innerText = `✅ Surat Perjanjian ${itemData.blok_kios} tersimpan di Google Drive: ${res.folderPath || 'Pasar'} / ${res.fileName}`;
+        window.open(res.pdfUrl, '_blank');
+      } else {
+        const doc = pdfService.generateSuratPerjanjian(itemData);
+        const fileName = `Surat_Perjanjian_${itemData.blok_kios.replace(/\s+/g, '_')}_${itemData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+        doc.save(fileName);
+        statusAlertBox.classList.remove('hidden');
+        statusAlertText.innerText = `Surat Perjanjian berhasil diterbitkan & diunduh (${fileName})`;
+      }
+      setTimeout(() => statusAlertBox.classList.add('hidden'), 8000);
 
     } catch (err) {
       console.warn('Error generating perjanjian:', err);
-      closeProgressModal();
       const doc = pdfService.generateSuratPerjanjian(itemData);
       const fileName = `Surat_Perjanjian_${itemData.blok_kios.replace(/\s+/g, '_')}_${itemData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
       doc.save(fileName);
+    } finally {
+      btnGenerateInstant.disabled = false;
+      btnGenerateInstant.innerHTML = originalBtnContent;
+      if (window.lucide) window.lucide.createIcons();
     }
   });
 }

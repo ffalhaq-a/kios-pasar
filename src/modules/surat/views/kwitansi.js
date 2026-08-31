@@ -2,7 +2,6 @@ import { spreadsheetService } from '../../../services/SpreadsheetService.js';
 import { themeManager } from '../../../shell/ThemeManager.js';
 import { pdfService, toTitleCase, generateSequentialNumber, angkaKeTerbilang, formatIndonesianDateClean, getSmartNextNumber } from '../../../services/PdfService.js';
 import { rateService } from '../../../services/RateService.js';
-import { showProgressModal, updateProgressModal, closeProgressModal } from '../../../components/ProgressModal.js';
 
 export function renderKwitansiView(container, initialKiosId = null) {
   const isDark = themeManager.isDark();
@@ -165,9 +164,9 @@ export function renderKwitansiView(container, initialKiosId = null) {
 
             <!-- ACTION BUTTONS -->
             <div class="pt-2">
-              <button id="btn-generate-instant" class="w-full bg-sky-600 hover:bg-sky-500 text-white p-3.5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-sky-900/30 transition-all">
-                <i data-lucide="cloud-download" class="w-4 h-4"></i>
-                <span>Generate PDF (Google Doc) & Simpan di Drive</span>
+              <button id="btn-generate-instant" class="w-full bg-sky-600 hover:bg-sky-500 text-white p-3.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-sky-900/30 transition-all">
+                <i data-lucide="printer" class="w-4 h-4"></i>
+                <span>Terbitkan & Cetak Kwitansi Resmi</span>
               </button>
             </div>
           </div>
@@ -252,14 +251,6 @@ export function renderKwitansiView(container, initialKiosId = null) {
                 <span class="font-bold block text-slate-200">Terbilang:</span>
                 <span id="preview-terbilang" class="italic block mt-0.5 font-bold">Dua Ratus Lima Puluh Ribu Rupiah</span>
               </div>
-            </div>
-
-            <!-- PENGELOLA INFO BOX -->
-            <div class="p-3 rounded-xl border text-[11px] space-y-1 ${isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-100/70 border-slate-200'}">
-              <span class="font-bold text-sky-500 block">Arsip & Pengesahan Kas Desa:</span>
-              <p class="${textSecondary} leading-relaxed">
-                Pemerintah Desa Karangpucung • Bendahara/Pengelola Pasar • Arsip Otomatis Google Drive Folder <span class="font-mono text-slate-200">10G016Kqv...</span>
-              </p>
             </div>
           </div>
         </div>
@@ -481,26 +472,13 @@ export function renderKwitansiView(container, initialKiosId = null) {
     }
 
     const itemData = buildKwitansiData(selectedKiosk);
-
-    showProgressModal({
-      title: 'Memproses Kwitansi Kas Desa',
-      steps: [
-        '1. Menyiapkan parameter kwitansi & data pedagang...',
-        '2. Mengisi template Google Docs Kwitansi...',
-        '3. Membuat subfolder & menyimpan ke Google Drive...',
-        '4. Mencatat riwayat ke database Spreadsheet...'
-      ],
-      currentStep: 0,
-      message: 'Menyiapkan data...'
-    });
+    const originalBtnContent = btnGenerateInstant.innerHTML;
+    btnGenerateInstant.disabled = true;
+    btnGenerateInstant.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin text-white"></i><span>Menerbitkan Kwitansi...</span>`;
+    if (window.lucide) window.lucide.createIcons();
 
     try {
-      setTimeout(() => updateProgressModal({ currentStep: 1, message: 'Mengisi template Google Docs...' }), 400);
-      setTimeout(() => updateProgressModal({ currentStep: 2, message: 'Menyimpan PDF ke Google Drive...' }), 900);
-
       const res = await spreadsheetService.generateRemoteKwitansiDoc(itemData);
-
-      updateProgressModal({ currentStep: 3, message: 'Mencatat riwayat ke database Spreadsheet...' });
 
       // Save local history log
       spreadsheetService.saveKwitansiLog({
@@ -514,28 +492,28 @@ export function renderKwitansiView(container, initialKiosId = null) {
         fileName: res?.fileName || `Kwitansi_${itemData.blok_kios}.pdf`
       });
 
-      setTimeout(() => {
-        closeProgressModal();
-        if (res && res.status === 'success' && res.pdfUrl) {
-          statusAlertBox.classList.remove('hidden');
-          statusAlertText.innerText = `✅ Kwitansi ${itemData.blok_kios} tersimpan di Google Drive: ${res.folderPath || 'Pasar'} / ${res.fileName}`;
-          window.open(res.pdfUrl, '_blank');
-        } else {
-          const doc = pdfService.generateKwitansi(itemData);
-          const fileName = `KWITANSI_${itemData.blok_kios.replace(/\s+/g, '_')}_${itemData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-          doc.save(fileName);
-          statusAlertBox.classList.remove('hidden');
-          statusAlertText.innerText = `Kwitansi berhasil diunduh (${fileName})`;
-        }
-        setTimeout(() => statusAlertBox.classList.add('hidden'), 8000);
-      }, 500);
+      if (res && res.status === 'success' && res.pdfUrl) {
+        statusAlertBox.classList.remove('hidden');
+        statusAlertText.innerText = `✅ Kwitansi ${itemData.blok_kios} tersimpan di Google Drive: ${res.folderPath || 'Pasar'} / ${res.fileName}`;
+        window.open(res.pdfUrl, '_blank');
+      } else {
+        const doc = pdfService.generateKwitansi(itemData);
+        const fileName = `KWITANSI_${itemData.blok_kios.replace(/\s+/g, '_')}_${itemData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+        doc.save(fileName);
+        statusAlertBox.classList.remove('hidden');
+        statusAlertText.innerText = `Kwitansi berhasil diterbitkan & diunduh (${fileName})`;
+      }
+      setTimeout(() => statusAlertBox.classList.add('hidden'), 8000);
 
     } catch (err) {
       console.warn('Error generating kwitansi:', err);
-      closeProgressModal();
       const doc = pdfService.generateKwitansi(itemData);
       const fileName = `KWITANSI_${itemData.blok_kios.replace(/\s+/g, '_')}_${itemData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
       doc.save(fileName);
+    } finally {
+      btnGenerateInstant.disabled = false;
+      btnGenerateInstant.innerHTML = originalBtnContent;
+      if (window.lucide) window.lucide.createIcons();
     }
   });
 
