@@ -5,15 +5,15 @@ import { pdfService, toTitleCase, angkaKeTerbilang } from '../../../services/Pdf
 
 export function renderDaftarPedagangView(container) {
   const isDark = themeManager.isDark();
-  const kiosks = spreadsheetService.loadKiosks();
+  let kiosks = spreadsheetService.loadKiosks();
 
   // Dynamic counts for dropdown labels
-  const totalCount = kiosks.length;
-  const sandangCount = kiosks.filter(k => k.zona === 'PASAR SANDANG').length;
-  const sayurCount = kiosks.filter(k => k.zona === 'PASAR SAYUR').length;
+  let totalCount = kiosks.length;
+  let sandangCount = kiosks.filter(k => k.zona === 'PASAR SANDANG').length;
+  let sayurCount = kiosks.filter(k => k.zona === 'PASAR SAYUR').length;
 
   // Dynamically extract unique block prefixes (Blok A, Blok B, etc.)
-  const uniqueBlockPrefixes = Array.from(
+  let uniqueBlockPrefixes = Array.from(
     new Set(
       kiosks.map(k => {
         const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
@@ -40,6 +40,43 @@ export function renderDaftarPedagangView(container) {
   // Pagination State
   let currentPage = 1;
   let pageSize = 10;
+
+  function refreshKiosksState() {
+    kiosks = spreadsheetService.loadKiosks();
+    totalCount = kiosks.length;
+    sandangCount = kiosks.filter(k => k.zona === 'PASAR SANDANG').length;
+    sayurCount = kiosks.filter(k => k.zona === 'PASAR SAYUR').length;
+    uniqueBlockPrefixes = Array.from(
+      new Set(
+        kiosks.map(k => {
+          const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
+          const match = rawCode.match(/^[A-Za-z]+/);
+          return match ? match[0].toUpperCase() : null;
+        }).filter(Boolean)
+      )
+    ).sort();
+
+    const pasarSelect = container.querySelector('#filter-jenis-pasar');
+    if (pasarSelect) {
+      pasarSelect.innerHTML = `
+        <option value="ALL">Semua Jenis Pasar (${totalCount})</option>
+        <option value="PASAR SANDANG">Pasar Sandang (${sandangCount})</option>
+        <option value="PASAR SAYUR">Pasar Sayur (${sayurCount})</option>
+      `;
+      pasarSelect.value = currentZoneFilter;
+    }
+
+    const blokSelect = container.querySelector('#filter-blok');
+    if (blokSelect) {
+      blokSelect.innerHTML = `
+        <option value="ALL">Semua Blok</option>
+        ${uniqueBlockPrefixes.map(prefix => `
+          <option value="${prefix}">Blok ${prefix}</option>
+        `).join('')}
+      `;
+      blokSelect.value = currentBlokFilter;
+    }
+  }
 
   function getFilteredKiosks() {
     return kiosks.filter(k => {
@@ -336,21 +373,29 @@ export function renderDaftarPedagangView(container) {
           <h1 class="text-xl font-extrabold ${textPrimary}">
             Daftar Pedagang Pasar
           </h1>
+          <p class="text-xs ${textSecondary}">Database resmi pedagang Pasar Mukti Makmur tersinkronisasi langsung dengan Google Sheets (Sheet PEDAGANG).</p>
         </div>
 
-        <!-- Global Search Input -->
-        <div class="relative w-full md:w-72">
-          <i data-lucide="search" class="w-4 h-4 ${textSecondary} absolute left-3 top-3"></i>
-          <input 
-            type="text" 
-            id="search-input"
-            placeholder="Cari blok, nama, desa, usaha..." 
-            class="w-full rounded-xl pl-9 pr-4 py-2 text-xs border transition-all ${
-              isDark 
-                ? 'bg-slate-950 border-slate-800 text-slate-200 placeholder-slate-500 focus:border-emerald-500' 
-                : 'bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:border-emerald-500 shadow-sm'
-            } focus:outline-none"
-          />
+        <div class="flex items-center gap-3">
+          <button id="btn-sync-cloud-pedagang" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-emerald-900/20 whitespace-nowrap">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            <span>Sinkronkan Cloud</span>
+          </button>
+
+          <!-- Global Search Input -->
+          <div class="relative w-full md:w-72">
+            <i data-lucide="search" class="w-4 h-4 ${textSecondary} absolute left-3 top-3"></i>
+            <input 
+              type="text" 
+              id="search-input"
+              placeholder="Cari blok, nama, desa, usaha..." 
+              class="w-full rounded-xl pl-9 pr-4 py-2 text-xs border transition-all ${
+                isDark 
+                  ? 'bg-slate-950 border-slate-800 text-slate-200 placeholder-slate-500 focus:border-emerald-500' 
+                  : 'bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:border-emerald-500 shadow-sm'
+              } focus:outline-none"
+            />
+          </div>
         </div>
       </div>
 
@@ -793,4 +838,37 @@ export function renderDaftarPedagangView(container) {
     modal.classList.add('hidden');
     renderTableContent();
   });
+
+  // Sync Cloud Manual Button
+  const btnSyncCloud = container.querySelector('#btn-sync-cloud-pedagang');
+  if (btnSyncCloud) {
+    btnSyncCloud.addEventListener('click', async () => {
+      btnSyncCloud.disabled = true;
+      btnSyncCloud.innerHTML = `<i data-lucide="refresh-cw" class="w-3.5 h-3.5 animate-spin"></i><span>Sinkronisasi...</span>`;
+      if (window.lucide) window.lucide.createIcons();
+
+      await spreadsheetService.fetchRemoteKiosks();
+      refreshKiosksState();
+      renderTableContent();
+
+      btnSyncCloud.disabled = false;
+      btnSyncCloud.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5"></i><span>Sinkron Selesai (${kiosks.length})</span>`;
+      if (window.lucide) window.lucide.createIcons();
+      setTimeout(() => {
+        btnSyncCloud.innerHTML = `<i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i><span>Sinkronkan Cloud</span>`;
+        if (window.lucide) window.lucide.createIcons();
+      }, 3000);
+    });
+  }
+
+  // Subscribe to real-time updates from background cloud sync
+  spreadsheetService.subscribe(() => {
+    refreshKiosksState();
+    renderTableContent();
+  });
+
+  // Auto trigger remote fetch if local store is empty
+  if (!kiosks || kiosks.length === 0) {
+    spreadsheetService.fetchRemoteKiosks();
+  }
 }
