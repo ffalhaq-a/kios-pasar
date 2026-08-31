@@ -373,7 +373,6 @@ export function renderDaftarPedagangView(container) {
           <h1 class="text-xl font-extrabold ${textPrimary}">
             Daftar Pedagang Pasar
           </h1>
-          <p class="text-xs ${textSecondary}">Database resmi pedagang Pasar Mukti Makmur tersinkronisasi langsung dengan Google Sheets (Sheet PEDAGANG).</p>
         </div>
 
         <div class="flex items-center gap-3">
