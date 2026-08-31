@@ -6,7 +6,7 @@ import {
 } from '../utils/security.js';
 
 // Direct Google Apps Script Endpoint with built-in CORS & redirect follow
-export const GOOGLE_API_URL = 'https://script.google.com/macros/s/AKfycbzGTU7gWu_FlR2NbWkuh4p2RL0XHnMa3szvQlZ2mO9LcbKITDuO8WF937rQ0lCKs_87/exec';
+export const GOOGLE_API_URL = 'https://script.google.com/macros/s/AKfycbwLpo1TxLO7uK-NqQwXR5j_MpD8NequWI4ffqn3BzFRkMrpjDRqI4rCe2urY8otjeM/exec';
 
 class AuthService {
   constructor() {
