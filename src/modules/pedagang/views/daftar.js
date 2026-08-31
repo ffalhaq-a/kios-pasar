@@ -30,12 +30,14 @@ export function renderDaftarPedagangView(container) {
   const rowHover = isDark ? 'hover:bg-slate-900/80 border-slate-800/60' : 'hover:bg-slate-50 border-slate-200/80';
   const inputBg = isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900';
 
-  // Active Filter States (Default: ALL)
-  let currentZoneFilter = 'ALL';
-  let currentBlokFilter = 'ALL';
-  let currentStatusFilter = 'ALL';
-  let currentTipeFilter = 'ALL';
-  let currentSearch = '';
+  // Active Filter States (Default: ALL or consumed from window._initialPedagangFilter)
+  const initialFilter = window._initialPedagangFilter || {};
+  let currentZoneFilter = initialFilter.zona || 'ALL';
+  let currentBlokFilter = initialFilter.blok || 'ALL';
+  let currentStatusFilter = initialFilter.statusBayar || initialFilter.status || 'ALL';
+  let currentTipeFilter = initialFilter.tipe || 'ALL';
+  let currentSearch = initialFilter.search || '';
+  window._initialPedagangFilter = null; // Clear after consumption
   
   // Pagination State
   let currentPage = 1;
@@ -100,10 +102,19 @@ export function renderDaftarPedagangView(container) {
         currentBlokFilter === 'ALL' ||
         blockPrefix === currentBlokFilter.toUpperCase();
 
-      // 4. Status Bayar Match
-      const matchStatus = 
-        currentStatusFilter === 'ALL' ||
-        (currentStatusFilter === 'kosong' ? (k.status === 'kosong' || k.pedagang === '-') : k.statusBayar === currentStatusFilter);
+      // 4. Status Bayar & Okupansi Match
+      let matchStatus = true;
+      if (currentStatusFilter === 'kosong') {
+        matchStatus = (k.status === 'kosong' || !k.pedagang || k.pedagang === '-');
+      } else if (currentStatusFilter === 'terisi') {
+        matchStatus = (k.pedagang && k.pedagang !== '-');
+      } else if (currentStatusFilter === 'lunas') {
+        matchStatus = (k.statusBayar === 'lunas' && k.pedagang && k.pedagang !== '-');
+      } else if (currentStatusFilter === 'belum_bayar') {
+        matchStatus = (k.pedagang && k.pedagang !== '-' && k.statusBayar !== 'lunas');
+      } else if (currentStatusFilter !== 'ALL') {
+        matchStatus = (k.statusBayar === currentStatusFilter);
+      }
 
       // 5. Tipe Unit Match
       const matchTipe = 
@@ -416,9 +427,9 @@ export function renderDaftarPedagangView(container) {
           <div>
             <label class="block text-[11px] font-bold ${textSecondary} mb-1">Jenis Pasar:</label>
             <select id="filter-jenis-pasar" class="w-full p-2.5 rounded-xl text-xs font-semibold border focus:outline-none focus:border-emerald-500 ${inputBg}">
-              <option value="ALL">Semua Jenis Pasar (${totalCount})</option>
-              <option value="PASAR SANDANG">Pasar Sandang (${sandangCount})</option>
-              <option value="PASAR SAYUR">Pasar Sayur (${sayurCount})</option>
+              <option value="ALL" ${currentZoneFilter === 'ALL' ? 'selected' : ''}>Semua Jenis Pasar (${totalCount})</option>
+              <option value="PASAR SANDANG" ${currentZoneFilter === 'PASAR SANDANG' ? 'selected' : ''}>Pasar Sandang (${sandangCount})</option>
+              <option value="PASAR SAYUR" ${currentZoneFilter === 'PASAR SAYUR' ? 'selected' : ''}>Pasar Sayur (${sayurCount})</option>
             </select>
           </div>
 
@@ -426,9 +437,9 @@ export function renderDaftarPedagangView(container) {
           <div>
             <label class="block text-[11px] font-bold ${textSecondary} mb-1">Filter Blok:</label>
             <select id="filter-blok" class="w-full p-2.5 rounded-xl text-xs font-semibold border focus:outline-none focus:border-emerald-500 ${inputBg}">
-              <option value="ALL">Semua Blok</option>
+              <option value="ALL" ${currentBlokFilter === 'ALL' ? 'selected' : ''}>Semua Blok</option>
               ${uniqueBlockPrefixes.map(prefix => `
-                <option value="${prefix}">Blok ${prefix}</option>
+                <option value="${prefix}" ${currentBlokFilter === prefix ? 'selected' : ''}>Blok ${prefix}</option>
               `).join('')}
             </select>
           </div>
@@ -437,11 +448,12 @@ export function renderDaftarPedagangView(container) {
           <div>
             <label class="block text-[11px] font-bold ${textSecondary} mb-1">Status Bayar:</label>
             <select id="filter-status-bayar" class="w-full p-2.5 rounded-xl text-xs font-semibold border focus:outline-none focus:border-emerald-500 ${inputBg}">
-              <option value="ALL">Semua Status Bayar</option>
-              <option value="belum_bayar">🔴 Belum Bayar</option>
-              <option value="lunas">🟢 Lunas</option>
-              <option value="hampir_habis">🟡 Hampir Habis / Tenggat</option>
-              <option value="kosong">⚪ Kosong (Siap Sewa)</option>
+              <option value="ALL" ${currentStatusFilter === 'ALL' ? 'selected' : ''}>Semua Status Bayar</option>
+              <option value="belum_bayar" ${currentStatusFilter === 'belum_bayar' ? 'selected' : ''}>🔴 Belum Bayar</option>
+              <option value="lunas" ${currentStatusFilter === 'lunas' ? 'selected' : ''}>🟢 Lunas</option>
+              <option value="hampir_habis" ${currentStatusFilter === 'hampir_habis' ? 'selected' : ''}>🟡 Hampir Habis / Tenggat</option>
+              <option value="terisi" ${currentStatusFilter === 'terisi' ? 'selected' : ''}>🔵 Terisi</option>
+              <option value="kosong" ${currentStatusFilter === 'kosong' ? 'selected' : ''}>⚪ Kosong (Siap Sewa)</option>
             </select>
           </div>
 
@@ -449,11 +461,11 @@ export function renderDaftarPedagangView(container) {
           <div>
             <label class="block text-[11px] font-bold ${textSecondary} mb-1">Tipe Unit:</label>
             <select id="filter-tipe-unit" class="w-full p-2.5 rounded-xl text-xs font-semibold border focus:outline-none focus:border-emerald-500 ${inputBg}">
-              <option value="ALL">Semua Tipe Unit</option>
-              <option value="KIOS 1">Kios 1</option>
-              <option value="KIOS 2">Kios 2</option>
-              <option value="LOS">Los</option>
-              <option value="LEMPRAKAN">Lemprakan</option>
+              <option value="ALL" ${currentTipeFilter === 'ALL' ? 'selected' : ''}>Semua Tipe Unit</option>
+              <option value="KIOS 1" ${currentTipeFilter === 'KIOS 1' ? 'selected' : ''}>Kios 1</option>
+              <option value="KIOS 2" ${currentTipeFilter === 'KIOS 2' ? 'selected' : ''}>Kios 2</option>
+              <option value="LOS" ${currentTipeFilter === 'LOS' ? 'selected' : ''}>Los</option>
+              <option value="LEMPRAKAN" ${currentTipeFilter === 'LEMPRAKAN' ? 'selected' : ''}>Lemprakan</option>
             </select>
           </div>
         </div>
