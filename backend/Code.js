@@ -265,7 +265,13 @@ function handleGeneratePerjanjianDoc(data) {
 // =========================================================================
 function handleGenerateKwitansiDoc(data) {
   try {
-    var rootFolder = DriveApp.getFolderById(ROOT_KWITANSI_FOLDER_ID);
+    var rootFolder;
+    try {
+      rootFolder = DriveApp.getFolderById(ROOT_KWITANSI_FOLDER_ID);
+    } catch(errFolder) {
+      rootFolder = DriveApp.getRootFolder();
+    }
+
     var marketName = (String(data.jenis_pasar || '').toUpperCase().includes('SAYUR')) ? 'PASAR SAYUR' : 'PASAR SANDANG';
     var blokKios = data.blok_kios || 'Blok A1';
     var namaPedagang = (data.nama_pedagang || 'PENYEWA').toUpperCase();
@@ -276,10 +282,20 @@ function handleGenerateKwitansiDoc(data) {
 
     var cleanFileName = 'KWITANSI_' + blokKios.toUpperCase().replace(/\s+/g, ' ') + '_' + namaPedagang.replace(/[^a-zA-Z0-9 ]/g, '');
 
-    var templateFile = DriveApp.getFileById(TEMPLATE_KWITANSI_DOC_ID);
-    var tempDocFile = templateFile.makeCopy('TEMP_' + cleanFileName, targetBlockFolder);
-    var tempDoc = DocumentApp.openById(tempDocFile.getId());
-    var body = tempDoc.getBody();
+    var templateFile;
+    try {
+      templateFile = DriveApp.getFileById(TEMPLATE_KWITANSI_DOC_ID);
+    } catch(errTpl) {
+      // Fallback: If template file ID is not found, copy from default or create new
+      var files = DriveApp.getFilesByName('Template Kwitansi');
+      if (files.hasNext()) {
+        templateFile = files.next();
+      } else {
+        templateFile = null;
+      }
+    }
+
+    var finalPdfFile;
 
     var replacements = {
       'nomor_kwitansi': data.nomor_kwitansi || 'KW/2026/001',
@@ -297,18 +313,43 @@ function handleGenerateKwitansiDoc(data) {
       'jumlah_unit': data.jumlah_unit || '1 Unit Usaha'
     };
 
-    for (var key in replacements) {
-      var val = String(replacements[key] || '');
-      body.replaceText('[$][{]\\s*' + key + '\\s*[}]', val);
-      body.replaceText('[{][{]\\s*' + key + '\\s*[}][}]', val);
+    if (templateFile) {
+      var tempDocFile = templateFile.makeCopy('TEMP_' + cleanFileName, targetBlockFolder);
+      var tempDoc = DocumentApp.openById(tempDocFile.getId());
+      var body = tempDoc.getBody();
+
+      for (var key in replacements) {
+        var val = String(replacements[key] || '');
+        body.replaceText('[$][{]\\s*' + key + '\\s*[}]', val);
+        body.replaceText('[{][{]\\s*' + key + '\\s*[}][}]', val);
+      }
+
+      tempDoc.saveAndClose();
+
+      var pdfBlob = tempDocFile.getAs('application/pdf').setName(cleanFileName + '.pdf');
+      finalPdfFile = targetBlockFolder.createFile(pdfBlob);
+      try { tempDocFile.setTrashed(true); } catch (err) {}
+    } else {
+      // Fallback Google Doc Generator
+      var newDoc = DocumentApp.create('TEMP_' + cleanFileName);
+      var body = newDoc.getBody();
+      body.appendParagraph('PEMERINTAH KABUPATEN CILACAP\nKECAMATAN KARANGPUCUNG\nDESA KARANGPUCUNG\nKWITANSI PEMBAYARAN SEWA KIOS');
+      body.appendParagraph('Nomor: ' + replacements.nomor_kwitansi);
+      body.appendParagraph('Telah Diterima Dari: ' + replacements.nama_pedagang + ' (NIK: ' + replacements.nik + ')');
+      body.appendParagraph('Objek Kios: ' + replacements.blok_kios + ' (' + replacements.jenis_pasar + ')');
+      body.appendParagraph('Uang Sejumlah: ' + replacements.biaya_sewa);
+      body.appendParagraph('Terbilang: ' + replacements.biaya_sewa_terbilang);
+      body.appendParagraph('Untuk Pembayaran: ' + replacements.keterangan_pembayaran);
+      body.appendParagraph('Tanggal: ' + replacements.tanggal_bayar);
+      newDoc.saveAndClose();
+
+      var docFile = DriveApp.getFileById(newDoc.getId());
+      var pdfBlob = docFile.getAs('application/pdf').setName(cleanFileName + '.pdf');
+      finalPdfFile = targetBlockFolder.createFile(pdfBlob);
+      try { docFile.setTrashed(true); } catch (err) {}
     }
 
-    tempDoc.saveAndClose();
-
-    var pdfBlob = tempDocFile.getAs('application/pdf').setName(cleanFileName + '.pdf');
-    var finalPdfFile = targetBlockFolder.createFile(pdfBlob);
     try { finalPdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (err) {}
-    try { tempDocFile.setTrashed(true); } catch (err) {}
 
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = getOrCreateSheet(ss, 'Buku_Kwitansi', [

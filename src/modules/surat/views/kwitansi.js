@@ -32,18 +32,24 @@ export function renderKwitansiView(container, initialKiosId = null) {
     return (item.zona || '').toUpperCase().includes('SAYUR') || String(item.id || '').startsWith('SYR') ? 'Sayur' : 'Sandang';
   };
 
+  // Extract unique blocks for filter
+  const uniqueBlockPrefixes = Array.from(
+    new Set(
+      kiosks.map(k => {
+        const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
+        const match = rawCode.match(/^[A-Za-z]+/);
+        return match ? match[0].toUpperCase() : null;
+      }).filter(Boolean)
+    )
+  ).sort();
+
   container.innerHTML = `
     <div class="p-4 md:p-6 space-y-6 overflow-y-auto h-full ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}">
       
-      <!-- HEADER -->
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
+      <!-- HEADER (CLEAN & NON-REDUNDANT) -->
+      <div class="flex items-center justify-between gap-4 border-b pb-4 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
         <div>
-          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-sky-500/10 text-sky-500 border border-sky-500/30 mb-2">
-            <i data-lucide="receipt" class="w-3.5 h-3.5"></i>
-            <span>KWITANSI PEMBAYARAN KAS DESA (GOOGLE DOCS TEMPLATE)</span>
-          </div>
           <h1 class="text-xl md:text-2xl font-extrabold ${textPrimary}">Kwitansi Pembayaran Sewa Kios</h1>
-          <p class="text-xs ${textSecondary}">Generator tanda bukti penerimaan kas desa sewa kios Pasar Mukti Makmur Karangpucung.</p>
         </div>
 
         <div class="flex items-center gap-2">
@@ -76,7 +82,7 @@ export function renderKwitansiView(container, initialKiosId = null) {
             <div class="flex items-center justify-between border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
               <div class="flex items-center gap-2">
                 <div class="p-1.5 bg-sky-500/10 text-sky-500 rounded-lg">
-                  <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+                  <i data-lucide="receipt" class="w-4 h-4"></i>
                 </div>
                 <h3 class="text-sm font-bold ${textPrimary}">Parameter Kwitansi Kas Desa</h3>
               </div>
@@ -85,9 +91,51 @@ export function renderKwitansiView(container, initialKiosId = null) {
               </span>
             </div>
 
+            <!-- FILTER & SEARCH PANEL FOR SELECTING PEDAGANG -->
+            <div class="p-3 rounded-xl border space-y-2.5 ${isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-200'}">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold text-sky-400 flex items-center gap-1.5">
+                  <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+                  Cari & Filter Pedagang
+                </span>
+                <span id="kiosk-filter-count-badge" class="text-[10px] font-semibold ${textSecondary}">
+                  Menampilkan ${kiosks.length} unit
+                </span>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label class="text-[10px] font-bold ${textSecondary} block mb-0.5">Filter Kawasan Pasar:</label>
+                  <select id="filter-kwitansi-pasar" class="w-full px-2.5 py-1.5 rounded-lg border text-xs font-semibold focus:ring-1 focus:ring-sky-500 outline-none ${inputBg}">
+                    <option value="ALL">Semua Kawasan (${kiosks.length})</option>
+                    <option value="PASAR SANDANG">Pasar Sandang (${sandangKiosks.length})</option>
+                    <option value="PASAR SAYUR">Pasar Sayur (${sayurKiosks.length})</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="text-[10px] font-bold ${textSecondary} block mb-0.5">Filter Blok Kios:</label>
+                  <select id="filter-kwitansi-blok" class="w-full px-2.5 py-1.5 rounded-lg border text-xs font-semibold focus:ring-1 focus:ring-sky-500 outline-none ${inputBg}">
+                    <option value="ALL">Semua Blok</option>
+                    ${uniqueBlockPrefixes.map(prefix => `
+                      <option value="${prefix}">Blok ${prefix}</option>
+                    `).join('')}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label class="text-[10px] font-bold ${textSecondary} block mb-0.5">Pencarian Cepat (Nama / Blok / NIK):</label>
+                <div class="relative">
+                  <i data-lucide="search" class="w-3.5 h-3.5 ${textSecondary} absolute left-2.5 top-2.5"></i>
+                  <input type="text" id="input-search-kwitansi" placeholder="Ketik nama pedagang atau kode blok..." class="w-full pl-8 pr-3 py-1.5 rounded-lg border text-xs font-medium focus:ring-1 focus:ring-sky-500 outline-none ${inputBg}" />
+                </div>
+              </div>
+            </div>
+
             <!-- KIOSK SELECTOR -->
             <div class="space-y-1.5">
-              <label class="text-xs font-bold ${textSecondary}">Pilih Kios / Nama Pedagang:</label>
+              <label class="text-xs font-bold ${textSecondary}">Pilih Pedagang Hasil Filter:</label>
               <select id="kiosk-select" class="w-full px-3 py-2.5 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-sky-500 outline-none ${inputBg}">
                 ${kiosks.map(k => `
                   <option value="${k.id}" ${selectedKiosk && selectedKiosk.id === k.id ? 'selected' : ''}>
@@ -278,6 +326,61 @@ export function renderKwitansiView(container, initialKiosId = null) {
 
     inputKeterangan.value = `Sewa Tahunan ${cleanBlok} Pasar ${cleanPasar} Periode 2026/2027`;
   }
+
+  const filterPasar = container.querySelector('#filter-kwitansi-pasar');
+  const filterBlok = container.querySelector('#filter-kwitansi-blok');
+  const inputSearch = container.querySelector('#input-search-kwitansi');
+  const countBadge = container.querySelector('#kiosk-filter-count-badge');
+
+  function filterAndPopulateKiosks() {
+    const selectedPasar = filterPasar ? filterPasar.value : 'ALL';
+    const selectedBlok = filterBlok ? filterBlok.value : 'ALL';
+    const query = (inputSearch ? inputSearch.value : '').toLowerCase().trim();
+
+    const filtered = kiosks.filter(k => {
+      // Filter Pasar
+      if (selectedPasar !== 'ALL' && k.zona !== selectedPasar) return false;
+
+      // Filter Blok
+      if (selectedBlok !== 'ALL') {
+        const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
+        if (!rawCode.toUpperCase().startsWith(selectedBlok)) return false;
+      }
+
+      // Search Query
+      if (query) {
+        const str = `${k.pedagang || ''} ${k.blokKode || ''} ${k.id || ''} ${k.nik || ''} ${k.alamat || ''}`.toLowerCase();
+        if (!str.includes(query)) return false;
+      }
+
+      return true;
+    });
+
+    if (countBadge) {
+      countBadge.innerText = `Menampilkan ${filtered.length} dari ${kiosks.length} unit`;
+    }
+
+    if (filtered.length === 0) {
+      kioskSelect.innerHTML = `<option value="">-- Tidak ada pedagang yang cocok dengan filter --</option>`;
+      return;
+    }
+
+    kioskSelect.innerHTML = filtered.map(k => `
+      <option value="${k.id}" ${selectedKiosk && selectedKiosk.id === k.id ? 'selected' : ''}>
+        [${getCleanJenisPasar(k)}] ${getCleanBlokName(k)} • ${k.pedagang === '-' ? '(KOSONG)' : k.pedagang} • ${k.sewaBulanan || 'Rp 250.000/thn'}
+      </option>
+    `).join('');
+
+    // If current selectedKiosk is not in the filtered list, select the first filtered item
+    if (!filtered.some(k => selectedKiosk && k.id === selectedKiosk.id)) {
+      selectedKiosk = filtered[0];
+      updatePreview(selectedKiosk);
+    }
+  }
+
+  if (filterPasar) filterPasar.addEventListener('change', filterAndPopulateKiosks);
+  if (filterBlok) filterBlok.addEventListener('change', filterAndPopulateKiosks);
+  if (inputSearch) inputSearch.addEventListener('input', filterAndPopulateKiosks);
 
   if (selectedKiosk) updatePreview(selectedKiosk);
 
