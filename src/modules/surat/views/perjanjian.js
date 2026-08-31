@@ -20,7 +20,6 @@ export function renderPerjanjianView(container, initialKiosId = null) {
   const defaultDateStr = formatIndonesianDateClean(new Date());
   const defaultDayStr = 'Senin';
 
-  // Extract unique blocks
   const sandangKiosks = kiosks.filter(k => k.zona === 'PASAR SANDANG');
   const sayurKiosks = kiosks.filter(k => k.zona === 'PASAR SAYUR');
 
@@ -34,35 +33,41 @@ export function renderPerjanjianView(container, initialKiosId = null) {
     return (item.zona || '').toUpperCase().includes('SAYUR') || String(item.id || '').startsWith('SYR') ? 'Sayur' : 'Sandang';
   };
 
+  // Extract unique blocks for filter
+  const uniqueBlockPrefixes = Array.from(
+    new Set(
+      kiosks.map(k => {
+        const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
+        const match = rawCode.match(/^[A-Za-z]+/);
+        return match ? match[0].toUpperCase() : null;
+      }).filter(Boolean)
+    )
+  ).sort();
+
   container.innerHTML = `
     <div class="p-4 md:p-6 space-y-6 overflow-y-auto h-full ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}">
       
-      <!-- HEADER -->
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
+      <!-- HEADER (CLEAN & NON-REDUNDANT) -->
+      <div class="flex items-center justify-between gap-4 border-b pb-4 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
         <div>
-          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-500 border border-amber-500/30 mb-2">
-            <i data-lucide="file-signature" class="w-3.5 h-3.5"></i>
-            <span>NASKAH PERJANJIAN HUKUM (8 PASAL • 3 HALAMAN)</span>
-          </div>
           <h1 class="text-xl md:text-2xl font-extrabold ${textPrimary}">Surat Perjanjian Sewa Kios Pasar</h1>
-          <p class="text-xs ${textSecondary}">Generator naskah kontrak resmi sewa tanah/bangunan Pasar Mukti Makmur Desa Karangpucung.</p>
         </div>
 
         <div class="flex items-center gap-2">
-          <button id="btn-goto-agenda" class="px-3.5 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${cardBg} ${textSecondary} hover:text-emerald-500 hover:border-emerald-500/40">
+          <button id="btn-goto-agenda" class="px-3.5 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${cardBg} ${textSecondary} hover:text-amber-500 hover:border-amber-500/40">
             <i data-lucide="book-open" class="w-4 h-4"></i>
-            <span>Buku Agenda</span>
+            <span>Buku Agenda & Riwayat</span>
           </button>
         </div>
       </div>
 
       <!-- STATUS ALERT -->
-      <div id="status-alert-box" class="hidden p-4 rounded-xl border bg-emerald-500/10 border-emerald-500/30 text-emerald-500 text-xs font-bold flex items-center justify-between shadow-sm">
+      <div id="status-alert-box" class="hidden p-4 rounded-xl border bg-amber-500/10 border-amber-500/30 text-amber-500 text-xs font-bold flex items-center justify-between shadow-sm">
         <div class="flex items-center gap-2">
           <i data-lucide="check-circle" class="w-5 h-5 flex-shrink-0"></i>
           <span id="status-alert-text">Surat Perjanjian berhasil diproses!</span>
         </div>
-        <button onclick="this.parentElement.classList.add('hidden')" class="text-emerald-400 hover:text-emerald-300">
+        <button onclick="this.parentElement.classList.add('hidden')" class="text-amber-400 hover:text-amber-300">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
@@ -78,15 +83,60 @@ export function renderPerjanjianView(container, initialKiosId = null) {
             <div class="flex items-center justify-between border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
               <div class="flex items-center gap-2">
                 <div class="p-1.5 bg-amber-500/10 text-amber-500 rounded-lg">
-                  <i data-lucide="file-text" class="w-4 h-4"></i>
+                  <i data-lucide="file-signature" class="w-4 h-4"></i>
                 </div>
                 <h3 class="text-sm font-bold ${textPrimary}">Parameter Naskah Perjanjian</h3>
+              </div>
+              <span class="text-[11px] font-mono text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
+                Auto-Smart Numbering
+              </span>
+            </div>
+
+            <!-- FILTER & SEARCH PANEL FOR SELECTING PEDAGANG -->
+            <div class="p-3 rounded-xl border space-y-2.5 ${isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-200'}">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold text-amber-500 flex items-center gap-1.5">
+                  <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+                  Cari & Filter Pedagang
+                </span>
+                <span id="kiosk-filter-count-badge" class="text-[10px] font-semibold ${textSecondary}">
+                  Menampilkan ${kiosks.length} unit
+                </span>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label class="text-[10px] font-bold ${textSecondary} block mb-0.5">Filter Kawasan Pasar:</label>
+                  <select id="filter-perjanjian-pasar" class="w-full px-2.5 py-1.5 rounded-lg border text-xs font-semibold focus:ring-1 focus:ring-amber-500 outline-none ${inputBg}">
+                    <option value="ALL">Semua Kawasan (${kiosks.length})</option>
+                    <option value="PASAR SANDANG">Pasar Sandang (${sandangKiosks.length})</option>
+                    <option value="PASAR SAYUR">Pasar Sayur (${sayurKiosks.length})</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="text-[10px] font-bold ${textSecondary} block mb-0.5">Filter Blok Kios:</label>
+                  <select id="filter-perjanjian-blok" class="w-full px-2.5 py-1.5 rounded-lg border text-xs font-semibold focus:ring-1 focus:ring-amber-500 outline-none ${inputBg}">
+                    <option value="ALL">Semua Blok</option>
+                    ${uniqueBlockPrefixes.map(prefix => `
+                      <option value="${prefix}">Blok ${prefix}</option>
+                    `).join('')}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label class="text-[10px] font-bold ${textSecondary} block mb-0.5">Pencarian Cepat (Nama / Blok / NIK):</label>
+                <div class="relative">
+                  <i data-lucide="search" class="w-3.5 h-3.5 ${textSecondary} absolute left-2.5 top-2.5"></i>
+                  <input type="text" id="input-search-perjanjian" placeholder="Ketik nama pedagang atau kode blok..." class="w-full pl-8 pr-3 py-1.5 rounded-lg border text-xs font-medium focus:ring-1 focus:ring-amber-500 outline-none ${inputBg}" />
+                </div>
               </div>
             </div>
 
             <!-- KIOSK SELECTOR -->
             <div class="space-y-1.5">
-              <label class="text-xs font-bold ${textSecondary}">Pilih Kios / Nama Pedagang:</label>
+              <label class="text-xs font-bold ${textSecondary}">Pilih Pedagang Hasil Filter:</label>
               <select id="kiosk-select" class="w-full px-3 py-2.5 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-amber-500 outline-none ${inputBg}">
                 ${kiosks.map(k => `
                   <option value="${k.id}" ${selectedKiosk && selectedKiosk.id === k.id ? 'selected' : ''}>
@@ -160,8 +210,8 @@ export function renderPerjanjianView(container, initialKiosId = null) {
             <!-- ACTION BUTTONS SATUAN -->
             <div class="pt-2 flex flex-col sm:flex-row gap-2.5">
               <button id="btn-generate-instant" class="flex-1 bg-amber-600 hover:bg-amber-500 text-white p-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-amber-900/30 transition-all">
-                <i data-lucide="download" class="w-4 h-4"></i>
-                <span>Download Perjanjian (3 Halaman)</span>
+                <i data-lucide="cloud-download" class="w-4 h-4"></i>
+                <span>Generate PDF (Google Doc) & Simpan di Drive</span>
               </button>
 
               <button id="btn-preview-instant" class="border px-4 py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${cardBg} ${textPrimary} hover:border-amber-500 shadow-sm">
@@ -169,40 +219,6 @@ export function renderPerjanjianView(container, initialKiosId = null) {
                 <span>Preview Layar</span>
               </button>
             </div>
-          </div>
-
-          <!-- CARD 2: BATCH PRINTING BERJENJANG -->
-          <div class="${cardBg} border rounded-2xl p-5 space-y-4">
-            <div class="flex items-center justify-between border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
-              <div class="flex items-center gap-2">
-                <div class="p-1.5 bg-blue-500/10 text-blue-500 rounded-lg">
-                  <i data-lucide="layers" class="w-4 h-4"></i>
-                </div>
-                <h3 class="text-sm font-bold ${textPrimary}">Cetak Massal Perjanjian (Per Kawasan / Blok)</h3>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div class="space-y-1">
-                <label class="text-xs font-bold ${textSecondary}">Lingkup Cetak:</label>
-                <select id="batch-scope-select" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none ${inputBg}">
-                  <option value="SANDANG_BLOCK" selected>Pasar Sandang - Per Blok</option>
-                  <option value="SAYUR_BLOCK">Pasar Sayur - Per Blok</option>
-                  <option value="SANDANG_ALL">Seluruh Pasar Sandang (${sandangKiosks.length} Unit)</option>
-                  <option value="SAYUR_ALL">Seluruh Pasar Sayur (${sayurKiosks.length} Unit)</option>
-                </select>
-              </div>
-
-              <div id="batch-block-wrapper" class="space-y-1">
-                <label id="batch-block-label" class="text-xs font-bold ${textSecondary}">Pilih Blok Pasar Sandang:</label>
-                <select id="batch-block-select" class="w-full px-3 py-2 rounded-xl border text-xs font-bold text-amber-500 focus:ring-2 focus:ring-blue-500 outline-none ${inputBg}"></select>
-              </div>
-            </div>
-
-            <button id="btn-batch-generate" class="w-full bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-blue-900/30 transition-all">
-              <i data-lucide="file-check" class="w-4 h-4"></i>
-              <span id="batch-btn-label">Cetak Massal Perjanjian Blok A</span>
-            </button>
           </div>
         </div>
 
@@ -260,14 +276,6 @@ export function renderPerjanjianView(container, initialKiosId = null) {
                 <span id="preview-terbilang" class="italic block mt-0.5 font-bold">Dua Ratus Lima Puluh Ribu Rupiah</span>
               </div>
             </div>
-
-            <!-- KONSIDERANS BOX -->
-            <div class="p-3 rounded-xl border text-[11px] space-y-1 ${isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-100/70 border-slate-200'}">
-              <span class="font-bold text-amber-500 block">Dasar Hukum & Objek Hak Milik:</span>
-              <p class="${textSecondary} leading-relaxed">
-                SPPT No. <span class="font-mono font-bold text-slate-100">33.01.080.003.0008.0</span> • Pasar Mukti Makmur Desa Karangpucung • 8 Pasal Kontrak Hukum & Materai 10.000.
-              </p>
-            </div>
           </div>
         </div>
       </div>
@@ -287,6 +295,60 @@ export function renderPerjanjianView(container, initialKiosId = null) {
   const inputFontSize = container.querySelector('#input-font-size');
   const inputFontFamily = container.querySelector('#input-font-family');
 
+  const filterPasar = container.querySelector('#filter-perjanjian-pasar');
+  const filterBlok = container.querySelector('#filter-perjanjian-blok');
+  const inputSearch = container.querySelector('#input-search-perjanjian');
+  const countBadge = container.querySelector('#kiosk-filter-count-badge');
+
+  function filterAndPopulateKiosks() {
+    const selectedPasar = filterPasar ? filterPasar.value : 'ALL';
+    const selectedBlok = filterBlok ? filterBlok.value : 'ALL';
+    const query = (inputSearch ? inputSearch.value : '').toLowerCase().trim();
+
+    const filtered = kiosks.filter(k => {
+      // Filter Pasar
+      if (selectedPasar !== 'ALL' && k.zona !== selectedPasar) return false;
+
+      // Filter Blok
+      if (selectedBlok !== 'ALL') {
+        const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
+        if (!rawCode.toUpperCase().startsWith(selectedBlok)) return false;
+      }
+
+      // Search Query
+      if (query) {
+        const str = `${k.pedagang || ''} ${k.blokKode || ''} ${k.id || ''} ${k.nik || ''} ${k.alamat || ''}`.toLowerCase();
+        if (!str.includes(query)) return false;
+      }
+
+      return true;
+    });
+
+    if (countBadge) {
+      countBadge.innerText = `Menampilkan ${filtered.length} dari ${kiosks.length} unit`;
+    }
+
+    if (filtered.length === 0) {
+      kioskSelect.innerHTML = `<option value="">-- Tidak ada pedagang yang cocok dengan filter --</option>`;
+      return;
+    }
+
+    kioskSelect.innerHTML = filtered.map(k => `
+      <option value="${k.id}" ${selectedKiosk && selectedKiosk.id === k.id ? 'selected' : ''}>
+        [${getCleanJenisPasar(k)}] ${getCleanBlokName(k)} • ${k.pedagang === '-' ? '(KOSONG)' : k.pedagang} • ${k.sewaBulanan || 'Rp 250.000/thn'}
+      </option>
+    `).join('');
+
+    if (!filtered.some(k => selectedKiosk && k.id === selectedKiosk.id)) {
+      selectedKiosk = filtered[0];
+      updatePreview(selectedKiosk);
+    }
+  }
+
+  if (filterPasar) filterPasar.addEventListener('change', filterAndPopulateKiosks);
+  if (filterBlok) filterBlok.addEventListener('change', filterAndPopulateKiosks);
+  if (inputSearch) inputSearch.addEventListener('input', filterAndPopulateKiosks);
+
   const btnGotoAgenda = container.querySelector('#btn-goto-agenda');
   if (btnGotoAgenda) {
     btnGotoAgenda.addEventListener('click', () => {
@@ -296,13 +358,6 @@ export function renderPerjanjianView(container, initialKiosId = null) {
 
   const btnGenerateInstant = container.querySelector('#btn-generate-instant');
   const btnPreviewInstant = container.querySelector('#btn-preview-instant');
-
-  const batchScopeSelect = container.querySelector('#batch-scope-select');
-  const batchBlockWrapper = container.querySelector('#batch-block-wrapper');
-  const batchBlockLabel = container.querySelector('#batch-block-label');
-  const batchBlockSelect = container.querySelector('#batch-block-select');
-  const btnBatchGenerate = container.querySelector('#btn-batch-generate');
-  const batchBtnLabel = container.querySelector('#batch-btn-label');
 
   const previewBadgeBlok = container.querySelector('#preview-badge-blok');
   const previewPedagang = container.querySelector('#preview-pedagang');
@@ -322,17 +377,15 @@ export function renderPerjanjianView(container, initialKiosId = null) {
     const cleanPasar = getCleanJenisPasar(k);
     const rentCalc = rateService.calculateRent(k.luasM2, k.tipeKios, k.sewaBulanan);
 
-    const rawNumericSewa = parseInt(String(rentCalc.totalAnnualRent || rentCalc.formattedTotal).replace(/[^0-9]/g, ''), 10) || 250000;
-
     previewBadgeBlok.innerText = cleanBlok;
     previewPedagang.innerText = toTitleCase(k.pedagang);
     previewNik.innerText = k.nik && k.nik !== '-' ? k.nik : '-';
     previewPasar.innerText = `Pasar ${cleanPasar}`;
     previewTipe.innerText = `${k.tipeKios || 'LOS'} (${k.kategori || 'Umum'})`;
-    previewLuas.innerText = `${k.luasM2 || '4.0'} m² (${k.luasDimensi || '200 x 200'})`;
+    previewLuas.innerText = `${rentCalc.unitCount || 1} Unit (${k.luasM2 || '4.0'} m²)`;
     previewUnit.innerText = `${rentCalc.unitCount || 1} Unit Usaha`;
     previewSewa.innerText = rentCalc.formattedTotal;
-    previewTerbilang.innerText = angkaKeTerbilang(rawNumericSewa);
+    previewTerbilang.innerText = angkaKeTerbilang(parseInt(String(rentCalc.totalAnnualRent || rentCalc.formattedTotal).replace(/[^0-9]/g, ''), 10) || 250000);
   }
 
   if (selectedKiosk) updatePreview(selectedKiosk);
@@ -341,63 +394,6 @@ export function renderPerjanjianView(container, initialKiosId = null) {
     selectedKiosk = kiosks.find(k => k.id === e.target.value);
     updatePreview(selectedKiosk);
   });
-
-  // Batch Scope UI Sync
-  function populateBlockDropdown(targetKiosks) {
-    const prefixes = Array.from(
-      new Set(
-        targetKiosks.map(k => {
-          const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
-          const match = rawCode.match(/^[A-Za-z]+/);
-          return match ? match[0].toUpperCase() : null;
-        }).filter(Boolean)
-      )
-    ).sort();
-
-    batchBlockSelect.innerHTML = prefixes.map(p => {
-      const count = targetKiosks.filter(k => {
-        const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
-        return rawCode.toUpperCase().startsWith(p);
-      }).length;
-      return `<option value="${p}">Blok ${p} (${count} Unit)</option>`;
-    }).join('');
-  }
-
-  function updateBatchScopeUI() {
-    const scope = batchScopeSelect.value;
-    if (scope === 'SANDANG_BLOCK') {
-      batchBlockWrapper.classList.remove('hidden');
-      batchBlockLabel.innerText = 'Pilih Blok Pasar Sandang:';
-      populateBlockDropdown(sandangKiosks);
-      const selBlock = batchBlockSelect.value || 'A';
-      batchBtnLabel.innerText = `Cetak Massal Perjanjian Pasar Sandang - Blok ${selBlock}`;
-    } else if (scope === 'SAYUR_BLOCK') {
-      batchBlockWrapper.classList.remove('hidden');
-      batchBlockLabel.innerText = 'Pilih Blok Pasar Sayur:';
-      populateBlockDropdown(sayurKiosks);
-      const selBlock = batchBlockSelect.value || 'A';
-      batchBtnLabel.innerText = `Cetak Massal Perjanjian Pasar Sayur - Blok ${selBlock}`;
-    } else if (scope === 'SANDANG_ALL') {
-      batchBlockWrapper.classList.add('hidden');
-      batchBtnLabel.innerText = `Cetak Massal Seluruh Pasar Sandang (${sandangKiosks.length} Perjanjian)`;
-    } else if (scope === 'SAYUR_ALL') {
-      batchBlockWrapper.classList.add('hidden');
-      batchBtnLabel.innerText = `Cetak Massal Seluruh Pasar Sayur (${sayurKiosks.length} Perjanjian)`;
-    }
-  }
-
-  batchScopeSelect.addEventListener('change', updateBatchScopeUI);
-  batchBlockSelect.addEventListener('change', () => {
-    const scope = batchScopeSelect.value;
-    const selBlock = batchBlockSelect.value || 'A';
-    if (scope === 'SANDANG_BLOCK') {
-      batchBtnLabel.innerText = `Cetak Massal Perjanjian Pasar Sandang - Blok ${selBlock}`;
-    } else if (scope === 'SAYUR_BLOCK') {
-      batchBtnLabel.innerText = `Cetak Massal Perjanjian Pasar Sayur - Blok ${selBlock}`;
-    }
-  });
-
-  updateBatchScopeUI();
 
   function buildPerjanjianData(kiosk) {
     const cleanBlok = getCleanBlokName(kiosk);
@@ -413,28 +409,30 @@ export function renderPerjanjianView(container, initialKiosId = null) {
       hari: inputHari.value.trim() || defaultDayStr,
       tanggal: inputTglAkad.value.trim() || defaultDateStr,
       bulan: inputBulan.value.trim() || 'Agustus',
-      tgl_mulai: inputTglMulai.value.trim() || '31 Agustus 2026',
-      tgl_selesai: inputTglSelesai.value.trim() || '31 Agustus 2027',
-      saksi1: inputSaksi1.value.trim() || '',
-      saksi2: inputSaksi2.value.trim() || '',
-      fontSize: Number(inputFontSize?.value || 12),
-      fontFamily: inputFontFamily?.value || 'times',
+      tahun: '2026',
       nama_pedagang: kiosk.pedagang === '-' ? 'Penyewa Kios' : kiosk.pedagang,
-      nik: kiosk.nik && kiosk.nik !== '-' ? kiosk.nik : '................................',
-      jenis_pasar: cleanPasar,
+      nik: kiosk.nik && kiosk.nik !== '-' ? kiosk.nik : '-',
+      alamat: kiosk.alamat && kiosk.alamat !== '-' ? kiosk.alamat : 'Desa Karangpucung',
+      jenis_pasar: `Pasar ${cleanPasar}`,
       blok_kios: cleanBlok,
       tipe_kios: kiosk.tipeKios || 'LOS',
       kategori: kiosk.kategori || 'Umum',
       luas_dimensi: kiosk.luasDimensi || '200 x 200',
       luas_m2: kiosk.luasM2 || '4.0',
-      jumlah_unit: `${rentCalc.unitCount || 1} (${rentCalc.unitCount === 1 ? 'Satu' : rentCalc.unitCount === 2 ? 'Dua' : String(rentCalc.unitCount)}) Unit Usaha`,
+      jumlah_unit: `${rentCalc.unitCount || 1} Unit Usaha`,
+      biaya_sewa: `Rp ${formattedSewaRupiah}`,
       biaya_sewa_angka: formattedSewaRupiah,
       biaya_sewa_terbilang: terbilangSewa,
-      alamat: kiosk.alamat && kiosk.alamat !== '-' ? kiosk.alamat : 'Desa Karangpucung'
+      tgl_mulai: inputTglMulai.value.trim() || '31 Agustus 2026',
+      tgl_selesai: inputTglSelesai.value.trim() || '31 Agustus 2027',
+      saksi1: inputSaksi1.value.trim() || '..............................',
+      saksi2: inputSaksi2.value.trim() || '..............................',
+      fontSize: Number(inputFontSize?.value || 12),
+      fontFamily: inputFontFamily?.value || 'times'
     };
   }
 
-  // 1. GENERATE VIA GOOGLE DOCS & DRIVE
+  // 1. GENERATE INSTANT PDF
   btnGenerateInstant.addEventListener('click', async () => {
     if (!selectedKiosk) {
       alert('Silakan pilih kios terlebih dahulu!');
@@ -442,21 +440,21 @@ export function renderPerjanjianView(container, initialKiosId = null) {
     }
 
     const itemData = buildPerjanjianData(selectedKiosk);
-
     showProgressModal({
-      title: 'Memproses Surat Perjanjian Kontrak',
-      steps: [
-        '1. Menyiapkan parameter kontrak 8 pasal & data pedagang...',
-        '2. Mengisi template Google Docs Perjanjian...',
-        '3. Membuat subfolder & menyimpan ke Google Drive...',
-        '4. Mencatat riwayat ke database Spreadsheet...'
-      ],
+      title: 'Menerbitkan Surat Perjanjian Sewa',
+      subtitle: `Memproses kontrak 8 pasal untuk ${itemData.nama_pedagang} (${itemData.blok_kios})`,
       currentStep: 0,
-      message: 'Menyiapkan data kontrak...'
+      totalSteps: 4,
+      steps: [
+        'Mengirim data ke server Google Apps Script',
+        'Mengisi template naskah Google Docs (8 Pasal)',
+        'Mengonversi naskah ke PDF & menyimpan di Drive',
+        'Mencatat riwayat ke database Spreadsheet (HISTORI)'
+      ]
     });
 
     try {
-      setTimeout(() => updateProgressModal({ currentStep: 1, message: 'Mengisi template Google Docs Perjanjian...' }), 400);
+      setTimeout(() => updateProgressModal({ currentStep: 1, message: 'Mengisi template kontrak Google Docs...' }), 400);
       setTimeout(() => updateProgressModal({ currentStep: 2, message: 'Menyimpan PDF ke Google Drive...' }), 900);
 
       const res = await spreadsheetService.generateRemotePerjanjianDoc(itemData);
@@ -466,13 +464,11 @@ export function renderPerjanjianView(container, initialKiosId = null) {
       // Save local history log
       spreadsheetService.savePerjanjianLog({
         nomorPerjanjian: itemData.nomor_perjanjian,
-        tanggalAkad: itemData.tanggal,
-        hari: itemData.hari,
+        tanggal: itemData.tanggal,
         namaPedagang: itemData.nama_pedagang,
-        nik: itemData.nik,
         blok: itemData.blok_kios,
         pasar: itemData.jenis_pasar,
-        biayaSewa: itemData.biaya_sewa_angka,
+        nominal: itemData.biaya_sewa,
         driveUrl: res?.pdfUrl || '',
         fileName: res?.fileName || `Perjanjian_${itemData.blok_kios}.pdf`
       });
@@ -481,7 +477,7 @@ export function renderPerjanjianView(container, initialKiosId = null) {
         closeProgressModal();
         if (res && res.status === 'success' && res.pdfUrl) {
           statusAlertBox.classList.remove('hidden');
-          statusAlertText.innerText = `✅ Perjanjian ${itemData.blok_kios} tersimpan di Google Drive: ${res.folderPath || 'Pasar'} / ${res.fileName}`;
+          statusAlertText.innerText = `✅ Surat Perjanjian ${itemData.blok_kios} tersimpan di Google Drive: ${res.folderPath || 'Pasar'} / ${res.fileName}`;
           window.open(res.pdfUrl, '_blank');
         } else {
           const doc = pdfService.generateSuratPerjanjian(itemData);
@@ -494,13 +490,11 @@ export function renderPerjanjianView(container, initialKiosId = null) {
       }, 500);
 
     } catch (err) {
-      console.warn('Remote doc error:', err);
+      console.warn('Error generating perjanjian:', err);
       closeProgressModal();
       const doc = pdfService.generateSuratPerjanjian(itemData);
       const fileName = `Surat_Perjanjian_${itemData.blok_kios.replace(/\s+/g, '_')}_${itemData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
       doc.save(fileName);
-      statusAlertBox.classList.remove('hidden');
-      statusAlertText.innerText = `Surat Perjanjian berhasil diunduh (${fileName})`;
     }
   });
 
@@ -537,94 +531,5 @@ export function renderPerjanjianView(container, initialKiosId = null) {
       btnPreviewInstant.innerHTML = originalPreviewHtml;
       if (window.lucide) window.lucide.createIcons();
     }
-  });
-
-  // 3. BATCH GENERATOR
-  btnBatchGenerate.addEventListener('click', () => {
-    const scope = batchScopeSelect.value;
-    let targetList = [];
-    let batchFileName = '';
-
-    if (scope === 'SANDANG_ALL') {
-      targetList = sandangKiosks;
-      batchFileName = `Bundle_Perjanjian_Pasar_Sandang_Semua_${targetList.length}_Pedagang.pdf`;
-    } else if (scope === 'SAYUR_ALL') {
-      targetList = sayurKiosks;
-      batchFileName = `Bundle_Perjanjian_Pasar_Sayur_Semua_${targetList.length}_Pedagang.pdf`;
-    } else if (scope === 'SANDANG_BLOCK') {
-      const selectedBlock = batchBlockSelect.value || 'A';
-      targetList = sandangKiosks.filter(k => {
-        const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
-        return rawCode.toUpperCase().startsWith(selectedBlock);
-      });
-      batchFileName = `Bundle_Perjanjian_Pasar_Sandang_Blok_${selectedBlock}_${targetList.length}_Pedagang.pdf`;
-    } else if (scope === 'SAYUR_BLOCK') {
-      const selectedBlock = batchBlockSelect.value || 'A';
-      targetList = sayurKiosks.filter(k => {
-        const rawCode = (k.blokKode || k.id || '').replace(/^(SND|SYR)-/i, '').replace(/^blok\s+/i, '');
-        return rawCode.toUpperCase().startsWith(selectedBlock);
-      });
-      batchFileName = `Bundle_Perjanjian_Pasar_Sayur_Blok_${selectedBlock}_${targetList.length}_Pedagang.pdf`;
-    }
-
-    if (targetList.length === 0) {
-      alert('Tidak ada data pada lingkup cetak yang dipilih!');
-      return;
-    }
-
-    btnBatchGenerate.disabled = true;
-    btnBatchGenerate.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin"></i><span>Memproses ${targetList.length * 3} Halaman...</span>`;
-
-    setTimeout(() => {
-      const commonParams = {
-        nomor_perjanjian: inputNo.value.trim() || defaultNoPerjanjian,
-        hari: inputHari.value.trim() || defaultDayStr,
-        tanggal: inputTglAkad.value.trim() || defaultDateStr,
-        bulan: inputBulan.value.trim() || 'Agustus',
-        tgl_mulai: inputTglMulai.value.trim() || '31 Agustus 2026',
-        tgl_selesai: inputTglSelesai.value.trim() || '31 Agustus 2027',
-        saksi1: inputSaksi1.value.trim() || '',
-        saksi2: inputSaksi2.value.trim() || '',
-        fontSize: Number(inputFontSize?.value || 12),
-        fontFamily: inputFontFamily?.value || 'times'
-      };
-
-      const doc = pdfService.generateBatchSuratPerjanjian(targetList, commonParams);
-      doc.save(batchFileName);
-
-      btnBatchGenerate.disabled = false;
-      updateBatchScopeUI();
-
-      statusAlertBox.classList.remove('hidden');
-      statusAlertText.innerText = `Bundle Perjanjian (${targetList.length} naskah) berhasil diunduh!`;
-      setTimeout(() => statusAlertBox.classList.add('hidden'), 6000);
-
-      try {
-        const pdfDataUri = doc.output('datauristring');
-        const base64Data = pdfDataUri.split(',')[1];
-        const targetMarketZone = (scope.startsWith('SAYUR') || targetList[0]?.zona === 'PASAR SAYUR') ? 'PASAR SAYUR' : 'PASAR SANDANG';
-
-        const batchEntries = targetList.map((k, idx) => {
-          const currentSeq = generateSequentialNumber(commonParams.nomor_perjanjian, idx);
-          const cleanKioskBlok = getCleanBlokName(k);
-          const cleanKioskPasar = getCleanJenisPasar(k);
-          const rentCalc = rateService.calculateRent(k.luasM2, k.tipeKios, k.sewaBulanan);
-
-          return {
-            nomorSurat: currentSeq,
-            tanggalSurat: commonParams.tanggal,
-            perihal: 'Surat Perjanjian Sewa Tanah/Bangunan Pasar Mukti Makmur',
-            lampiran: '-',
-            tanggalKirim: commonParams.tanggal,
-            tujuan: `${toTitleCase(k.pedagang)} ${cleanKioskBlok} ${cleanKioskPasar}`,
-            ket: `Perjanjian ${cleanKioskBlok} ${cleanKioskPasar} - ${rentCalc.summary}`
-          };
-        });
-
-        spreadsheetService.logPerjanjianToAgenda(batchEntries, base64Data, batchFileName, targetMarketZone);
-      } catch (err) {
-        console.warn('Batch logging error:', err);
-      }
-    }, 100);
   });
 }
