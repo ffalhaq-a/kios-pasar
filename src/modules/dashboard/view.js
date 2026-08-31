@@ -400,7 +400,7 @@ export function renderDashboardView(container) {
           window._initialPedagangFilter = {};
         }
       }
-      if (window._navigate) window._navigate('/pedagang');
+      if (window._navigate) window._navigate('/pedagang/daftar');
     });
   });
 
@@ -414,7 +414,7 @@ export function renderDashboardView(container) {
           window._initialPedagangFilter = {};
         }
       }
-      const path = btn.getAttribute('data-goto') || '/pedagang';
+      const path = btn.getAttribute('data-goto') || '/pedagang/daftar';
       if (window._navigate) window._navigate(path);
     });
   });

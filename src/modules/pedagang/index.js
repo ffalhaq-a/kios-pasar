@@ -13,6 +13,7 @@ export const PedagangModule = {
     }
   ],
   views: {
-    '/pedagang/daftar': (container) => renderDaftarPedagangView(container)
+    '/pedagang/daftar': (container) => renderDaftarPedagangView(container),
+    '/pedagang': (container) => renderDaftarPedagangView(container)
   }
 };
