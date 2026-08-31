@@ -164,15 +164,10 @@ export function renderKwitansiView(container, initialKiosId = null) {
             </div>
 
             <!-- ACTION BUTTONS -->
-            <div class="pt-2 flex flex-col sm:flex-row gap-2.5">
-              <button id="btn-generate-instant" class="flex-1 bg-sky-600 hover:bg-sky-500 text-white p-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-sky-900/30 transition-all">
+            <div class="pt-2">
+              <button id="btn-generate-instant" class="w-full bg-sky-600 hover:bg-sky-500 text-white p-3.5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-sky-900/30 transition-all">
                 <i data-lucide="cloud-download" class="w-4 h-4"></i>
                 <span>Generate PDF (Google Doc) & Simpan di Drive</span>
-              </button>
-
-              <button id="btn-preview-instant" class="border px-4 py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${cardBg} ${textPrimary} hover:border-sky-500 shadow-sm">
-                <i data-lucide="eye" class="w-4 h-4 text-sky-500"></i>
-                <span>Preview Layar</span>
               </button>
             </div>
           </div>
@@ -286,7 +281,6 @@ export function renderKwitansiView(container, initialKiosId = null) {
   }
 
   const btnGenerateInstant = container.querySelector('#btn-generate-instant');
-  const btnPreviewInstant = container.querySelector('#btn-preview-instant');
 
   const batchScopeSelect = container.querySelector('#batch-scope-select');
   const batchBlockWrapper = container.querySelector('#batch-block-wrapper');
@@ -545,42 +539,7 @@ export function renderKwitansiView(container, initialKiosId = null) {
     }
   });
 
-  // 2. PREVIEW LAYAR
-  btnPreviewInstant.addEventListener('click', async () => {
-    if (!selectedKiosk) {
-      alert('Silakan pilih kios terlebih dahulu!');
-      return;
-    }
-
-    const itemData = buildKwitansiData(selectedKiosk);
-    btnPreviewInstant.disabled = true;
-    const originalPreviewHtml = btnPreviewInstant.innerHTML;
-    btnPreviewInstant.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin text-sky-500"></i><span>Memuat...</span>`;
-    if (window.lucide) window.lucide.createIcons();
-
-    try {
-      const res = await spreadsheetService.generateRemoteKwitansiDoc(itemData);
-      if (res && res.status === 'success' && res.pdfUrl) {
-        window.open(res.pdfUrl, '_blank');
-      } else {
-        const doc = pdfService.generateKwitansi(itemData);
-        const pdfBlob = doc.output('blob');
-        const blobUrl = URL.createObjectURL(pdfBlob);
-        window.open(blobUrl, '_blank');
-      }
-    } catch (err) {
-      const doc = pdfService.generateKwitansi(itemData);
-      const pdfBlob = doc.output('blob');
-      const blobUrl = URL.createObjectURL(pdfBlob);
-      window.open(blobUrl, '_blank');
-    } finally {
-      btnPreviewInstant.disabled = false;
-      btnPreviewInstant.innerHTML = originalPreviewHtml;
-      if (window.lucide) window.lucide.createIcons();
-    }
-  });
-
-  // 3. BATCH GENERATOR KWITANSI
+  // 2. BATCH GENERATOR KWITANSI
   btnBatchGenerate.addEventListener('click', () => {
     const scope = batchScopeSelect.value;
     let targetList = [];

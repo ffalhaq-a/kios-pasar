@@ -190,15 +190,10 @@ export function renderPerjanjianView(container, initialKiosId = null) {
             </div>
 
             <!-- ACTION BUTTONS SATUAN -->
-            <div class="pt-2 flex flex-col sm:flex-row gap-2.5">
-              <button id="btn-generate-instant" class="flex-1 bg-amber-600 hover:bg-amber-500 text-white p-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-amber-900/30 transition-all">
+            <div class="pt-2">
+              <button id="btn-generate-instant" class="w-full bg-amber-600 hover:bg-amber-500 text-white p-3.5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-amber-900/30 transition-all">
                 <i data-lucide="cloud-download" class="w-4 h-4"></i>
                 <span>Generate PDF (Google Doc) & Simpan di Drive</span>
-              </button>
-
-              <button id="btn-preview-instant" class="border px-4 py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${cardBg} ${textPrimary} hover:border-amber-500 shadow-sm">
-                <i data-lucide="eye" class="w-4 h-4 text-amber-500"></i>
-                <span>Preview Layar</span>
               </button>
             </div>
           </div>
@@ -337,7 +332,6 @@ export function renderPerjanjianView(container, initialKiosId = null) {
   }
 
   const btnGenerateInstant = container.querySelector('#btn-generate-instant');
-  const btnPreviewInstant = container.querySelector('#btn-preview-instant');
 
   const previewBadgeBlok = container.querySelector('#preview-badge-blok');
   const previewPedagang = container.querySelector('#preview-pedagang');
@@ -473,41 +467,6 @@ export function renderPerjanjianView(container, initialKiosId = null) {
       const doc = pdfService.generateSuratPerjanjian(itemData);
       const fileName = `Surat_Perjanjian_${itemData.blok_kios.replace(/\s+/g, '_')}_${itemData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
       doc.save(fileName);
-    }
-  });
-
-  // 2. PREVIEW LAYAR
-  btnPreviewInstant.addEventListener('click', async () => {
-    if (!selectedKiosk) {
-      alert('Silakan pilih kios terlebih dahulu!');
-      return;
-    }
-
-    const itemData = buildPerjanjianData(selectedKiosk);
-    btnPreviewInstant.disabled = true;
-    const originalPreviewHtml = btnPreviewInstant.innerHTML;
-    btnPreviewInstant.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin text-amber-500"></i><span>Memuat...</span>`;
-    if (window.lucide) window.lucide.createIcons();
-
-    try {
-      const res = await spreadsheetService.generateRemotePerjanjianDoc(itemData);
-      if (res && res.status === 'success' && res.pdfUrl) {
-        window.open(res.pdfUrl, '_blank');
-      } else {
-        const doc = pdfService.generateSuratPerjanjian(itemData);
-        const pdfBlob = doc.output('blob');
-        const blobUrl = URL.createObjectURL(pdfBlob);
-        window.open(blobUrl, '_blank');
-      }
-    } catch (err) {
-      const doc = pdfService.generateSuratPerjanjian(itemData);
-      const pdfBlob = doc.output('blob');
-      const blobUrl = URL.createObjectURL(pdfBlob);
-      window.open(blobUrl, '_blank');
-    } finally {
-      btnPreviewInstant.disabled = false;
-      btnPreviewInstant.innerHTML = originalPreviewHtml;
-      if (window.lucide) window.lucide.createIcons();
     }
   });
 }
