@@ -187,24 +187,6 @@ export function renderPerjanjianView(container, initialKiosId = null) {
                 <label class="text-xs font-bold ${textSecondary} block">Nama Saksi 2:</label>
                 <input type="text" id="input-saksi2" placeholder="Nama Saksi 2 (Pengelola Pasar)" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-amber-500 outline-none ${inputBg}" />
               </div>
-
-              <div class="space-y-1">
-                <label class="text-xs font-bold ${textSecondary} block">Ukuran Huruf (Font Size):</label>
-                <select id="input-font-size" class="w-full px-3 py-2 rounded-xl border text-xs font-bold text-amber-500 focus:ring-2 focus:ring-amber-500 outline-none ${inputBg}">
-                  <option value="11">11 pt (Kompak)</option>
-                  <option value="11.5">11.5 pt (Sedang)</option>
-                  <option value="12" selected>12 pt (Standar Resmi - Sangat Jelas)</option>
-                  <option value="12.5">12.5 pt (Besar & Tegas)</option>
-                </select>
-              </div>
-
-              <div class="space-y-1">
-                <label class="text-xs font-bold ${textSecondary} block">Jenis Huruf:</label>
-                <select id="input-font-family" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-amber-500 outline-none ${inputBg}">
-                  <option value="times" selected>Times New Roman (Resmi)</option>
-                  <option value="helvetica">Arial / Sans-Serif</option>
-                </select>
-              </div>
             </div>
 
             <!-- ACTION BUTTONS SATUAN -->
@@ -292,8 +274,6 @@ export function renderPerjanjianView(container, initialKiosId = null) {
   const inputTglSelesai = container.querySelector('#input-tgl-selesai');
   const inputSaksi1 = container.querySelector('#input-saksi1');
   const inputSaksi2 = container.querySelector('#input-saksi2');
-  const inputFontSize = container.querySelector('#input-font-size');
-  const inputFontFamily = container.querySelector('#input-font-family');
 
   const filterPasar = container.querySelector('#filter-perjanjian-pasar');
   const filterBlok = container.querySelector('#filter-perjanjian-blok');
@@ -426,9 +406,7 @@ export function renderPerjanjianView(container, initialKiosId = null) {
       tgl_mulai: inputTglMulai.value.trim() || '31 Agustus 2026',
       tgl_selesai: inputTglSelesai.value.trim() || '31 Agustus 2027',
       saksi1: inputSaksi1.value.trim() || '..............................',
-      saksi2: inputSaksi2.value.trim() || '..............................',
-      fontSize: Number(inputFontSize?.value || 12),
-      fontFamily: inputFontFamily?.value || 'times'
+      saksi2: inputSaksi2.value.trim() || '..............................'
     };
   }
 
