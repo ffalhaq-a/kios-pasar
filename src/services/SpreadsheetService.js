@@ -97,39 +97,36 @@ class SpreadsheetService {
 
       if (json && json.status === 'success' && Array.isArray(json.data) && json.data.length > 0) {
         const cleanedData = json.data.map(k => {
-          // Normalisasi Data: Deteksi jika kolom zona dan blokKode terbalik dari Google Sheets
           let finalZona = String(k.zona || '').trim().toUpperCase();
           let finalBlok = String(k.blokKode || '').trim();
-
           const rawId = String(k.id || '').trim();
           const cleanIdSuffix = rawId.replace(/^(SND|SYR)-/i, '').trim();
 
           if (finalBlok.includes('PASAR')) {
-            // Kolom terbalik: blokKode berisi Nama Pasar, zona berisi Kode Blok
             finalZona = finalBlok;
             finalBlok = k.zona ? String(k.zona).trim() : cleanIdSuffix;
           } else if (!finalZona.includes('PASAR')) {
-            // Jika zona tidak memuat kata PASAR, infer dari ID
             finalZona = rawId.startsWith('SYR') ? 'PASAR SAYUR' : 'PASAR SANDANG';
             if (!finalBlok || finalBlok.includes('PASAR')) {
               finalBlok = cleanIdSuffix;
             }
           }
 
-          // Bersihkan prefix 'Blok ' jika ada agar konsisten 'A1', 'B2', dll
           finalBlok = finalBlok.replace(/^blok\s+/i, '').replace(/^(SND|SYR)-/i, '').trim();
 
           return {
             ...k,
-            id: rawId,
+            id: rawId || `${finalZona.includes('SAYUR') ? 'SYR' : 'SND'}-${finalBlok}`,
             zona: finalZona,
             blokKode: finalBlok,
             pedagang: escapeHTML(k.pedagang || '-'),
             nik: escapeHTML(k.nik || '-'),
             alamat: escapeHTML(k.alamat || '-'),
             kategori: escapeHTML(k.kategori || 'Umum'),
-            luasM2: String(k.luasM2 || ''),
-            sewaBulanan: String(k.sewaBulanan || ''),
+            tipeKios: escapeHTML(k.tipeKios || 'LOS'),
+            luasDimensi: String(k.luasDimensi || '200 x 200'),
+            luasM2: String(k.luasM2 || '4.0'),
+            sewaBulanan: String(k.sewaBulanan || 'Rp 225.000/thn'),
             tglPembayaran: k.tglPembayaran ? String(k.tglPembayaran) : '-',
             tglHabisSewa: k.tglHabisSewa ? String(k.tglHabisSewa) : '2026-12-31',
             statusBayar: String(k.statusBayar || 'belum_bayar')
@@ -137,12 +134,67 @@ class SpreadsheetService {
         });
 
         this.saveKiosksLocally(cleanedData);
+      } else {
+        // Fallback: If getKiosks is empty, fetch fresh data from Google Sheets Agenda (610+ records)
+        const agendaRes = await this.fetchRemoteAgenda();
+        if (agendaRes && agendaRes.success && Array.isArray(agendaRes.data) && agendaRes.data.length > 0) {
+          const reconstructed = this.reconstructKiosksFromAgenda(agendaRes.data);
+          if (reconstructed.length > 0) {
+            this.saveKiosksLocally(reconstructed);
+          }
+        }
       }
     } catch (e) {
       console.warn('Google Sheets API offline or unreachable, using local data:', e);
     } finally {
       this.isFetchingRemote = false;
     }
+  }
+
+  reconstructKiosksFromAgenda(agendaList) {
+    if (!Array.isArray(agendaList) || agendaList.length === 0) return [];
+    const map = new Map();
+
+    agendaList.forEach((row, idx) => {
+      const tujuanStr = String(row.tujuan || '').trim();
+      const ketStr = String(row.ket || '').trim();
+      if (!tujuanStr || tujuanStr === '-') return;
+
+      const isSayur = tujuanStr.toUpperCase().includes('SAYUR') || ketStr.toUpperCase().includes('SAYUR');
+      const zona = isSayur ? 'PASAR SAYUR' : 'PASAR SANDANG';
+      const prefix = isSayur ? 'SYR' : 'SND';
+
+      const blokMatch = tujuanStr.match(/Blok\s+([A-Za-z0-9]+)/i) || ketStr.match(/Blok\s+([A-Za-z0-9]+)/i);
+      const blokKode = blokMatch ? blokMatch[1].toUpperCase() : `Unit-${idx + 1}`;
+
+      let namaPedagang = tujuanStr;
+      if (blokMatch) {
+        namaPedagang = tujuanStr.substring(0, tujuanStr.indexOf(blokMatch[0])).trim();
+      }
+      namaPedagang = namaPedagang.replace(/\s+(Sandang|Sayur)$/i, '').trim();
+
+      const id = `${prefix}-${blokKode}`;
+      if (!map.has(id)) {
+        map.set(id, {
+          id: id,
+          zona: zona,
+          blokKode: blokKode,
+          pedagang: escapeHTML(namaPedagang || 'Penyewa'),
+          nik: '-',
+          alamat: 'Desa Karangpucung',
+          kategori: 'Umum',
+          tipeKios: 'LOS',
+          luasDimensi: '200 x 200',
+          luasM2: '4.0',
+          sewaBulanan: 'Rp 225.000/thn',
+          tglPembayaran: row.tanggalKirim || '31/08/2026',
+          tglHabisSewa: '31/08/2027',
+          statusBayar: 'belum_bayar'
+        });
+      }
+    });
+
+    return Array.from(map.values());
   }
 
   saveKiosksLocally(data) {
