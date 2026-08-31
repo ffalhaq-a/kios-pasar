@@ -124,38 +124,60 @@ function handleUpdateKios(params) {
   if (!sheet) return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Sheet PEDAGANG tidak ditemukan' })).setMimeType(ContentService.MimeType.JSON);
 
   var data = sheet.getDataRange().getValues();
-  var cleanTargetId = String(kioskId).replace(/^(SND|SYR)-/i, '').trim().toUpperCase();
+  if (data.length <= 1) return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Sheet PEDAGANG kosong' })).setMimeType(ContentService.MimeType.JSON);
+
+  // Dynamic Header Column Mapping (1-based index for getRange)
+  var headers = data[0].map(function(h) { return String(h || '').trim(); });
+  var colMap = {};
+  for (var c = 0; c < headers.length; c++) {
+    colMap[headers[c]] = c + 1;
+  }
+
+  var targetIdUpper = String(kioskId).toUpperCase().trim();
+  var targetBlokClean = String(kiosk.blokKode || kioskId).replace(/^(SND|SYR)-/i, '').replace(/^BLOK\s*/i, '').toUpperCase().trim();
+  var targetZonaUpper = String(kiosk.zona || '').toUpperCase().trim();
 
   for (var i = 1; i < data.length; i++) {
-    var rowId = String(data[i][0] || '').trim().toUpperCase();
-    var rowBlok = String(data[i][1] || '').trim().toUpperCase();
-    if (rowId === String(kioskId).toUpperCase() || rowBlok === cleanTargetId || rowId.indexOf(cleanTargetId) !== -1) {
+    var rowId = String(data[i][(colMap['id'] ? colMap['id'] - 1 : 0)] || '').toUpperCase().trim();
+    var rowBlok = String(data[i][(colMap['blokKode'] ? colMap['blokKode'] - 1 : 1)] || '').replace(/^BLOK\s*/i, '').toUpperCase().trim();
+    var rowZona = String(data[i][(colMap['zona'] ? colMap['zona'] - 1 : 2)] || '').toUpperCase().trim();
+
+    var isIdMatch = (rowId === targetIdUpper) || (rowId === ('SND-' + targetBlokClean)) || (rowId === ('SYR-' + targetBlokClean));
+    var isBlokMatch = (rowBlok === targetBlokClean);
+    var isZonaMatch = (!targetZonaUpper) || (rowZona.indexOf('SAYUR') !== -1 && targetZonaUpper.indexOf('SAYUR') !== -1) || (rowZona.indexOf('SANDANG') !== -1 && targetZonaUpper.indexOf('SANDANG') !== -1);
+
+    if (isIdMatch || (isBlokMatch && isZonaMatch)) {
       var rowIdx = i + 1;
-      var namaLama = String(data[i][3] || '-');
-      var statusLama = String(data[i][13] || 'belum_bayar');
+      var pedagangCol = colMap['pedagang'] || 4;
+      var namaLama = String(data[i][pedagangCol - 1] || '-');
+      var statusBayarCol = colMap['statusBayar'] || 14;
+      var statusLama = String(data[i][statusBayarCol - 1] || 'belum_bayar');
 
-      if (kiosk.pedagang !== undefined) sheet.getRange(rowIdx, 4).setValue(kiosk.pedagang || '-');
-      if (kiosk.nik !== undefined) sheet.getRange(rowIdx, 5).setValue(kiosk.nik || '-');
-      if (kiosk.alamat !== undefined) sheet.getRange(rowIdx, 6).setValue(kiosk.alamat || '-');
-      if (kiosk.kategori !== undefined) sheet.getRange(rowIdx, 7).setValue(kiosk.kategori || 'Umum');
-      if (kiosk.tipeKios !== undefined) sheet.getRange(rowIdx, 8).setValue(kiosk.tipeKios || 'LOS');
-      if (kiosk.luasDimensi !== undefined) sheet.getRange(rowIdx, 9).setValue(kiosk.luasDimensi || '200 x 200');
-      if (kiosk.luasM2 !== undefined) sheet.getRange(rowIdx, 10).setValue(kiosk.luasM2 || '4.0');
-      if (kiosk.sewaBulanan !== undefined) sheet.getRange(rowIdx, 11).setValue(kiosk.sewaBulanan || 'Rp 225.000/thn');
-      if (kiosk.tglPembayaran !== undefined) sheet.getRange(rowIdx, 12).setValue(kiosk.tglPembayaran || '-');
-      if (kiosk.tglHabisSewa !== undefined) sheet.getRange(rowIdx, 13).setValue(kiosk.tglHabisSewa || '2026-12-31');
-      if (kiosk.statusBayar !== undefined) sheet.getRange(rowIdx, 14).setValue(kiosk.statusBayar || 'belum_bayar');
-      if (kiosk.nomorHp !== undefined) sheet.getRange(rowIdx, 15).setValue(kiosk.nomorHp || '');
-      if (kiosk.catatan !== undefined) sheet.getRange(rowIdx, 16).setValue(kiosk.catatan || '');
+      if (colMap['pedagang'] && kiosk.pedagang !== undefined) sheet.getRange(rowIdx, colMap['pedagang']).setValue(kiosk.pedagang || '-');
+      if (colMap['nik'] && kiosk.nik !== undefined) sheet.getRange(rowIdx, colMap['nik']).setValue(kiosk.nik || '-');
+      if (colMap['alamat'] && kiosk.alamat !== undefined) sheet.getRange(rowIdx, colMap['alamat']).setValue(kiosk.alamat || '-');
+      if (colMap['kategori'] && kiosk.kategori !== undefined) sheet.getRange(rowIdx, colMap['kategori']).setValue(kiosk.kategori || 'Umum');
+      if (colMap['tipeKios'] && kiosk.tipeKios !== undefined) sheet.getRange(rowIdx, colMap['tipeKios']).setValue(kiosk.tipeKios || 'LOS');
+      if (colMap['luasDimensi'] && kiosk.luasDimensi !== undefined) sheet.getRange(rowIdx, colMap['luasDimensi']).setValue(kiosk.luasDimensi || '200 x 200');
+      if (colMap['luasM2'] && kiosk.luasM2 !== undefined) sheet.getRange(rowIdx, colMap['luasM2']).setValue(kiosk.luasM2 || '4.0');
+      if (colMap['sewaBulanan'] && kiosk.sewaBulanan !== undefined) sheet.getRange(rowIdx, colMap['sewaBulanan']).setValue(kiosk.sewaBulanan || 'Rp 225.000/thn');
+      if (colMap['tglPembayaran'] && kiosk.tglPembayaran !== undefined) sheet.getRange(rowIdx, colMap['tglPembayaran']).setValue(kiosk.tglPembayaran || '-');
+      if (colMap['tglHabisSewa'] && kiosk.tglHabisSewa !== undefined) sheet.getRange(rowIdx, colMap['tglHabisSewa']).setValue(kiosk.tglHabisSewa || '2026-12-31');
+      if (colMap['statusBayar'] && kiosk.statusBayar !== undefined) sheet.getRange(rowIdx, colMap['statusBayar']).setValue(kiosk.statusBayar || 'belum_bayar');
+      if (colMap['nomorHp'] && kiosk.nomorHp !== undefined) sheet.getRange(rowIdx, colMap['nomorHp']).setValue(kiosk.nomorHp || '');
+      if (colMap['catatan'] && kiosk.catatan !== undefined) sheet.getRange(rowIdx, colMap['catatan']).setValue(kiosk.catatan || '');
 
-      // CATAT PERUBAHAN KE SHEET HISTORI
+      // PAKSA GOOGLE SHEETS MENULIS KE DISK SECARA INSTAN
+      SpreadsheetApp.flush();
+
+      // CATAT PERUBAHAN KE TAB SHEET: HISTORI
       var detailPerubahan = 'Pembaruan Data: Pedagang (' + (kiosk.pedagang || namaLama) + '), Status (' + (kiosk.statusBayar || statusLama) + '), Sewa (' + (kiosk.sewaBulanan || '-') + ')';
-      logToHistoriSheet(ss, 'UPDATE DATA PEDAGANG', kioskId, rowBlok, String(data[i][2] || 'SANDANG'), (kiosk.pedagang || namaLama), detailPerubahan, userOperator, '-');
+      logToHistoriSheet(ss, 'UPDATE DATA PEDAGANG', kioskId, 'Blok ' + targetBlokClean, rowZona || 'SANDANG', (kiosk.pedagang || namaLama), detailPerubahan, userOperator, '-');
 
       return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'Data sheet PEDAGANG berhasil diperbarui & dicatat ke HISTORI' })).setMimeType(ContentService.MimeType.JSON);
     }
   }
-  return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Kios tidak ditemukan di sheet PEDAGANG' })).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Kios (' + kioskId + ') tidak ditemukan di sheet PEDAGANG' })).setMimeType(ContentService.MimeType.JSON);
 }
 
 // =========================================================================
