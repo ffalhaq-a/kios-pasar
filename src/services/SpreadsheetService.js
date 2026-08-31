@@ -97,28 +97,15 @@ class SpreadsheetService {
 
       if (json && json.status === 'success' && Array.isArray(json.data) && json.data.length > 0) {
         const cleanedData = json.data.map(k => {
-          let finalZona = String(k.zona || '').trim().toUpperCase();
-          let finalBlok = String(k.blokKode || '').trim();
-          const rawId = String(k.id || '').trim();
-          const cleanIdSuffix = rawId.replace(/^(SND|SYR)-/i, '').trim();
-
-          if (finalBlok.includes('PASAR')) {
-            finalZona = finalBlok;
-            finalBlok = k.zona ? String(k.zona).trim() : cleanIdSuffix;
-          } else if (!finalZona.includes('PASAR')) {
-            finalZona = rawId.startsWith('SYR') ? 'PASAR SAYUR' : 'PASAR SANDANG';
-            if (!finalBlok || finalBlok.includes('PASAR')) {
-              finalBlok = cleanIdSuffix;
-            }
-          }
-
-          finalBlok = finalBlok.replace(/^blok\s+/i, '').replace(/^(SND|SYR)-/i, '').trim();
+          const rawZona = String(k.zona || '').trim().toUpperCase();
+          const finalZona = rawZona.includes('SAYUR') ? 'PASAR SAYUR' : 'PASAR SANDANG';
+          const cleanBlok = String(k.blokKode || k.id || '').replace(/^blok\s+/i, '').replace(/^(SND|SYR)-/i, '').trim();
+          const uniqueId = String(k.id || '').trim() || `${finalZona.includes('SAYUR') ? 'SYR' : 'SND'}-${cleanBlok}`;
 
           return {
-            ...k,
-            id: rawId || `${finalZona.includes('SAYUR') ? 'SYR' : 'SND'}-${finalBlok}`,
+            id: uniqueId,
+            blokKode: cleanBlok,
             zona: finalZona,
-            blokKode: finalBlok,
             pedagang: escapeHTML(k.pedagang || '-'),
             nik: escapeHTML(k.nik || '-'),
             alamat: escapeHTML(k.alamat || '-'),
@@ -129,7 +116,9 @@ class SpreadsheetService {
             sewaBulanan: String(k.sewaBulanan || 'Rp 225.000/thn'),
             tglPembayaran: k.tglPembayaran ? String(k.tglPembayaran) : '-',
             tglHabisSewa: k.tglHabisSewa ? String(k.tglHabisSewa) : '2026-12-31',
-            statusBayar: String(k.statusBayar || 'belum_bayar')
+            statusBayar: String(k.statusBayar || 'belum_bayar').toLowerCase(),
+            nomorHp: escapeHTML(k.nomorHp || ''),
+            catatan: escapeHTML(k.catatan || '')
           };
         });
 
