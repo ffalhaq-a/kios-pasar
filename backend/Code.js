@@ -136,17 +136,30 @@ function handleUpdateKios(params) {
   var targetIdUpper = String(kioskId).toUpperCase().trim();
   var targetBlokClean = String(kiosk.blokKode || kioskId).replace(/^(SND|SYR)-/i, '').replace(/^BLOK\s*/i, '').toUpperCase().trim();
   var targetZonaUpper = String(kiosk.zona || '').toUpperCase().trim();
+  var isTargetSayur = (targetIdUpper.indexOf('SYR') !== -1 || targetZonaUpper.indexOf('SAYUR') !== -1);
+  var isTargetSandang = !isTargetSayur && (targetIdUpper.indexOf('SND') !== -1 || targetZonaUpper.indexOf('SANDANG') !== -1);
 
   for (var i = 1; i < data.length; i++) {
     var rowId = String(data[i][(colMap['id'] ? colMap['id'] - 1 : 0)] || '').toUpperCase().trim();
-    var rowBlok = String(data[i][(colMap['blokKode'] ? colMap['blokKode'] - 1 : 1)] || '').replace(/^BLOK\s*/i, '').toUpperCase().trim();
+    var rowBlok = String(data[i][(colMap['blokKode'] ? colMap['blokKode'] - 1 : 1)] || '').replace(/^BLOK\s*/i, '').replace(/^(SND|SYR)-/i, '').toUpperCase().trim();
     var rowZona = String(data[i][(colMap['zona'] ? colMap['zona'] - 1 : 2)] || '').toUpperCase().trim();
 
-    var isIdMatch = (rowId === targetIdUpper) || (rowId === ('SND-' + targetBlokClean)) || (rowId === ('SYR-' + targetBlokClean));
-    var isBlokMatch = (rowBlok === targetBlokClean);
-    var isZonaMatch = (!targetZonaUpper) || (rowZona.indexOf('SAYUR') !== -1 && targetZonaUpper.indexOf('SAYUR') !== -1) || (rowZona.indexOf('SANDANG') !== -1 && targetZonaUpper.indexOf('SANDANG') !== -1);
+    var isRowSayur = (rowId.indexOf('SYR') !== -1 || rowZona.indexOf('SAYUR') !== -1);
+    var isRowSandang = !isRowSayur && (rowId.indexOf('SND') !== -1 || rowZona.indexOf('SANDANG') !== -1);
 
-    if (isIdMatch || (isBlokMatch && isZonaMatch)) {
+    var zoneMatch = (isTargetSayur && isRowSayur) || (isTargetSandang && isRowSandang);
+
+    var isMatch = false;
+    // 1. Strict ID Match (e.g. SYR-O6 === SYR-O6 or SND-O6 === SND-O6)
+    if (rowId && rowId === targetIdUpper) {
+      isMatch = true;
+    }
+    // 2. Strict Blok Code + Zone Match
+    else if (rowBlok === targetBlokClean && zoneMatch) {
+      isMatch = true;
+    }
+
+    if (isMatch) {
       var rowIdx = i + 1;
       var pedagangCol = colMap['pedagang'] || 4;
       var namaLama = String(data[i][pedagangCol - 1] || '-');
