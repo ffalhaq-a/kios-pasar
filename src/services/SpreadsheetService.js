@@ -426,11 +426,68 @@ class SpreadsheetService {
   }
 
   /**
-   * Clear local agenda logs cache
+   * Fetch fresh real-time histori logs (Perjanjian & Kwitansi) from Google Sheets (HISTORI)
+   */
+  async fetchRemoteHistori() {
+    try {
+      const res = await fetch(`${GOOGLE_API_URL}?action=getHistori&apiToken=${encodeURIComponent(API_SECURITY_TOKEN)}`, {
+        redirect: 'follow'
+      });
+      const json = await res.json();
+      if (json && json.status === 'success' && Array.isArray(json.data)) {
+        const perjanjian = [];
+        const kwitansi = [];
+        
+        json.data.forEach((item, idx) => {
+          const jenis = String(item.jenisTindakan || '').toUpperCase();
+          const noDoc = String(item.noDokumen || '').toUpperCase();
+          const detail = String(item.detail || '');
+
+          if (jenis.includes('PERJANJIAN') || noDoc.includes('PRJ') || noDoc.includes('511.2')) {
+            perjanjian.push({
+              id: 'PRJ-' + (item.no || idx + 1),
+              nomorPerjanjian: item.noDokumen || '-',
+              tanggal: item.waktu || '-',
+              namaPedagang: item.pedagang || '-',
+              blok: item.blok || '-',
+              pasar: item.kawasan || '-',
+              nominal: detail,
+              driveUrl: (item.driveUrl && item.driveUrl !== '-') ? item.driveUrl : '',
+              fileName: `Perjanjian_${item.blok || 'Kios'}.pdf`
+            });
+          } else if (jenis.includes('KWITANSI') || noDoc.includes('KW') || noDoc.includes('KWT')) {
+            kwitansi.push({
+              id: 'KW-' + (item.no || idx + 1),
+              nomorKwitansi: item.noDokumen || '-',
+              tanggal: item.waktu || '-',
+              namaPedagang: item.pedagang || '-',
+              blok: item.blok || '-',
+              pasar: item.kawasan || '-',
+              nominal: detail,
+              driveUrl: (item.driveUrl && item.driveUrl !== '-') ? item.driveUrl : '',
+              fileName: `Kwitansi_${item.blok || 'Kios'}.pdf`
+            });
+          }
+        });
+
+        localStorage.setItem('pasar_buku_perjanjian_logs_v1', JSON.stringify(perjanjian));
+        localStorage.setItem('pasar_buku_kwitansi_logs_v1', JSON.stringify(kwitansi));
+        this.notify();
+        return { success: true, count: json.data.length, perjanjian, kwitansi };
+      }
+    } catch (e) {
+      console.warn('Error fetching remote histori:', e);
+    }
+    return { success: false };
+  }
+
+  /**
+   * Clear all local logs caches (Surat, Kwitansi, Perjanjian)
    */
   clearLocalAgenda() {
-    const localAgendaKey = 'pasar_buku_agenda_surat_v1';
-    localStorage.removeItem(localAgendaKey);
+    localStorage.removeItem('pasar_buku_agenda_surat_v1');
+    localStorage.removeItem('pasar_buku_perjanjian_logs_v1');
+    localStorage.removeItem('pasar_buku_kwitansi_logs_v1');
     this.notify();
   }
 

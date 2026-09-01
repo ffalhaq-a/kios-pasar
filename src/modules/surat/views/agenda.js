@@ -273,7 +273,11 @@ export function renderAgendaSuratView(container) {
       btnSync.innerHTML = `<i data-lucide="refresh-cw" class="w-3.5 h-3.5 animate-spin"></i><span>Sinkronisasi...</span>`;
       if (window.lucide) window.lucide.createIcons();
 
-      await spreadsheetService.fetchRemoteAgenda();
+      await Promise.all([
+        spreadsheetService.fetchRemoteAgenda(),
+        spreadsheetService.fetchRemoteHistori()
+      ]);
+
       agendaLogs = spreadsheetService.getAgendaLogs() || [];
       perjanjianLogs = spreadsheetService.getPerjanjianLogs() || [];
       kwitansiLogs = spreadsheetService.getKwitansiLogs() || [];
@@ -295,11 +299,14 @@ export function renderAgendaSuratView(container) {
 
   if (btnClear) {
     btnClear.addEventListener('click', () => {
-      if (confirm('Bersihkan riwayat naskah lokal di peramban ini?')) {
+      if (confirm('Bersihkan seluruh riwayat naskah & kwitansi lokal di peramban ini?')) {
         spreadsheetService.clearLocalAgenda();
         agendaLogs = [];
         perjanjianLogs = [];
         kwitansiLogs = [];
+        tabBtnSurat.querySelector('span').innerText = `Surat Pemberitahuan (0)`;
+        tabBtnPerjanjian.querySelector('span').innerText = `Surat Perjanjian Kontrak (0)`;
+        tabBtnKwitansi.querySelector('span').innerText = `Kwitansi Kas Desa (0)`;
         renderTable();
       }
     });
