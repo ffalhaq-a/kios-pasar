@@ -16,8 +16,35 @@ export function renderPerjanjianView(container, initialKiosId = null) {
   const inputBg = isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900';
 
   const defaultNoPerjanjian = getSmartNextNumber('perjanjian', perjanjianLogs);
-  const defaultDateStr = formatIndonesianDateClean(new Date());
-  const defaultDayStr = 'Senin';
+  
+  // Real-time Dynamic Date & Day
+  const now = new Date();
+  const indonesianDays = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+  const indonesianMonths = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ];
+
+  const currentDayStr = indonesianDays[now.getDay()];
+  const currentDateNum = now.getDate();
+  const currentMonthStr = indonesianMonths[now.getMonth()];
+  const currentYearStr = String(now.getFullYear());
+  const defaultDateStr = `${currentDateNum} ${currentMonthStr} ${currentYearStr}`;
+
+  // Next year date for lease end
+  const nextYearDate = new Date(now);
+  nextYearDate.setFullYear(now.getFullYear() + 1);
+  const defaultNextYearDateStr = `${nextYearDate.getDate()} ${indonesianMonths[nextYearDate.getMonth()]} ${nextYearDate.getFullYear()}`;
+
+  // Helper konversi tanggal ke kata terbilang (misal: 2 -> "dua", 8 -> "delapan", 31 -> "tiga puluh satu")
+  function konversiTanggalTerbilang(angka) {
+    const n = parseInt(angka, 10) || 1;
+    const kata = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh', 'sebelas'];
+    if (n < 12) return kata[n];
+    if (n < 20) return kata[n - 10] + ' belas';
+    if (n < 100) return kata[Math.floor(n / 10)] + ' puluh' + (n % 10 !== 0 ? ' ' + kata[n % 10] : '');
+    return String(n);
+  }
 
   const sandangKiosks = kiosks.filter(k => k.zona === 'PASAR SANDANG');
   const sayurKiosks = kiosks.filter(k => k.zona === 'PASAR SAYUR');
@@ -154,7 +181,7 @@ export function renderPerjanjianView(container, initialKiosId = null) {
 
               <div class="space-y-1">
                 <label class="text-xs font-bold ${textSecondary} block">Hari Akad / Penandatanganan:</label>
-                <input type="text" id="input-hari" value="${defaultDayStr}" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-amber-500 outline-none ${inputBg}" />
+                <input type="text" id="input-hari" value="${currentDayStr}" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-amber-500 outline-none ${inputBg}" />
               </div>
 
               <div class="space-y-1">
@@ -164,17 +191,17 @@ export function renderPerjanjianView(container, initialKiosId = null) {
 
               <div class="space-y-1">
                 <label class="text-xs font-bold ${textSecondary} block">Bulan Akad:</label>
-                <input type="text" id="input-bulan" value="Agustus" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-amber-500 outline-none ${inputBg}" />
+                <input type="text" id="input-bulan" value="${currentMonthStr}" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-amber-500 outline-none ${inputBg}" />
               </div>
 
               <div class="space-y-1">
                 <label class="text-xs font-bold ${textSecondary} block">Mulai Masa Sewa:</label>
-                <input type="text" id="input-tgl-mulai" value="31 Agustus 2026" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-amber-500 outline-none ${inputBg}" />
+                <input type="text" id="input-tgl-mulai" value="${defaultDateStr}" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-amber-500 outline-none ${inputBg}" />
               </div>
 
               <div class="space-y-1">
                 <label class="text-xs font-bold ${textSecondary} block">Berakhir Masa Sewa:</label>
-                <input type="text" id="input-tgl-selesai" value="31 Agustus 2027" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-amber-500 outline-none ${inputBg}" />
+                <input type="text" id="input-tgl-selesai" value="${defaultNextYearDateStr}" class="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-amber-500 outline-none ${inputBg}" />
               </div>
 
               <div class="space-y-1">
@@ -375,14 +402,18 @@ export function renderPerjanjianView(container, initialKiosId = null) {
 
     const rawNumericSewa = parseInt(String(rentCalc.totalAnnualRent || rentCalc.formattedTotal).replace(/[^0-9]/g, ''), 10) || 250000;
     const formattedSewaRupiah = new Intl.NumberFormat('id-ID').format(rawNumericSewa);
-    const terbilangSewa = angkaKeTerbilang(rawNumericSewa);
+    const inputTglRaw = inputTglAkad.value.trim() || defaultDateStr;
+    const matchDateNum = inputTglRaw.match(/^\d+/);
+    const dateNum = matchDateNum ? parseInt(matchDateNum[0], 10) : currentDateNum;
+    const dateTerbilang = konversiTanggalTerbilang(dateNum);
 
     return {
       nomor_perjanjian: inputNo.value.trim() || defaultNoPerjanjian,
-      hari: inputHari.value.trim() || defaultDayStr,
-      tanggal: inputTglAkad.value.trim() || defaultDateStr,
-      bulan: inputBulan.value.trim() || 'Agustus',
-      tahun: '2026',
+      hari: inputHari.value.trim() || currentDayStr,
+      tanggal: dateTerbilang, // Khusus placeholder {{tanggal}} di template (misal: "dua", "delapan", "tiga puluh satu")
+      tanggal_lengkap: inputTglRaw,
+      bulan: inputBulan.value.trim() || currentMonthStr,
+      tahun: currentYearStr,
       nama_pedagang: kiosk.pedagang === '-' ? 'Penyewa Kios' : kiosk.pedagang,
       nik: kiosk.nik && kiosk.nik !== '-' ? kiosk.nik : '-',
       alamat: kiosk.alamat && kiosk.alamat !== '-' ? kiosk.alamat : 'Desa Karangpucung',
@@ -396,8 +427,8 @@ export function renderPerjanjianView(container, initialKiosId = null) {
       biaya_sewa: `Rp ${formattedSewaRupiah}`,
       biaya_sewa_angka: formattedSewaRupiah,
       biaya_sewa_terbilang: terbilangSewa,
-      tgl_mulai: inputTglMulai.value.trim() || '31 Agustus 2026',
-      tgl_selesai: inputTglSelesai.value.trim() || '31 Agustus 2027',
+      tgl_mulai: inputTglMulai.value.trim() || defaultDateStr,
+      tgl_selesai: inputTglSelesai.value.trim() || defaultNextYearDateStr,
       saksi1: inputSaksi1.value.trim() || '..............................',
       saksi2: inputSaksi2.value.trim() || '..............................'
     };

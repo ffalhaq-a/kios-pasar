@@ -6,12 +6,12 @@ import { renderKwitansiView } from './views/kwitansi.js';
 
 export const SuratModule = {
   id: 'surat',
-  title: 'Surat & Perjanjian',
+  title: 'Surat',
   icon: 'file-text',
   menus: [
     {
       id: 'surat-parent',
-      label: 'Surat & Perjanjian',
+      label: 'Surat',
       icon: 'file-text',
       submenus: [
         {
@@ -22,7 +22,7 @@ export const SuratModule = {
         },
         {
           id: 'surat-perjanjian',
-          label: 'Surat Perjanjian (Kontrak)',
+          label: 'Surat Perjanjian',
           icon: 'file-signature',
           path: '/surat/perjanjian'
         },

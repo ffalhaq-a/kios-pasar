@@ -232,8 +232,8 @@ function handleGeneratePerjanjianDoc(data) {
     var replacements = {
       'nomor_perjanjian': data.nomor_perjanjian || '001 / KRPC / 2026',
       'hari': data.hari || 'Senin',
-      'tanggal': data.tanggal || '31',
-      'bulan': data.bulan || 'Agustus',
+      'tanggal': data.tanggal || 'dua',
+      'bulan': data.bulan || 'September',
       'tahun': data.tahun || '2026',
       'nama_pedagang': namaPedagang,
       'nik': data.nik || '-',
@@ -248,8 +248,8 @@ function handleGeneratePerjanjianDoc(data) {
       'biaya_sewa': data.biaya_sewa || data.biaya_sewa_angka || 'Rp 250.000',
       'biaya_sewa_angka': data.biaya_sewa_angka || '250.000',
       'biaya_sewa_terbilang': data.biaya_sewa_terbilang || 'Dua Ratus Lima Puluh Ribu Rupiah',
-      'tgl_mulai': data.tgl_mulai || '31 Agustus 2026',
-      'tgl_selesai': data.tgl_selesai || '31 Agustus 2027',
+      'tgl_mulai': data.tgl_mulai || '2 September 2026',
+      'tgl_selesai': data.tgl_selesai || '2 September 2027',
       'saksi1': data.saksi1 || '..............................',
       'saksi2': data.saksi2 || '..............................'
     };
@@ -275,7 +275,7 @@ function handleGeneratePerjanjianDoc(data) {
       var newDoc = DocumentApp.create('TEMP_' + cleanFileName);
       var body = newDoc.getBody();
       body.appendParagraph('SURAT PERJANJIAN SEWA TANAH/BANGUNAN\nPEMERINTAH DESA KARANGPUCUNG\nNomor : ' + replacements.nomor_perjanjian);
-      body.appendParagraph('Pada hari ini ' + replacements.hari + ', tanggal ' + replacements.tanggal + ' ' + replacements.bulan + ' ' + replacements.tahun);
+      body.appendParagraph('Pada hari ini ' + replacements.hari + ', tanggal ' + replacements.tanggal + ' bulan ' + replacements.bulan + ' tahun ' + replacements.tahun);
       body.appendParagraph('Pihak Pertama: A. ANJARNINGSIH, S.E. (Pj. Kepala Desa Karangpucung)');
       body.appendParagraph('Pihak Kedua: ' + replacements.nama_pedagang + ' (NIK: ' + replacements.nik + ', Alamat: ' + replacements.alamat + ')');
       body.appendParagraph('Objek Sewa: ' + replacements.blok_kios + ' (' + replacements.jenis_pasar + ') • ' + replacements.tipe_kios + ' • Luas: ' + replacements.luas_m2 + ' m²');
@@ -300,10 +300,11 @@ function handleGeneratePerjanjianDoc(data) {
     ], '#D97706');
 
     var lastRow = sheet.getLastRow();
+    var displayTglAkad = data.tanggal_lengkap || (replacements.tanggal + ' ' + replacements.bulan + ' ' + replacements.tahun);
     sheet.appendRow([
       lastRow,
       replacements.nomor_perjanjian,
-      replacements.tanggal + ' ' + replacements.bulan + ' ' + replacements.tahun,
+      displayTglAkad,
       replacements.hari,
       'A. ANJARNINGSIH, S.E. (Pj. Kades)',
       namaPedagang,
