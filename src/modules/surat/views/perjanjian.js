@@ -423,17 +423,18 @@ export function renderPerjanjianView(container, initialKiosId = null) {
 
     const rawNumericSewa = parseInt(String(rentCalc.totalAnnualRent || rentCalc.formattedTotal).replace(/[^0-9]/g, ''), 10) || 250000;
     const formattedSewaRupiah = new Intl.NumberFormat('id-ID').format(rawNumericSewa);
-    const inputTglRaw = inputTglAkad.value.trim() || defaultDateStr;
+    const terbilangSewa = angkaKeTerbilang(rawNumericSewa);
+    const inputTglRaw = (inputTglAkad && inputTglAkad.value.trim()) || defaultDateStr;
     const matchDateNum = inputTglRaw.match(/^\d+/);
     const dateNum = matchDateNum ? parseInt(matchDateNum[0], 10) : currentDateNum;
     const dateTerbilang = konversiTanggalTerbilang(dateNum);
 
     return {
-      nomor_perjanjian: inputNo.value.trim() || defaultNoPerjanjian,
-      hari: inputHari.value.trim() || currentDayStr,
+      nomor_perjanjian: (inputNo && inputNo.value.trim()) || defaultNoPerjanjian,
+      hari: (inputHari && inputHari.value.trim()) || currentDayStr,
       tanggal: dateTerbilang, // Khusus placeholder {{tanggal}} di template (misal: "dua", "delapan", "tiga puluh satu")
       tanggal_lengkap: inputTglRaw,
-      bulan: inputBulan.value.trim() || currentMonthStr,
+      bulan: (inputBulan && inputBulan.value.trim()) || currentMonthStr,
       tahun: currentYearStr,
       nama_pedagang: kiosk.pedagang === '-' ? 'Penyewa Kios' : kiosk.pedagang,
       nik: kiosk.nik && kiosk.nik !== '-' ? kiosk.nik : '-',
@@ -448,10 +449,10 @@ export function renderPerjanjianView(container, initialKiosId = null) {
       biaya_sewa: `Rp ${formattedSewaRupiah}`,
       biaya_sewa_angka: formattedSewaRupiah,
       biaya_sewa_terbilang: terbilangSewa,
-      tgl_mulai: inputTglMulai.value.trim() || defaultDateStr,
-      tgl_selesai: inputTglSelesai.value.trim() || defaultNextYearDateStr,
-      saksi1: inputSaksi1.value.trim() || '',
-      saksi2: inputSaksi2.value.trim() || ''
+      tgl_mulai: (inputTglMulai && inputTglMulai.value.trim()) || defaultDateStr,
+      tgl_selesai: (inputTglSelesai && inputTglSelesai.value.trim()) || defaultNextYearDateStr,
+      saksi1: (inputSaksi1 && inputSaksi1.value.trim()) || '',
+      saksi2: (inputSaksi2 && inputSaksi2.value.trim()) || ''
     };
   }
 
@@ -464,12 +465,21 @@ export function renderPerjanjianView(container, initialKiosId = null) {
 
   // 1. GENERATE INSTANT PDF
   btnGenerateInstant.addEventListener('click', async () => {
-    if (!selectedKiosk) {
-      alert('Silakan pilih kios terlebih dahulu!');
+    const currentTargetKiosk = kiosks.find(k => k.id === (kioskSelect ? kioskSelect.value : '')) || selectedKiosk || kiosks[0];
+    if (!currentTargetKiosk) {
+      alert('Silakan pilih pedagang / kios terlebih dahulu!');
       return;
     }
 
-    const itemData = buildPerjanjianData(selectedKiosk);
+    let itemData;
+    try {
+      itemData = buildPerjanjianData(currentTargetKiosk);
+    } catch (err) {
+      console.error('Error building perjanjian data:', err);
+      alert('Terjadi kendala saat membaca data form: ' + err.message);
+      return;
+    }
+
     const originalBtnContent = btnGenerateInstant.innerHTML;
     btnGenerateInstant.disabled = true;
     btnGenerateInstant.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin text-white"></i><span>Menerbitkan Naskah Perjanjian...</span>`;
@@ -509,7 +519,7 @@ export function renderPerjanjianView(container, initialKiosId = null) {
       clearTimeout(t1);
       clearTimeout(t2);
 
-      // Save local history log
+      // Save local history log (skipNotify=true so the ongoing screen is not re-rendered)
       spreadsheetService.savePerjanjianLog({
         nomorPerjanjian: itemData.nomor_perjanjian,
         tanggal: itemData.tanggal_lengkap || itemData.tanggal,
@@ -519,7 +529,7 @@ export function renderPerjanjianView(container, initialKiosId = null) {
         nominal: itemData.biaya_sewa,
         driveUrl: res?.pdfUrl || '',
         fileName: res?.fileName || `Perjanjian_${itemData.blok_kios}.pdf`
-      });
+      }, true);
 
       if (progressCard) {
         progressPercent.innerText = '100%';

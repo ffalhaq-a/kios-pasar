@@ -503,7 +503,7 @@ class SpreadsheetService {
     }
   }
 
-  savePerjanjianLog(item) {
+  savePerjanjianLog(item, skipNotify = false) {
     try {
       const key = 'pasar_buku_perjanjian_logs_v1';
       const existing = this.getPerjanjianLogs();
@@ -513,7 +513,7 @@ class SpreadsheetService {
         ...item
       });
       localStorage.setItem(key, JSON.stringify(existing.slice(0, 500)));
-      this.notify();
+      if (!skipNotify) this.notify();
     } catch (e) {
       console.warn('Error saving local perjanjian log:', e);
     }
@@ -531,17 +531,19 @@ class SpreadsheetService {
     }
   }
 
-  saveKwitansiLog(item) {
+  saveKwitansiLog(entries, skipNotify = false) {
     try {
       const key = 'pasar_buku_kwitansi_logs_v1';
       const existing = this.getKwitansiLogs();
-      existing.unshift({
-        id: 'KW-' + Date.now(),
+      const newItems = Array.isArray(entries) ? entries : [entries];
+      const withMeta = newItems.map(item => ({
+        id: 'KWT-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
         timestamp: new Date().toISOString(),
         ...item
-      });
-      localStorage.setItem(key, JSON.stringify(existing.slice(0, 500)));
-      this.notify();
+      }));
+      const combined = [...withMeta, ...existing].slice(0, 500);
+      localStorage.setItem(key, JSON.stringify(combined));
+      if (!skipNotify) this.notify();
     } catch (e) {
       console.warn('Error saving local kwitansi log:', e);
     }
