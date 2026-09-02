@@ -216,11 +216,32 @@ export function renderPerjanjianView(container, initialKiosId = null) {
             </div>
 
             <!-- ACTION BUTTONS SATUAN -->
-            <div class="pt-2">
+            <div class="pt-2 space-y-3">
               <button id="btn-generate-instant" class="w-full bg-amber-600 hover:bg-amber-500 text-white p-3.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-amber-900/30 transition-all">
                 <i data-lucide="file-check" class="w-4 h-4"></i>
                 <span>Terbitkan Naskah Perjanjian Resmi</span>
               </button>
+
+              <!-- INLINE STEP-BY-STEP PROGRESS CARD -->
+              <div id="perjanjian-progress-card" class="hidden p-4 rounded-2xl border border-amber-500/40 bg-amber-500/10 space-y-2.5 transition-all shadow-sm">
+                <div class="flex items-center justify-between text-xs font-bold text-amber-500">
+                  <span class="flex items-center gap-2">
+                    <i id="progress-card-icon" data-lucide="loader" class="w-4 h-4 animate-spin text-amber-500"></i>
+                    <span id="progress-card-title">Menerbitkan Surat Perjanjian...</span>
+                  </span>
+                  <span id="progress-card-percent" class="font-mono text-xs font-extrabold bg-amber-500/20 px-2 py-0.5 rounded-lg border border-amber-500/30">20%</span>
+                </div>
+                
+                <!-- Progress Bar -->
+                <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                  <div id="progress-card-bar" class="bg-gradient-to-r from-amber-500 to-emerald-500 h-2.5 rounded-full transition-all duration-700" style="width: 20%"></div>
+                </div>
+
+                <div class="flex items-center justify-between text-[11px] ${textSecondary}">
+                  <span id="progress-card-step" class="font-medium text-amber-400">Langkah 1/3: Mengirim data ke server Google Cloud...</span>
+                  <span id="progress-card-eta" class="text-[10px] font-semibold text-amber-500/80">Estimasi ~20 detik</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -434,6 +455,13 @@ export function renderPerjanjianView(container, initialKiosId = null) {
     };
   }
 
+  const progressCard = container.querySelector('#perjanjian-progress-card');
+  const progressPercent = container.querySelector('#progress-card-percent');
+  const progressBar = container.querySelector('#progress-card-bar');
+  const progressStep = container.querySelector('#progress-card-step');
+  const progressTitle = container.querySelector('#progress-card-title');
+  const progressEta = container.querySelector('#progress-card-eta');
+
   // 1. GENERATE INSTANT PDF
   btnGenerateInstant.addEventListener('click', async () => {
     if (!selectedKiosk) {
@@ -444,17 +472,42 @@ export function renderPerjanjianView(container, initialKiosId = null) {
     const itemData = buildPerjanjianData(selectedKiosk);
     const originalBtnContent = btnGenerateInstant.innerHTML;
     btnGenerateInstant.disabled = true;
-    btnGenerateInstant.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin text-white"></i><span>Memproses Google Docs & Konversi PDF... (Mohon Tunggu)</span>`;
+    btnGenerateInstant.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin text-white"></i><span>Menerbitkan Naskah Perjanjian...</span>`;
     if (window.lucide) window.lucide.createIcons();
 
-    const progressTimer = setTimeout(() => {
-      btnGenerateInstant.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin text-white"></i><span>Menyimpan PDF ke Google Drive & Database...</span>`;
-      if (window.lucide) window.lucide.createIcons();
-    }, 10000);
+    // Show and Reset Progress Card
+    if (progressCard) {
+      progressCard.classList.remove('hidden');
+      progressTitle.innerText = `Memproses Naskah ${itemData.blok_kios} (${itemData.nama_pedagang})...`;
+      progressPercent.innerText = '25%';
+      progressBar.style.width = '25%';
+      progressBar.className = 'bg-gradient-to-r from-amber-500 to-emerald-500 h-2.5 rounded-full transition-all duration-700';
+      progressStep.innerText = 'Langkah 1/3: Mengirim data ke server Google Cloud...';
+      progressEta.innerText = 'Estimasi ~20 detik';
+    }
+
+    const t1 = setTimeout(() => {
+      if (progressCard) {
+        progressPercent.innerText = '60%';
+        progressBar.style.width = '60%';
+        progressStep.innerText = 'Langkah 2/3: Menginjeksi naskah Google Docs (8 Pasal & Terbilang)...';
+        progressEta.innerText = 'Estimasi ~12 detik';
+      }
+    }, 4000);
+
+    const t2 = setTimeout(() => {
+      if (progressCard) {
+        progressPercent.innerText = '85%';
+        progressBar.style.width = '85%';
+        progressStep.innerText = 'Langkah 3/3: Mengonversi ke PDF & Menyimpan di Google Drive...';
+        progressEta.innerText = 'Estimasi ~5 detik';
+      }
+    }, 12000);
 
     try {
       const res = await spreadsheetService.generateRemotePerjanjianDoc(itemData);
-      clearTimeout(progressTimer);
+      clearTimeout(t1);
+      clearTimeout(t2);
 
       // Save local history log
       spreadsheetService.savePerjanjianLog({
@@ -467,6 +520,14 @@ export function renderPerjanjianView(container, initialKiosId = null) {
         driveUrl: res?.pdfUrl || '',
         fileName: res?.fileName || `Perjanjian_${itemData.blok_kios}.pdf`
       });
+
+      if (progressCard) {
+        progressPercent.innerText = '100%';
+        progressBar.style.width = '100%';
+        progressBar.className = 'bg-emerald-500 h-2.5 rounded-full transition-all duration-300';
+        progressStep.innerText = '✅ Selesai! Naskah Perjanjian berhasil tersimpan di Google Drive.';
+        progressEta.innerText = 'Sukses';
+      }
 
       if (res && res.status === 'success' && res.pdfUrl) {
         statusAlertBox.classList.remove('hidden');
@@ -491,16 +552,20 @@ export function renderPerjanjianView(container, initialKiosId = null) {
         statusAlertBox.classList.remove('hidden');
         statusAlertText.innerText = `Surat Perjanjian berhasil diterbitkan & diunduh (${fileName})`;
       }
-      setTimeout(() => statusAlertBox.classList.add('hidden'), 15000);
 
     } catch (err) {
-      clearTimeout(progressTimer);
+      clearTimeout(t1);
+      clearTimeout(t2);
       console.warn('Error generating perjanjian:', err);
+      if (progressCard) {
+        progressCard.classList.add('hidden');
+      }
       const doc = pdfService.generateSuratPerjanjian(itemData);
       const fileName = `Surat_Perjanjian_${itemData.blok_kios.replace(/\s+/g, '_')}_${itemData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
       doc.save(fileName);
     } finally {
-      clearTimeout(progressTimer);
+      clearTimeout(t1);
+      clearTimeout(t2);
       btnGenerateInstant.disabled = false;
       btnGenerateInstant.innerHTML = originalBtnContent;
       if (window.lucide) window.lucide.createIcons();
