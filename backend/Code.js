@@ -250,8 +250,8 @@ function handleGeneratePerjanjianDoc(data) {
       'biaya_sewa_terbilang': data.biaya_sewa_terbilang || 'Dua Ratus Lima Puluh Ribu Rupiah',
       'tgl_mulai': data.tgl_mulai || '2 September 2026',
       'tgl_selesai': data.tgl_selesai || '2 September 2027',
-      'saksi1': data.saksi1 || '..............................',
-      'saksi2': data.saksi2 || '..............................'
+      'saksi1': data.saksi1 || '',
+      'saksi2': data.saksi2 || ''
     };
 
     if (templateFile) {

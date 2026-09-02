@@ -429,8 +429,8 @@ export function renderPerjanjianView(container, initialKiosId = null) {
       biaya_sewa_terbilang: terbilangSewa,
       tgl_mulai: inputTglMulai.value.trim() || defaultDateStr,
       tgl_selesai: inputTglSelesai.value.trim() || defaultNextYearDateStr,
-      saksi1: inputSaksi1.value.trim() || '..............................',
-      saksi2: inputSaksi2.value.trim() || '..............................'
+      saksi1: inputSaksi1.value.trim() || '',
+      saksi2: inputSaksi2.value.trim() || ''
     };
   }
 
@@ -444,16 +444,22 @@ export function renderPerjanjianView(container, initialKiosId = null) {
     const itemData = buildPerjanjianData(selectedKiosk);
     const originalBtnContent = btnGenerateInstant.innerHTML;
     btnGenerateInstant.disabled = true;
-    btnGenerateInstant.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin text-white"></i><span>Menerbitkan Naskah Perjanjian...</span>`;
+    btnGenerateInstant.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin text-white"></i><span>Memproses Google Docs & Konversi PDF... (Mohon Tunggu)</span>`;
     if (window.lucide) window.lucide.createIcons();
+
+    const progressTimer = setTimeout(() => {
+      btnGenerateInstant.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin text-white"></i><span>Menyimpan PDF ke Google Drive & Database...</span>`;
+      if (window.lucide) window.lucide.createIcons();
+    }, 10000);
 
     try {
       const res = await spreadsheetService.generateRemotePerjanjianDoc(itemData);
+      clearTimeout(progressTimer);
 
       // Save local history log
       spreadsheetService.savePerjanjianLog({
         nomorPerjanjian: itemData.nomor_perjanjian,
-        tanggal: itemData.tanggal,
+        tanggal: itemData.tanggal_lengkap || itemData.tanggal,
         namaPedagang: itemData.nama_pedagang,
         blok: itemData.blok_kios,
         pasar: itemData.jenis_pasar,
@@ -464,8 +470,20 @@ export function renderPerjanjianView(container, initialKiosId = null) {
 
       if (res && res.status === 'success' && res.pdfUrl) {
         statusAlertBox.classList.remove('hidden');
-        statusAlertText.innerText = `✅ Surat Perjanjian ${itemData.blok_kios} tersimpan di Google Drive: ${res.folderPath || 'Pasar'} / ${res.fileName}`;
-        window.open(res.pdfUrl, '_blank');
+        statusAlertText.innerHTML = `
+          <div class="flex flex-col gap-1.5 py-1">
+            <div class="font-extrabold text-amber-500 flex items-center gap-1.5">
+              <span>✅ Surat Perjanjian ${itemData.blok_kios} (${itemData.nama_pedagang}) Berhasil Diterbitkan!</span>
+            </div>
+            <span class="text-[11px] font-normal ${textSecondary}">Tersimpan di Google Drive: <b>${res.folderPath || 'Pasar'} / ${res.fileName}</b></span>
+            <a href="${res.pdfUrl}" target="_blank" class="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 px-3.5 py-1.5 rounded-xl text-xs font-extrabold w-fit mt-1 shadow-md transition-all">
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+              <span>Buka & Cetak Naskah PDF di Google Drive ↗</span>
+            </a>
+          </div>
+        `;
+        if (window.lucide) window.lucide.createIcons();
+        try { window.open(res.pdfUrl, '_blank'); } catch(e) {}
       } else {
         const doc = pdfService.generateSuratPerjanjian(itemData);
         const fileName = `Surat_Perjanjian_${itemData.blok_kios.replace(/\s+/g, '_')}_${itemData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
@@ -473,14 +491,16 @@ export function renderPerjanjianView(container, initialKiosId = null) {
         statusAlertBox.classList.remove('hidden');
         statusAlertText.innerText = `Surat Perjanjian berhasil diterbitkan & diunduh (${fileName})`;
       }
-      setTimeout(() => statusAlertBox.classList.add('hidden'), 8000);
+      setTimeout(() => statusAlertBox.classList.add('hidden'), 15000);
 
     } catch (err) {
+      clearTimeout(progressTimer);
       console.warn('Error generating perjanjian:', err);
       const doc = pdfService.generateSuratPerjanjian(itemData);
       const fileName = `Surat_Perjanjian_${itemData.blok_kios.replace(/\s+/g, '_')}_${itemData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
       doc.save(fileName);
     } finally {
+      clearTimeout(progressTimer);
       btnGenerateInstant.disabled = false;
       btnGenerateInstant.innerHTML = originalBtnContent;
       if (window.lucide) window.lucide.createIcons();
