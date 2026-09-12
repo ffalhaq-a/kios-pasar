@@ -1,5 +1,6 @@
 import { GOOGLE_API_URL, authService } from './AuthService.js';
 import { escapeHTML, sanitizeFormulaInput, API_SECURITY_TOKEN } from '../utils/security.js';
+import { generateInitialKiosks } from '../data/initialKiosks.js';
 
 /**
  * Format any date string, ISO timestamp, or Google Sheets Date representation into clean DD/MM/YYYY format without time
@@ -61,7 +62,13 @@ class SpreadsheetService {
       }
     }
 
-    return [];
+    // Instant Fallback Seed for Incognito / New Devices (Guarantees 610 units instantly)
+    const initialSeed = generateInitialKiosks();
+    try {
+      localStorage.setItem(this.storageKey, JSON.stringify(initialSeed));
+      window._kioskData = initialSeed;
+    } catch (e) {}
+    return initialSeed;
   }
 
   async fetchRemoteKiosks() {
