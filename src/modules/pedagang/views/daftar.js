@@ -2,6 +2,7 @@ import { spreadsheetService, formatDateDDMMYYYY } from '../../../services/Spread
 import { themeManager } from '../../../shell/ThemeManager.js';
 import { rateService } from '../../../services/RateService.js';
 import { pdfService, toTitleCase, angkaKeTerbilang } from '../../../services/PdfService.js';
+import { escapeHTML } from '../../../utils/security.js';
 
 export function renderDaftarPedagangView(container) {
   const isDark = themeManager.isDark();

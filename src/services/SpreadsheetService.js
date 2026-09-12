@@ -428,7 +428,7 @@ class SpreadsheetService {
   /**
    * Fetch fresh real-time histori logs (Perjanjian & Kwitansi) from Google Sheets (HISTORI)
    */
-  async fetchRemoteHistori() {
+  async fetchRemoteHistori(skipNotify = false) {
     try {
       const res = await fetch(`${GOOGLE_API_URL}?action=getHistori&apiToken=${encodeURIComponent(API_SECURITY_TOKEN)}`, {
         redirect: 'follow'
@@ -472,7 +472,7 @@ class SpreadsheetService {
 
         localStorage.setItem('pasar_buku_perjanjian_logs_v1', JSON.stringify(perjanjian));
         localStorage.setItem('pasar_buku_kwitansi_logs_v1', JSON.stringify(kwitansi));
-        this.notify();
+        if (!skipNotify) this.notify();
         return { success: true, count: json.data.length, perjanjian, kwitansi };
       }
     } catch (e) {
@@ -565,7 +565,7 @@ class SpreadsheetService {
    */
   async silentAutoSync() {
     try {
-      await this.fetchRemoteHistori();
+      await this.fetchRemoteHistori(true);
     } catch (e) {
       // Silent catch
     }

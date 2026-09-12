@@ -6,7 +6,7 @@ export function renderAgendaSuratView(container) {
   if (!container) return;
 
   const isDark = themeManager.isDark();
-  let currentTab = 'surat'; // 'surat' | 'perjanjian' | 'kwitansi'
+  let currentTab = window._agendaCurrentTab || 'surat'; // 'surat' | 'perjanjian' | 'kwitansi'
 
   let agendaLogs = spreadsheetService.getAgendaLogs() || [];
   let perjanjianLogs = spreadsheetService.getPerjanjianLogs() || [];
@@ -45,17 +45,15 @@ export function renderAgendaSuratView(container) {
 
       <!-- NAVIGATION TABS -->
       <div class="flex border-b border-slate-700/60 gap-2 overflow-x-auto pb-1">
-        <button id="tab-btn-surat" class="px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+        <button id="tab-btn-surat" class="px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all ${currentTab === 'surat' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-extrabold' : 'text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 border border-transparent'}">
           <i data-lucide="file-text" class="w-4 h-4"></i>
           <span>Surat Pemberitahuan (${agendaLogs.length})</span>
         </button>
-
-        <button id="tab-btn-perjanjian" class="px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 border border-transparent">
+        <button id="tab-btn-perjanjian" class="px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${currentTab === 'perjanjian' ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30 font-extrabold' : 'text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 border border-transparent'}">
           <i data-lucide="file-signature" class="w-4 h-4"></i>
           <span>Surat Perjanjian Kontrak (${perjanjianLogs.length})</span>
         </button>
-
-        <button id="tab-btn-kwitansi" class="px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all text-slate-400 hover:text-sky-400 hover:bg-sky-500/10 border border-transparent">
+        <button id="tab-btn-kwitansi" class="px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${currentTab === 'kwitansi' ? 'bg-sky-500/15 text-sky-400 border border-sky-500/30 font-extrabold' : 'text-slate-400 hover:text-sky-400 hover:bg-sky-500/10 border border-transparent'}">
           <i data-lucide="receipt" class="w-4 h-4"></i>
           <span>Kwitansi Kas Desa (${kwitansiLogs.length})</span>
         </button>
@@ -262,6 +260,7 @@ export function renderAgendaSuratView(container) {
 
   function setTab(tab) {
     currentTab = tab;
+    window._agendaCurrentTab = tab;
     tabBtnSurat.className = `px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${tab === 'surat' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-extrabold' : 'text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 border border-transparent'}`;
     tabBtnPerjanjian.className = `px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${tab === 'perjanjian' ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30 font-extrabold' : 'text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 border border-transparent'}`;
     tabBtnKwitansi.className = `px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${tab === 'kwitansi' ? 'bg-sky-500/15 text-sky-400 border border-sky-500/30 font-extrabold' : 'text-slate-400 hover:text-sky-400 hover:bg-sky-500/10 border border-transparent'}`;
