@@ -438,10 +438,24 @@ class SpreadsheetService {
         const perjanjian = [];
         const kwitansi = [];
         
+        // Track cancelled documents
+        const cancelledPerjanjianNos = new Set();
+        json.data.forEach(item => {
+          const jenis = String(item.jenisTindakan || '').toUpperCase();
+          const detail = String(item.detail || '').toUpperCase();
+          if (jenis.includes('BATAL') || jenis.includes('HAPUS') || detail.includes('PEMBATALAN') || detail.includes('DIHAPUS')) {
+            if (item.noDokumen && item.noDokumen !== '-') cancelledPerjanjianNos.add(String(item.noDokumen).trim());
+          }
+        });
+
         json.data.forEach((item, idx) => {
           const jenis = String(item.jenisTindakan || '').toUpperCase();
-          const noDoc = String(item.noDokumen || '').toUpperCase();
+          const noDoc = String(item.noDokumen || '').toUpperCase().trim();
           const detail = String(item.detail || '');
+
+          if (jenis.includes('BATAL') || jenis.includes('HAPUS') || cancelledPerjanjianNos.has(item.noDokumen)) {
+            return; // Skip cancelled / deleted entries
+          }
 
           if (jenis.includes('PERJANJIAN') || noDoc.includes('PRJ') || noDoc.includes('511.2')) {
             perjanjian.push({
@@ -535,6 +549,9 @@ class SpreadsheetService {
    * Delete Surat Perjanjian on Google Sheet & Google Drive
    */
   async deleteRemotePerjanjianDoc(nomorPerjanjian, driveUrl = '') {
+    // 1. Instantly delete from local state for immediate responsive UI
+    this.deleteLocalPerjanjianLog(nomorPerjanjian);
+
     try {
       const res = await fetch(GOOGLE_API_URL, {
         method: 'POST',
@@ -548,14 +565,9 @@ class SpreadsheetService {
         redirect: 'follow'
       });
       const data = await res.json();
-      if (data && data.status === 'success') {
-        this.deleteLocalPerjanjianLog(nomorPerjanjian);
-      }
       return data;
     } catch (e) {
       console.warn('Error deleting remote perjanjian:', e);
-      // Fallback local deletion
-      this.deleteLocalPerjanjianLog(nomorPerjanjian);
       return { status: 'success', localOnly: true };
     }
   }

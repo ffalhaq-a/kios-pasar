@@ -399,7 +399,19 @@ function handleDeletePerjanjian(params) {
       }
     }
 
-    // 2. Trash file di Google Drive jika ada URL
+    // 2. Hapus dari sheet HISTORI (agar riwayat terbitan lama terhapus bersih)
+    var hSheet = ss.getSheetByName('HISTORI');
+    if (hSheet) {
+      var hData = hSheet.getDataRange().getValues();
+      for (var hi = hData.length - 1; hi >= 1; hi--) {
+        var hDocNo = String(hData[hi][3] || '').trim(); // Kolom index 3: NO DOKUMEN / KIOS
+        if (hDocNo === nomorPerjanjian) {
+          hSheet.deleteRow(hi + 1);
+        }
+      }
+    }
+
+    // 3. Trash file di Google Drive jika ada URL
     if (driveUrl) {
       try {
         var fileIdMatch = driveUrl.match(/[-\w]{25,}/);
@@ -413,12 +425,6 @@ function handleDeletePerjanjian(params) {
         // Skip if file already deleted or not found
       }
     }
-
-    // 3. Catat di tab HISTORI
-    var blok = deletedRowData ? deletedRowData[8] : (params.blok || '-');
-    var pedagang = deletedRowData ? deletedRowData[5] : (params.namaPedagang || '-');
-    var kawasan = deletedRowData ? deletedRowData[9] : '-';
-    logToHistoriSheet(ss, 'PEMBATALAN PERJANJIAN', nomorPerjanjian, blok, kawasan, pedagang, 'Penghapusan / Pembatalan Surat Perjanjian No: ' + nomorPerjanjian, userOperator, driveUrl);
 
     return ContentService.createTextOutput(JSON.stringify({
       status: 'success',
