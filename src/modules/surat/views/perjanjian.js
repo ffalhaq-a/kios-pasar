@@ -540,12 +540,26 @@ export function renderPerjanjianView(container, initialKiosId = null) {
       }
 
       if (res && res.status === 'success' && res.pdfUrl) {
+        // Auto-update status kios lokal menjadi Sudah Bayar
+        if (currentTargetKiosk) {
+          currentTargetKiosk.keterangan = 'Sudah Bayar';
+          currentTargetKiosk.statusBayar = 'Sudah Bayar';
+          const allKiosks = spreadsheetService.loadKiosks();
+          const found = allKiosks.find(k => k.id === currentTargetKiosk.id);
+          if (found) {
+            found.keterangan = 'Sudah Bayar';
+            found.statusBayar = 'Sudah Bayar';
+            localStorage.setItem('pasar_kios_data_v1', JSON.stringify(allKiosks));
+          }
+        }
+
         statusAlertBox.classList.remove('hidden');
         statusAlertText.innerHTML = `
           <div class="flex flex-col gap-1.5 py-1">
             <div class="font-extrabold text-amber-500 flex items-center gap-1.5">
               <span>✅ Surat Perjanjian ${itemData.blok_kios} (${itemData.nama_pedagang}) Berhasil Diterbitkan!</span>
             </div>
+            <span class="text-[11px] font-normal ${textSecondary}">Status Pedagang otomatis diperbarui: <b>Sudah Bayar (Lunas)</b></span>
             <span class="text-[11px] font-normal ${textSecondary}">Tersimpan di Google Drive: <b>${res.folderPath || 'Pasar'} / ${res.fileName}</b></span>
             <a href="${res.pdfUrl}" target="_blank" class="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 px-3.5 py-1.5 rounded-xl text-xs font-extrabold w-fit mt-1 shadow-md transition-all">
               <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
@@ -579,6 +593,15 @@ export function renderPerjanjianView(container, initialKiosId = null) {
       btnGenerateInstant.disabled = false;
       btnGenerateInstant.innerHTML = originalBtnContent;
       if (window.lucide) window.lucide.createIcons();
+    }
+  });
+
+  // Background Silent Auto-Sync on Mount to ensure real-time next sequence number
+  spreadsheetService.silentAutoSync().then(() => {
+    const latestLogs = spreadsheetService.getPerjanjianLogs() || [];
+    const latestSmartNo = getSmartNextNumber('perjanjian', latestLogs);
+    if (inputNo && (!inputNo.value || inputNo.value === '001 / KRPC / 2026')) {
+      inputNo.value = latestSmartNo;
     }
   });
 }

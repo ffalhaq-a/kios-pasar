@@ -519,6 +519,58 @@ class SpreadsheetService {
     }
   }
 
+  deleteLocalPerjanjianLog(nomorPerjanjian) {
+    try {
+      const key = 'pasar_buku_perjanjian_logs_v1';
+      const existing = this.getPerjanjianLogs();
+      const filtered = existing.filter(item => item.nomorPerjanjian !== nomorPerjanjian && item.id !== nomorPerjanjian);
+      localStorage.setItem(key, JSON.stringify(filtered));
+      this.notify();
+    } catch (e) {
+      console.warn('Error deleting local perjanjian log:', e);
+    }
+  }
+
+  /**
+   * Delete Surat Perjanjian on Google Sheet & Google Drive
+   */
+  async deleteRemotePerjanjianDoc(nomorPerjanjian, driveUrl = '') {
+    try {
+      const res = await fetch(GOOGLE_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'deletePerjanjian',
+          apiToken: API_SECURITY_TOKEN,
+          nomor_perjanjian: nomorPerjanjian,
+          driveUrl: driveUrl
+        }),
+        redirect: 'follow'
+      });
+      const data = await res.json();
+      if (data && data.status === 'success') {
+        this.deleteLocalPerjanjianLog(nomorPerjanjian);
+      }
+      return data;
+    } catch (e) {
+      console.warn('Error deleting remote perjanjian:', e);
+      // Fallback local deletion
+      this.deleteLocalPerjanjianLog(nomorPerjanjian);
+      return { status: 'success', localOnly: true };
+    }
+  }
+
+  /**
+   * Silent background auto-sync to ensure cross-device consistency without manual clicks
+   */
+  async silentAutoSync() {
+    try {
+      await this.fetchRemoteHistori();
+    } catch (e) {
+      // Silent catch
+    }
+  }
+
   // ==========================================
   // KWITANSI HISTORY LOGS
   // ==========================================

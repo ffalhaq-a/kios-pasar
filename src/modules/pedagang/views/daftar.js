@@ -30,18 +30,31 @@ export function renderDaftarPedagangView(container) {
   const rowHover = isDark ? 'hover:bg-slate-900/80 border-slate-800/60' : 'hover:bg-slate-50 border-slate-200/80';
   const inputBg = isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900';
 
-  // Active Filter States (Default: ALL or consumed from window._initialPedagangFilter)
+  // Active Filter States (Persistent across modal edit & re-renders)
+  const savedFilterState = window._daftarPedagangFilterState || {};
   const initialFilter = window._initialPedagangFilter || {};
-  let currentZoneFilter = initialFilter.zona || 'ALL';
-  let currentBlokFilter = initialFilter.blok || 'ALL';
-  let currentStatusFilter = initialFilter.statusBayar || initialFilter.status || 'ALL';
-  let currentTipeFilter = initialFilter.tipe || 'ALL';
-  let currentSearch = initialFilter.search || '';
+  let currentZoneFilter = initialFilter.zona || savedFilterState.zona || 'ALL';
+  let currentBlokFilter = initialFilter.blok || savedFilterState.blok || 'ALL';
+  let currentStatusFilter = initialFilter.statusBayar || initialFilter.status || savedFilterState.status || 'ALL';
+  let currentTipeFilter = initialFilter.tipe || savedFilterState.tipe || 'ALL';
+  let currentSearch = initialFilter.search !== undefined ? initialFilter.search : (savedFilterState.search !== undefined ? savedFilterState.search : '');
   window._initialPedagangFilter = null; // Clear after consumption
   
   // Pagination State
-  let currentPage = 1;
-  let pageSize = 10;
+  let currentPage = savedFilterState.page || 1;
+  let pageSize = savedFilterState.pageSize || 10;
+
+  function persistFilterState() {
+    window._daftarPedagangFilterState = {
+      zona: currentZoneFilter,
+      blok: currentBlokFilter,
+      status: currentStatusFilter,
+      tipe: currentTipeFilter,
+      search: currentSearch,
+      page: currentPage,
+      pageSize: pageSize
+    };
+  }
 
   function refreshKiosksState() {
     kiosks = spreadsheetService.loadKiosks();
@@ -398,6 +411,7 @@ export function renderDaftarPedagangView(container) {
             <input 
               type="text" 
               id="search-input"
+              value="${escapeHTML(currentSearch)}"
               placeholder="Cari blok, nama, desa, usaha..." 
               class="w-full rounded-xl pl-9 pr-4 py-2 text-xs border transition-all ${
                 isDark 
@@ -630,6 +644,7 @@ export function renderDaftarPedagangView(container) {
     searchInput.addEventListener('input', (e) => {
       currentSearch = e.target.value;
       currentPage = 1;
+      persistFilterState();
       renderTableContent();
     });
   }
@@ -640,6 +655,7 @@ export function renderDaftarPedagangView(container) {
     pasarSelect.addEventListener('change', (e) => {
       currentZoneFilter = e.target.value;
       currentPage = 1;
+      persistFilterState();
       renderTableContent();
     });
   }
@@ -649,6 +665,7 @@ export function renderDaftarPedagangView(container) {
     blokSelect.addEventListener('change', (e) => {
       currentBlokFilter = e.target.value;
       currentPage = 1;
+      persistFilterState();
       renderTableContent();
     });
   }
@@ -658,6 +675,7 @@ export function renderDaftarPedagangView(container) {
     statusSelect.addEventListener('change', (e) => {
       currentStatusFilter = e.target.value;
       currentPage = 1;
+      persistFilterState();
       renderTableContent();
     });
   }
@@ -667,6 +685,7 @@ export function renderDaftarPedagangView(container) {
     tipeSelect.addEventListener('change', (e) => {
       currentTipeFilter = e.target.value;
       currentPage = 1;
+      persistFilterState();
       renderTableContent();
     });
   }
@@ -680,6 +699,8 @@ export function renderDaftarPedagangView(container) {
       currentStatusFilter = 'ALL';
       currentTipeFilter = 'ALL';
       currentSearch = '';
+      currentPage = 1;
+      window._daftarPedagangFilterState = null;
 
       if (pasarSelect) pasarSelect.value = 'ALL';
       if (blokSelect) blokSelect.value = 'ALL';
@@ -687,7 +708,6 @@ export function renderDaftarPedagangView(container) {
       if (tipeSelect) tipeSelect.value = 'ALL';
       if (searchInput) searchInput.value = '';
 
-      currentPage = 1;
       renderTableContent();
     });
   }
@@ -698,6 +718,7 @@ export function renderDaftarPedagangView(container) {
     pageSizeSelect.addEventListener('change', (e) => {
       pageSize = parseInt(e.target.value) || 10;
       currentPage = 1;
+      persistFilterState();
       renderTableContent();
     });
   }

@@ -34,6 +34,7 @@ function handleRequest(params) {
   if (action === 'login') return handleLogin(params);
   if (action === 'updateKios' || action === 'updateKiosk') return handleUpdateKios(params);
   if (action === 'generatePerjanjian') return handleGeneratePerjanjianDoc(params);
+  if (action === 'deletePerjanjian') return handleDeletePerjanjian(params);
   if (action === 'generateKwitansi') return handleGenerateKwitansiDoc(params);
   if (action === 'generateSuratPemberitahuan') return handleGenerateSuratPemberitahuan(params);
   if (action === 'getHistori') return handleGetHistori();
@@ -329,11 +330,99 @@ function handleGeneratePerjanjianDoc(data) {
     var detailHistori = 'Penerbitan Surat Perjanjian Kontrak 8 Pasal (Biaya Sewa: ' + replacements.biaya_sewa + ', Masa: ' + replacements.tgl_mulai + ' s/d ' + replacements.tgl_selesai + ')';
     logToHistoriSheet(ss, 'PENERBITAN PERJANJIAN', replacements.nomor_perjanjian, blokKios, marketSubfolderName, namaPedagang, detailHistori, userOperator, finalPdfFile.getUrl());
 
+    // 3. AUTO-UPDATE STATUS BAYAR PEDAGANG MENJADI 'Sudah Bayar' DI TAB PEDAGANG
+    try {
+      var pSheet = ss.getSheetByName('PEDAGANG');
+      if (pSheet) {
+        var pValues = pSheet.getDataRange().getValues();
+        var targetKiosId = String(data.kiosId || data.id || '').trim().toUpperCase();
+        var cleanTargetBlok = blokKios.replace(/^blok\s+/i, '').trim().toUpperCase();
+
+        for (var pi = 1; pi < pValues.length; pi++) {
+          var rowId = String(pValues[pi][1] || '').trim().toUpperCase();
+          var rowZona = String(pValues[pi][2] || '').trim().toUpperCase();
+          var rowBlok = String(pValues[pi][3] || '').trim().toUpperCase().replace(/^blok\s+/i, '');
+          var rowNama = String(pValues[pi][4] || '').trim().toUpperCase();
+
+          var isMatch = (targetKiosId && rowId === targetKiosId) ||
+                        (rowBlok === cleanTargetBlok && (rowZona.includes(marketSubfolderName) || !rowZona));
+
+          if (isMatch) {
+            // Kolom 14: KETERANGAN / STATUS BAYAR (1-indexed)
+            pSheet.getRange(pi + 1, 14).setValue('Sudah Bayar');
+            try { pSheet.getRange(pi + 1, 16).setValue(new Date().toISOString()); } catch(eDate) {}
+            break;
+          }
+        }
+      }
+    } catch(errPedagang) {
+      // Non-blocking update
+    }
+
     return ContentService.createTextOutput(JSON.stringify({
       status: 'success',
       fileName: finalPdfFile.getName(),
       pdfUrl: finalPdfFile.getUrl(),
       folderPath: marketSubfolderName + ' / ' + blockFolderName
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// =========================================================================
+// 3B. HAPUS / BATALKAN SURAT PERJANJIAN
+// =========================================================================
+function handleDeletePerjanjian(params) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var nomorPerjanjian = String(params.nomor_perjanjian || params.nomorPerjanjian || '').trim();
+    var driveUrl = String(params.driveUrl || params.pdfUrl || '').trim();
+    var userOperator = params.user || 'Admin';
+
+    if (!nomorPerjanjian) {
+      return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Nomor perjanjian tidak boleh kosong' })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 1. Hapus dari sheet Buku_Perjanjian_Sewa
+    var pSheet = ss.getSheetByName('Buku_Perjanjian_Sewa');
+    var deletedRowData = null;
+    if (pSheet) {
+      var data = pSheet.getDataRange().getValues();
+      for (var i = data.length - 1; i >= 1; i--) {
+        var rowNo = String(data[i][1] || '').trim(); // Kolom index 1: NOMOR PERJANJIAN
+        if (rowNo === nomorPerjanjian) {
+          deletedRowData = data[i];
+          pSheet.deleteRow(i + 1);
+          break;
+        }
+      }
+    }
+
+    // 2. Trash file di Google Drive jika ada URL
+    if (driveUrl) {
+      try {
+        var fileIdMatch = driveUrl.match(/[-\w]{25,}/);
+        if (fileIdMatch) {
+          var file = DriveApp.getFileById(fileIdMatch[0]);
+          if (file) {
+            file.setTrashed(true);
+          }
+        }
+      } catch(errDrive) {
+        // Skip if file already deleted or not found
+      }
+    }
+
+    // 3. Catat di tab HISTORI
+    var blok = deletedRowData ? deletedRowData[8] : (params.blok || '-');
+    var pedagang = deletedRowData ? deletedRowData[5] : (params.namaPedagang || '-');
+    var kawasan = deletedRowData ? deletedRowData[9] : '-';
+    logToHistoriSheet(ss, 'PEMBATALAN PERJANJIAN', nomorPerjanjian, blok, kawasan, pedagang, 'Penghapusan / Pembatalan Surat Perjanjian No: ' + nomorPerjanjian, userOperator, driveUrl);
+
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success',
+      message: 'Surat perjanjian ' + nomorPerjanjian + ' berhasil dihapus'
     })).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
