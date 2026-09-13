@@ -553,6 +553,11 @@ export function renderPerjanjianView(container, initialKiosId = null) {
           }
         }
 
+        // Auto-advance next agreement number
+        const updatedLogs = spreadsheetService.getPerjanjianLogs() || [];
+        const nextSmartNo = getSmartNextNumber('perjanjian', updatedLogs);
+        if (inputNo) inputNo.value = nextSmartNo;
+
         statusAlertBox.classList.remove('hidden');
         statusAlertText.innerHTML = `
           <div class="flex flex-col gap-1.5 py-1">
@@ -574,7 +579,13 @@ export function renderPerjanjianView(container, initialKiosId = null) {
         const fileName = `Surat_Perjanjian_${itemData.blok_kios.replace(/\s+/g, '_')}_${itemData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
         doc.save(fileName);
         statusAlertBox.classList.remove('hidden');
-        statusAlertText.innerText = `Surat Perjanjian berhasil diterbitkan & diunduh (${fileName})`;
+        statusAlertText.innerHTML = `
+          <div class="flex flex-col gap-1 py-1">
+            <span class="font-extrabold text-amber-500">📄 Dokumen Surat Perjanjian Berhasil Diterbitkan & Diunduh</span>
+            <span class="text-[11px] font-normal ${textSecondary}">File PDF lokal (${fileName}) telah tersimpan di komputer Anda. Pastikan izin akses Google Apps Script telah disetel ke <i>Anyone</i> untuk sinkronisasi Google Drive.</span>
+          </div>
+        `;
+        if (window.lucide) window.lucide.createIcons();
       }
 
     } catch (err) {
