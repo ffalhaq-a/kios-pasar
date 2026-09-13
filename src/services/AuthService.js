@@ -5,8 +5,8 @@ import {
   API_SECURITY_TOKEN 
 } from '../utils/security.js';
 
-// Direct Google Apps Script Endpoint with built-in CORS & redirect follow (Version 17 - Sheet PEDAGANG)
-export const GOOGLE_API_URL = 'https://script.google.com/macros/s/AKfycbzGTU7gWu_FlR2NbWkuh4p2RL0XHnMa3szvQlZ2mO9LcbKITDuO8WF937rQ0lCKs_87/exec';
+// Direct Google Apps Script Endpoint with built-in CORS & redirect follow (Version 27 - Public Anyone)
+export const GOOGLE_API_URL = 'https://script.google.com/macros/s/AKfycbwngFeLGeZmVwxscBAtzyRfVHQWU6X9jfvXpdj6QGE_nFKcKVtBOWYH7kU4LtpCGbwJ/exec';
 
 class AuthService {
   constructor() {
