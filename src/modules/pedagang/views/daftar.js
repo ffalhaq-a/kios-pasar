@@ -906,10 +906,12 @@ export function renderDaftarPedagangView(container) {
     });
   }
 
-  // Subscribe to real-time updates from background cloud sync
+  // Subscribe to real-time updates from background cloud sync (only when active in DOM)
   spreadsheetService.subscribe(() => {
-    refreshKiosksState();
-    renderTableContent();
+    if (container && container.isConnected) {
+      refreshKiosksState();
+      renderTableContent();
+    }
   });
 
   // Auto trigger remote fetch if local store is empty

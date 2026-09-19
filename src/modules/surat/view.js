@@ -443,7 +443,22 @@ export function renderSuratView(container, targetKiosId = null) {
 
       spreadsheetService.logSuratToAgenda(agendaEntry, base64Data, fileName, selectedKiosk.zona || 'PASAR SANDANG').then(res => {
         if (res && res.success) {
-          statusAlertText.innerText = `✅ Surat ${cleanBlok} berhasil diunduh & dicatat di Google Drive / Buku Agenda Spreadsheet!`;
+          if (res.driveUrl) {
+            statusAlertBox.classList.remove('hidden');
+            statusAlertText.innerHTML = `
+              <div class="flex flex-col gap-1 py-1">
+                <span class="font-extrabold text-emerald-400">✅ Surat ${cleanBlok} (${letterData.nama_pedagang}) Tersimpan di Google Drive & Buku Agenda!</span>
+                <a href="${res.driveUrl}" target="_blank" class="inline-flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-3 py-1 rounded-xl text-xs font-extrabold w-fit mt-1 shadow-md transition-all">
+                  <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                  <span>Buka Surat PDF di Google Drive ↗</span>
+                </a>
+              </div>
+            `;
+            if (window.lucide) window.lucide.createIcons();
+            setTimeout(() => statusAlertBox.classList.add('hidden'), 8000);
+          } else {
+            statusAlertText.innerText = `✅ Surat ${cleanBlok} berhasil diunduh & dicatat di Google Drive / Buku Agenda Spreadsheet!`;
+          }
         }
       });
     } catch (err) {

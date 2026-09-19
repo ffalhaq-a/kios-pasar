@@ -38,6 +38,7 @@ function handleRequest(params) {
   if (action === 'generateKwitansi') return handleGenerateKwitansiDoc(params);
   if (action === 'deleteKwitansi') return handleDeleteKwitansi(params);
   if (action === 'generateSuratPemberitahuan') return handleGenerateSuratPemberitahuan(params);
+  if (action === 'deleteSurat') return handleDeleteSurat(params);
   if (action === 'getHistori') return handleGetHistori();
   if (action === 'getAgendaSurat') return handleGetAgendaSurat();
   if (action === 'logSurat') return handleLogSurat(params);
@@ -683,6 +684,70 @@ function handleDeleteKwitansi(params) {
     return ContentService.createTextOutput(JSON.stringify({
       status: 'success',
       message: 'Kwitansi ' + nomorKwitansi + ' berhasil dibatalkan dan dihapus'
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// =========================================================================
+// 4C. HAPUS / BATALKAN SURAT PEMBERITAHUAN
+// =========================================================================
+function handleDeleteSurat(params) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var nomorSurat = String(params.nomor_surat || params.nomorSurat || '').trim();
+    var driveUrl = String(params.driveUrl || params.pdfUrl || '').trim();
+    var userOperator = params.user || 'Admin';
+
+    if (!nomorSurat) {
+      return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Nomor surat tidak boleh kosong' })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 1. Hapus dari Buku_Agenda_Surat
+    var sheet = ss.getSheetByName('Buku_Agenda_Surat');
+    if (sheet) {
+      var data = sheet.getDataRange().getValues();
+      for (var i = data.length - 1; i >= 1; i--) {
+        var rowNo = String(data[i][1] || '').trim();
+        if (rowNo === nomorSurat) {
+          sheet.deleteRow(i + 1);
+          break;
+        }
+      }
+    }
+
+    // 2. Hapus dari HISTORI
+    var hSheet = ss.getSheetByName('HISTORI');
+    if (hSheet) {
+      var hData = hSheet.getDataRange().getValues();
+      for (var hi = hData.length - 1; hi >= 1; hi--) {
+        var hDocNo = String(hData[hi][3] || '').trim();
+        if (hDocNo === nomorSurat) {
+          hSheet.deleteRow(hi + 1);
+        }
+      }
+    }
+
+    // 3. Trash file di Google Drive jika ada URL
+    if (driveUrl) {
+      try {
+        var fileIdMatch = driveUrl.match(/[-\w]{25,}/);
+        if (fileIdMatch) {
+          var file = DriveApp.getFileById(fileIdMatch[0]);
+          if (file) {
+            file.setTrashed(true);
+          }
+        }
+      } catch(errDrive) {}
+    }
+
+    // 4. Catat Pembatalan ke HISTORI
+    logToHistoriSheet(ss, 'PEMBATALAN SURAT', nomorSurat, '-', '-', '-', 'Pembatalan & Penghapusan Surat Pemberitahuan', userOperator, driveUrl);
+
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success',
+      message: 'Surat Pemberitahuan ' + nomorSurat + ' berhasil dihapus'
     })).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() })).setMimeType(ContentService.MimeType.JSON);

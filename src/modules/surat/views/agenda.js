@@ -129,6 +129,7 @@ export function renderAgendaSuratView(container) {
           <th class="px-4 py-3">Tujuan / Pedagang</th>
           <th class="px-4 py-3">Perihal</th>
           <th class="px-4 py-3">Keterangan / Link Drive</th>
+          <th class="px-4 py-3 text-center w-20">Aksi</th>
         </tr>
       `;
 
@@ -164,6 +165,11 @@ export function renderAgendaSuratView(container) {
                   <span>Buka PDF Google Drive</span>
                 </a>
               ` : `<span class="text-slate-500 text-[11px]">${escapeHTML(item.ket || 'Tercatat')}</span>`}
+            </td>
+            <td class="px-4 py-3 text-center">
+              <button class="btn-delete-surat p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition-all" data-no="${escapeHTML(item.nomorSurat || '')}" data-url="${escapeHTML(driveUrl || '')}" title="Hapus / Batalkan Surat Pemberitahuan">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
             </td>
           </tr>
         `;
@@ -385,9 +391,44 @@ export function renderAgendaSuratView(container) {
       renderTable();
       return;
     }
+
+    // 3. Delete Surat Pemberitahuan
+    const btnDelSurat = e.target.closest('.btn-delete-surat');
+    if (btnDelSurat) {
+      const noSurat = btnDelSurat.getAttribute('data-no');
+      const driveUrl = btnDelSurat.getAttribute('data-url');
+      if (!noSurat) return;
+
+      const confirmed = confirm(`Apakah Anda yakin ingin membatalkan & menghapus Surat Pemberitahuan:\n${noSurat}?\n\nFile di Google Drive dan catatan buku agenda akan dihapus.`);
+      if (!confirmed) return;
+
+      btnDelSurat.disabled = true;
+      btnDelSurat.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin text-rose-500"></i>`;
+      if (window.lucide) window.lucide.createIcons();
+
+      await spreadsheetService.deleteRemoteSuratDoc(noSurat, driveUrl);
+      agendaLogs = spreadsheetService.getAgendaLogs() || [];
+      tabBtnSurat.querySelector('span').innerText = `Surat Pemberitahuan (${agendaLogs.length})`;
+      renderTable();
+      return;
+    }
   });
 
   renderTable();
+
+  // Subscribe to updates when active in DOM
+  spreadsheetService.subscribe(() => {
+    if (container && container.isConnected) {
+      agendaLogs = spreadsheetService.getAgendaLogs() || [];
+      perjanjianLogs = spreadsheetService.getPerjanjianLogs() || [];
+      kwitansiLogs = spreadsheetService.getKwitansiLogs() || [];
+
+      if (tabBtnSurat) tabBtnSurat.querySelector('span').innerText = `Surat Pemberitahuan (${agendaLogs.length})`;
+      if (tabBtnPerjanjian) tabBtnPerjanjian.querySelector('span').innerText = `Surat Perjanjian Kontrak (${perjanjianLogs.length})`;
+      if (tabBtnKwitansi) tabBtnKwitansi.querySelector('span').innerText = `Kwitansi Kas Desa (${kwitansiLogs.length})`;
+      renderTable();
+    }
+  });
 
   // Background Silent Auto-Sync on Mount
   spreadsheetService.silentAutoSync().then(() => {

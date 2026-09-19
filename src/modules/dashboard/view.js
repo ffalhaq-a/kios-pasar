@@ -431,4 +431,12 @@ export function renderDashboardView(container) {
       if (path && window._navigate) window._navigate(path);
     });
   });
+
+  // Subscribe to live updates (only re-render if view container is actively connected in DOM)
+  spreadsheetService.subscribe(() => {
+    if (container && container.isConnected) {
+      renderDashboardView(container);
+      if (window.lucide) window.lucide.createIcons();
+    }
+  });
 }

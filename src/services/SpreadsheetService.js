@@ -668,6 +668,44 @@ class SpreadsheetService {
     }
   }
 
+  deleteLocalAgendaLog(nomorSurat) {
+    try {
+      const localAgendaKey = 'pasar_buku_agenda_surat_v1';
+      const existing = this.getAgendaLogs();
+      const filtered = existing.filter(item => item.nomorSurat !== nomorSurat && item.id !== nomorSurat);
+      localStorage.setItem(localAgendaKey, JSON.stringify(filtered));
+      this.notify();
+    } catch (e) {
+      console.warn('Error deleting local agenda log:', e);
+    }
+  }
+
+  /**
+   * Delete Surat Pemberitahuan on Google Sheet & Google Drive
+   */
+  async deleteRemoteSuratDoc(nomorSurat, driveUrl = '') {
+    this.deleteLocalAgendaLog(nomorSurat);
+
+    try {
+      const res = await fetch(GOOGLE_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'deleteSurat',
+          apiToken: API_SECURITY_TOKEN,
+          nomor_surat: nomorSurat,
+          driveUrl: driveUrl
+        }),
+        redirect: 'follow'
+      });
+      const data = await res.json();
+      return data;
+    } catch (e) {
+      console.warn('Error deleting remote surat:', e);
+      return { status: 'success', localOnly: true };
+    }
+  }
+
   /**
    * Log Surat Perjanjian to Google Sheets & Google Drive
    */

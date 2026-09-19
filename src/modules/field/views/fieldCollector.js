@@ -17,6 +17,8 @@ export function renderFieldCollectorView(container) {
 
   function renderContent() {
     const k = getSelectedKiosk();
+    const isOccupied = Boolean(k.pedagang && k.pedagang !== '-');
+    const isLunas = String(k.statusBayar || '').toLowerCase() === 'lunas';
 
     container.innerHTML = `
       <div class="p-4 md:p-6 space-y-5 max-w-2xl mx-auto overflow-y-auto h-full ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}">
@@ -60,12 +62,20 @@ export function renderFieldCollectorView(container) {
               <h3 class="text-base font-extrabold ${textPrimary}">Blok ${k.blokKode || k.id}</h3>
               <p class="text-[11px] ${textSecondary} font-mono">${k.zona} • QR: ${k.qrCode || 'QR-' + k.id}</p>
             </div>
-            <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase ${
-              k.status === 'terisi' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/30' :
-              'bg-rose-500/10 text-rose-500 border border-rose-500/30'
-            }">
-              ${k.status === 'terisi' ? 'TERISI' : 'KOSONG'}
-            </span>
+            <div class="flex items-center gap-2">
+              <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                isOccupied ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/30' :
+                'bg-slate-500/10 text-slate-400 border border-slate-500/30'
+              }">
+                ${isOccupied ? 'TERISI' : 'KOSONG'}
+              </span>
+              <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                isLunas ? 'bg-sky-500/10 text-sky-400 border border-sky-500/30' :
+                'bg-rose-500/10 text-rose-500 border border-rose-500/30'
+              }">
+                ${isLunas ? 'LUNAS' : 'BELUM BAYAR'}
+              </span>
+            </div>
           </div>
 
           <!-- Photo Upload Preview Section -->
@@ -86,10 +96,10 @@ export function renderFieldCollectorView(container) {
 
           <!-- Status Dropdown -->
           <div>
-            <label class="text-xs font-semibold ${textSecondary} block mb-1">Status Lapangan:</label>
+            <label class="text-xs font-semibold ${textSecondary} block mb-1">Status Ketersediaan Kios:</label>
             <select id="status-input" class="w-full min-h-[44px] p-3 rounded-xl text-xs font-medium border ${inputBg}">
-              <option value="terisi" ${k.status === 'terisi' ? 'selected' : ''}>🟢 Terisi (Aktif Beroperasi)</option>
-              <option value="kosong" ${k.status === 'kosong' ? 'selected' : ''}>🔴 Kosong (Tersedia Sewa)</option>
+              <option value="terisi" ${isOccupied ? 'selected' : ''}>🟢 Terisi (Aktif Beroperasi)</option>
+              <option value="kosong" ${!isOccupied ? 'selected' : ''}>🔴 Kosong (Tersedia Sewa)</option>
             </select>
           </div>
 
@@ -97,6 +107,15 @@ export function renderFieldCollectorView(container) {
           <div>
             <label class="text-xs font-semibold ${textSecondary} block mb-1">Nama Penyewa / Pedagang:</label>
             <input type="text" id="pedagang-input" value="${k.pedagang === '-' ? '' : k.pedagang}" placeholder="Nama lengkap pedagang..." class="w-full min-h-[44px] p-3 rounded-xl text-xs font-medium border ${inputBg}" />
+          </div>
+
+          <!-- Status Pembayaran -->
+          <div>
+            <label class="text-xs font-semibold ${textSecondary} block mb-1">Status Pembayaran Sewa:</label>
+            <select id="status-bayar-input" class="w-full min-h-[44px] p-3 rounded-xl text-xs font-medium border ${inputBg}">
+              <option value="lunas" ${isLunas ? 'selected' : ''}>✅ Sudah Bayar (Lunas)</option>
+              <option value="belum_bayar" ${!isLunas ? 'selected' : ''}>⏳ Belum Bayar / Tertunggak</option>
+            </select>
           </div>
 
           <!-- Dates Row -->
@@ -163,9 +182,19 @@ export function renderFieldCollectorView(container) {
     // Save Form
     container.querySelector('#field-form').addEventListener('submit', (e) => {
       e.preventDefault();
-      k.status = container.querySelector('#status-input').value;
-      k.pedagang = container.querySelector('#pedagang-input').value.trim() || '-';
-      k.tglPembayaran = container.querySelector('#tgl-bayar-input').value || '-';
+      const isStatusTerisi = container.querySelector('#status-input').value === 'terisi';
+      const inputPedagang = container.querySelector('#pedagang-input').value.trim();
+      const statusBayarVal = container.querySelector('#status-bayar-input').value;
+      let tglBayarVal = container.querySelector('#tgl-bayar-input').value;
+
+      if (statusBayarVal === 'lunas' && (!tglBayarVal || tglBayarVal === '-')) {
+        tglBayarVal = new Date().toISOString().slice(0, 10);
+      }
+
+      k.status = isStatusTerisi ? 'terisi' : 'kosong';
+      k.pedagang = isStatusTerisi ? (inputPedagang || 'Penyewa Lapangan') : '-';
+      k.statusBayar = isStatusTerisi ? statusBayarVal : 'belum_bayar';
+      k.tglPembayaran = tglBayarVal || '-';
       k.tglHabisSewa = container.querySelector('#tgl-habis-input').value || '2026-12-31';
 
       spreadsheetService.updateKios(k.id, k);
@@ -181,4 +210,13 @@ export function renderFieldCollectorView(container) {
   }
 
   renderContent();
+
+  // Background subscription to keep field data live
+  spreadsheetService.subscribe(() => {
+    if (container && container.isConnected) {
+      kiosks = spreadsheetService.loadKiosks();
+      renderContent();
+      if (window.lucide) window.lucide.createIcons();
+    }
+  });
 }

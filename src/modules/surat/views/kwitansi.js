@@ -466,12 +466,13 @@ export function renderKwitansiView(container, initialKiosId = null) {
 
   // 1. GENERATE SATUAN GOOGLE DOCS & DRIVE
   btnGenerateInstant.addEventListener('click', async () => {
-    if (!selectedKiosk) {
+    const currentTargetKiosk = kiosks.find(k => k.id === (kioskSelect ? kioskSelect.value : '')) || selectedKiosk || kiosks[0];
+    if (!currentTargetKiosk) {
       alert('Silakan pilih kios terlebih dahulu!');
       return;
     }
 
-    const itemData = buildKwitansiData(selectedKiosk);
+    const itemData = buildKwitansiData(currentTargetKiosk);
     const originalBtnContent = btnGenerateInstant.innerHTML;
     btnGenerateInstant.disabled = true;
     btnGenerateInstant.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin text-white"></i><span>Menerbitkan Kwitansi...</span>`;
@@ -534,6 +535,14 @@ export function renderKwitansiView(container, initialKiosId = null) {
 
     } catch (err) {
       console.warn('Error generating kwitansi:', err);
+      // Even on offline/fallback, update status to lunas
+      if (currentTargetKiosk) {
+        spreadsheetService.updateKios(currentTargetKiosk.id, {
+          statusBayar: 'lunas',
+          tglPembayaran: itemData.tanggal_bayar || new Date().toISOString().slice(0, 10),
+          status: 'terisi'
+        });
+      }
       const doc = pdfService.generateKwitansi(itemData);
       const fileName = `KWITANSI_${itemData.blok_kios.replace(/\s+/g, '_')}_${itemData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
       doc.save(fileName);
@@ -597,5 +606,14 @@ export function renderKwitansiView(container, initialKiosId = null) {
       statusAlertText.innerText = `Bundle Kwitansi (${targetList.length} naskah) berhasil diunduh!`;
       setTimeout(() => statusAlertBox.classList.add('hidden'), 6000);
     }, 100);
+  });
+
+  // Background Silent Auto-Sync on Mount to ensure real-time next sequence number
+  spreadsheetService.silentAutoSync().then(() => {
+    const latestLogs = spreadsheetService.getKwitansiLogs() || [];
+    const latestSmartNo = getSmartNextNumber('kwitansi', latestLogs);
+    if (inputNo && (!inputNo.value || inputNo.value === '001 / KAS-DESA / 2026')) {
+      inputNo.value = latestSmartNo;
+    }
   });
 }

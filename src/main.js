@@ -86,10 +86,9 @@ function initApp() {
     }
   }
 
-  // Subscribe to state changes
+  // Subscribe to navigation & auth state changes
   registry.subscribe(updateUI);
   themeManager.subscribe(() => updateUI());
-  spreadsheetService.subscribe(() => updateUI());
   authService.subscribe(() => updateUI());
 
   updateUI();

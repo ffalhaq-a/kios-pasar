@@ -193,7 +193,7 @@ export function renderPengaturanView(container) {
           <!-- TABEL DAFTAR PENGGUNA (8 COLS) -->
           <div class="lg:col-span-8 space-y-5">
             <div class="${cardBg} border rounded-2xl p-5 space-y-4">
-              <div class="flex items-center justify-between border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-3 gap-2 ${isDark ? 'border-slate-800' : 'border-slate-200'}">
                 <div class="flex items-center gap-2">
                   <div class="p-2 bg-emerald-500/10 text-emerald-500 rounded-xl">
                     <i data-lucide="users" class="w-4 h-4"></i>
@@ -203,9 +203,15 @@ export function renderPengaturanView(container) {
                     <p class="text-[11px] ${textSecondary}">Akun yang memiliki hak akses login ke aplikasi</p>
                   </div>
                 </div>
-                <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
-                  ${users.length} Akun Terdaftar
-                </span>
+                <div class="flex items-center gap-2">
+                  <button id="btn-sync-cloud-users" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm">
+                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                    <span>Sinkron Akun Cloud</span>
+                  </button>
+                  <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
+                    ${users.length} Akun Terdaftar
+                  </span>
+                </div>
               </div>
 
               <!-- Tabel Pengguna -->
@@ -321,7 +327,33 @@ export function renderPengaturanView(container) {
     window._activePengaturanTab = 'akses';
     renderPengaturanView(container);
     if (window.lucide) window.lucide.createIcons();
+    authService.fetchRemoteUsers().then(res => {
+      if (res && res.success && window._activePengaturanTab === 'akses') {
+        renderPengaturanView(container);
+        if (window.lucide) window.lucide.createIcons();
+      }
+    });
   });
+
+  // Sync Cloud Users Button
+  const btnSyncUsers = container.querySelector('#btn-sync-cloud-users');
+  if (btnSyncUsers) {
+    btnSyncUsers.addEventListener('click', async () => {
+      btnSyncUsers.disabled = true;
+      btnSyncUsers.innerHTML = `<i data-lucide="refresh-cw" class="w-3.5 h-3.5 animate-spin"></i><span>Sinkronisasi...</span>`;
+      if (window.lucide) window.lucide.createIcons();
+
+      const res = await authService.fetchRemoteUsers();
+      if (res && res.success) {
+        renderPengaturanView(container);
+        if (window.lucide) window.lucide.createIcons();
+      } else {
+        btnSyncUsers.disabled = false;
+        btnSyncUsers.innerHTML = `<i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i><span>Sinkron Akun Cloud</span>`;
+        if (window.lucide) window.lucide.createIcons();
+      }
+    });
+  }
 
   // Rates Form Submit
   const formRates = container.querySelector('#form-rates');
