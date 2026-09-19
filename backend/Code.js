@@ -451,7 +451,17 @@ function handleDeletePerjanjian(params) {
       }
     }
 
-    // 3. Trash file di Google Drive jika ada URL
+    // 3. Trash file di Google Drive jika ada URL (atau temukan dari kolom baris yang dihapus)
+    if (!driveUrl && deletedRowData && deletedRowData.length > 0) {
+      for (var col = deletedRowData.length - 1; col >= 0; col--) {
+        var cellStr = String(deletedRowData[col] || '').trim();
+        if (cellStr.indexOf('drive.google.com') !== -1 || cellStr.indexOf('docs.google.com') !== -1) {
+          driveUrl = cellStr;
+          break;
+        }
+      }
+    }
+
     if (driveUrl) {
       try {
         var fileIdMatch = driveUrl.match(/[-\w]{25,}/);
@@ -687,7 +697,17 @@ function handleDeleteKwitansi(params) {
       }
     }
 
-    // 3. Trash file di Google Drive jika ada URL
+    // 3. Trash file di Google Drive jika ada URL (atau temukan dari kolom baris yang dihapus)
+    if (!driveUrl && deletedRowData && deletedRowData.length > 0) {
+      for (var colK = deletedRowData.length - 1; colK >= 0; colK--) {
+        var cellStrK = String(deletedRowData[colK] || '').trim();
+        if (cellStrK.indexOf('drive.google.com') !== -1 || cellStrK.indexOf('docs.google.com') !== -1) {
+          driveUrl = cellStrK;
+          break;
+        }
+      }
+    }
+
     if (driveUrl) {
       try {
         var fileIdMatch = driveUrl.match(/[-\w]{25,}/);
@@ -762,11 +782,13 @@ function handleDeleteSurat(params) {
 
     // 1. Hapus dari Buku_Agenda_Surat
     var sheet = ss.getSheetByName('Buku_Agenda_Surat');
+    var deletedSuratRow = null;
     if (sheet) {
       var data = sheet.getDataRange().getValues();
       for (var i = data.length - 1; i >= 1; i--) {
         var rowNo = String(data[i][1] || '').trim();
         if (rowNo === nomorSurat) {
+          deletedSuratRow = data[i];
           sheet.deleteRow(i + 1);
           break;
         }
@@ -785,7 +807,17 @@ function handleDeleteSurat(params) {
       }
     }
 
-    // 3. Trash file di Google Drive jika ada URL
+    // 3. Trash file di Google Drive jika ada URL (atau temukan dari kolom baris yang dihapus)
+    if (!driveUrl && deletedSuratRow && deletedSuratRow.length > 0) {
+      for (var colS = deletedSuratRow.length - 1; colS >= 0; colS--) {
+        var cellStrS = String(deletedSuratRow[colS] || '').trim();
+        if (cellStrS.indexOf('drive.google.com') !== -1 || cellStrS.indexOf('docs.google.com') !== -1) {
+          driveUrl = cellStrS;
+          break;
+        }
+      }
+    }
+
     if (driveUrl) {
       try {
         var fileIdMatch = driveUrl.match(/[-\w]{25,}/);
