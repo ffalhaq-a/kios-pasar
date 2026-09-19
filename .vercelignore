@@ -1,0 +1,7 @@
+# Vercel Deployment Ignore
+backend/
+.clasp.json
+.gemini/
+.geminirules
+.cursorrules
+*.log

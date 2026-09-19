@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "jspdf": "^4.2.1",
-    "konva": "^9.3.18",
     "lucide": "^0.475.0"
   },
   "devDependencies": {
