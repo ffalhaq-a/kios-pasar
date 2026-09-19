@@ -147,7 +147,10 @@ export function renderKwitansiView(container, initialKiosId = null) {
             <!-- METADATA FORM GRID -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
               <div class="space-y-1">
-                <label class="text-xs font-bold ${textSecondary} block">Nomor Kwitansi:</label>
+                <div class="flex items-center justify-between">
+                  <label class="text-xs font-bold ${textSecondary} block">Nomor Kwitansi:</label>
+                  <div id="paired-sync-badge" class="hidden"></div>
+                </div>
                 <input type="text" id="input-no-kwitansi" value="${defaultNoKwitansi}" class="w-full px-3 py-2 rounded-xl border text-xs font-mono font-bold text-sky-500 focus:ring-2 focus:ring-sky-500 outline-none ${inputBg}" />
               </div>
 
@@ -367,11 +370,34 @@ export function renderKwitansiView(container, initialKiosId = null) {
   if (filterBlok) filterBlok.addEventListener('change', filterAndPopulateKiosks);
   if (inputSearch) inputSearch.addEventListener('input', filterAndPopulateKiosks);
 
-  if (selectedKiosk) updatePreview(selectedKiosk);
+  function updateNumberForKiosk(k) {
+    if (!k || !inputNo) return;
+    const paired = spreadsheetService.getPairedDocumentNumber(k.id, k.blokKode, 'kwitansi');
+    const badge = container.querySelector('#paired-sync-badge');
+    if (paired && paired.paired && paired.number) {
+      inputNo.value = paired.number;
+      if (previewNoKwitansi) previewNoKwitansi.innerText = paired.number;
+      if (badge) {
+        badge.innerHTML = `<span class="inline-flex items-center gap-1 text-[10px] font-bold text-sky-400 bg-sky-500/10 border border-sky-500/30 px-2 py-0.5 rounded-full"><i data-lucide="link" class="w-3 h-3"></i> Mengikuti Perjanjian (No: ${paired.sourceNumber})</span>`;
+        badge.classList.remove('hidden');
+        if (window.lucide) window.lucide.createIcons();
+      }
+    } else {
+      inputNo.value = getSmartNextNumber('kwitansi', spreadsheetService.getKwitansiLogs() || []);
+      if (previewNoKwitansi) previewNoKwitansi.innerText = inputNo.value;
+      if (badge) badge.classList.add('hidden');
+    }
+  }
+
+  if (selectedKiosk) {
+    updatePreview(selectedKiosk);
+    updateNumberForKiosk(selectedKiosk);
+  }
 
   kioskSelect.addEventListener('change', (e) => {
     selectedKiosk = kiosks.find(k => k.id === e.target.value);
     updatePreview(selectedKiosk);
+    updateNumberForKiosk(selectedKiosk);
   });
 
   inputNo.addEventListener('input', () => {

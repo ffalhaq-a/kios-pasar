@@ -175,7 +175,10 @@ export function renderPerjanjianView(container, initialKiosId = null) {
             <!-- METADATA FORM GRID -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
               <div class="space-y-1">
-                <label class="text-xs font-bold ${textSecondary} block">Nomor Perjanjian Awal:</label>
+                <div class="flex items-center justify-between">
+                  <label class="text-xs font-bold ${textSecondary} block">Nomor Perjanjian:</label>
+                  <div id="paired-sync-badge" class="hidden"></div>
+                </div>
                 <input type="text" id="input-no-perjanjian" value="${defaultNoPerjanjian}" class="w-full px-3 py-2 rounded-xl border text-xs font-bold focus:ring-2 focus:ring-amber-500 outline-none ${inputBg}" />
               </div>
 
@@ -409,11 +412,32 @@ export function renderPerjanjianView(container, initialKiosId = null) {
     previewTerbilang.innerText = angkaKeTerbilang(parseInt(String(rentCalc.totalAnnualRent || rentCalc.formattedTotal).replace(/[^0-9]/g, ''), 10) || 250000);
   }
 
-  if (selectedKiosk) updatePreview(selectedKiosk);
+  function updateNumberForKiosk(k) {
+    if (!k || !inputNo) return;
+    const paired = spreadsheetService.getPairedDocumentNumber(k.id, k.blokKode, 'perjanjian');
+    const badge = container.querySelector('#paired-sync-badge');
+    if (paired && paired.paired && paired.number) {
+      inputNo.value = paired.number;
+      if (badge) {
+        badge.innerHTML = `<span class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full"><i data-lucide="link" class="w-3 h-3"></i> Mengikuti Kwitansi (No: ${paired.sourceNumber})</span>`;
+        badge.classList.remove('hidden');
+        if (window.lucide) window.lucide.createIcons();
+      }
+    } else {
+      inputNo.value = getSmartNextNumber('perjanjian', spreadsheetService.getPerjanjianLogs() || []);
+      if (badge) badge.classList.add('hidden');
+    }
+  }
+
+  if (selectedKiosk) {
+    updatePreview(selectedKiosk);
+    updateNumberForKiosk(selectedKiosk);
+  }
 
   kioskSelect.addEventListener('change', (e) => {
     selectedKiosk = kiosks.find(k => k.id === e.target.value);
     updatePreview(selectedKiosk);
+    updateNumberForKiosk(selectedKiosk);
   });
 
   function buildPerjanjianData(kiosk) {

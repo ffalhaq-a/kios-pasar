@@ -34,6 +34,7 @@ function handleRequest(params) {
   if (action === 'login') return handleLogin(params);
   if (action === 'updateKios' || action === 'updateKiosk') return handleUpdateKios(params);
   if (action === 'generatePerjanjian') return handleGeneratePerjanjianDoc(params);
+  if (action === 'revisePerjanjian') return handleRevisePerjanjian(params);
   if (action === 'deletePerjanjian') return handleDeletePerjanjian(params);
   if (action === 'generateKwitansi') return handleGenerateKwitansiDoc(params);
   if (action === 'deleteKwitansi') return handleDeleteKwitansi(params);
@@ -41,6 +42,7 @@ function handleRequest(params) {
   if (action === 'deleteSurat') return handleDeleteSurat(params);
   if (action === 'getHistori') return handleGetHistori();
   if (action === 'getAgendaSurat') return handleGetAgendaSurat();
+  if (action === 'getPerjanjian') return handleGetPerjanjian();
   if (action === 'logSurat') return handleLogSurat(params);
   if (action === 'logPerjanjian') return handleLogPerjanjian(params);
   if (action === 'logKwitansi') return handleLogKwitansi(params);
@@ -260,6 +262,65 @@ function updatePedagangPaymentStatus(ss, targetId, blokKode, zonaName, newStatus
 }
 
 // =========================================================================
+// HELPER: UPDATE IDENTITAS PEDAGANG (REVISI NAMA, NIK, ALAMAT)
+// =========================================================================
+function updatePedagangMerchantInfo(ss, targetId, blokKode, zonaName, newPedagang, newNik, newAlamat) {
+  try {
+    var pSheet = ss.getSheetByName('PEDAGANG');
+    if (!pSheet) return false;
+
+    var pValues = pSheet.getDataRange().getValues();
+    if (pValues.length <= 1) return false;
+
+    var headers = pValues[0].map(function(h) { return String(h || '').trim(); });
+    var colMap = {};
+    for (var c = 0; c < headers.length; c++) {
+      colMap[headers[c]] = c + 1;
+    }
+
+    var idCol = colMap['id'] || 1;
+    var blokCol = colMap['blokKode'] || 2;
+    var zonaCol = colMap['zona'] || 3;
+    var pedagangCol = colMap['pedagang'] || 4;
+    var nikCol = colMap['nik'] || 5;
+    var alamatCol = colMap['alamat'] || 6;
+
+    var targetIdUpper = String(targetId || '').trim().toUpperCase();
+    var cleanTargetBlok = String(blokKode || '').replace(/^blok\s*/i, '').replace(/^(SND|SYR)-/i, '').trim().toUpperCase();
+    var targetZonaUpper = String(zonaName || '').trim().toUpperCase();
+    var isTargetSayur = (targetIdUpper.indexOf('SYR') !== -1 || targetZonaUpper.indexOf('SAYUR') !== -1);
+    var isTargetSandang = !isTargetSayur && (targetIdUpper.indexOf('SND') !== -1 || targetZonaUpper.indexOf('SANDANG') !== -1);
+
+    for (var pi = 1; pi < pValues.length; pi++) {
+      var rowId = String(pValues[pi][idCol - 1] || '').trim().toUpperCase();
+      var rowBlok = String(pValues[pi][blokCol - 1] || '').replace(/^blok\s*/i, '').replace(/^(SND|SYR)-/i, '').trim().toUpperCase();
+      var rowZona = String(pValues[pi][zonaCol - 1] || '').trim().toUpperCase();
+
+      var isRowSayur = (rowId.indexOf('SYR') !== -1 || rowZona.indexOf('SAYUR') !== -1);
+      var isRowSandang = !isRowSayur && (rowId.indexOf('SND') !== -1 || rowZona.indexOf('SANDANG') !== -1);
+
+      var isMatch = false;
+      if (targetIdUpper && rowId === targetIdUpper) {
+        isMatch = true;
+      } else if (cleanTargetBlok && rowBlok === cleanTargetBlok && ((isTargetSayur && isRowSayur) || (isTargetSandang && isRowSandang) || !zonaName)) {
+        isMatch = true;
+      }
+
+      if (isMatch) {
+        if (newPedagang && pedagangCol) pSheet.getRange(pi + 1, pedagangCol).setValue(newPedagang);
+        if (newNik && nikCol) pSheet.getRange(pi + 1, nikCol).setValue(newNik);
+        if (newAlamat && alamatCol) pSheet.getRange(pi + 1, alamatCol).setValue(newAlamat);
+        SpreadsheetApp.flush();
+        return true;
+      }
+    }
+  } catch (err) {
+    Logger.log('Error updating pedagang info: ' + err.toString());
+  }
+  return false;
+}
+
+// =========================================================================
 // 3. GENERATE & ARSIP SURAT PERJANJIAN (ROOT -> SANDANG/SAYUR -> BLOK -> PDF)
 // =========================================================================
 function handleGeneratePerjanjianDoc(data) {
@@ -417,6 +478,8 @@ function handleDeletePerjanjian(params) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var nomorPerjanjian = String(params.nomor_perjanjian || params.nomorPerjanjian || '').trim();
+    var targetPedagangParam = String(params.pedagang || params.nama_pedagang || '').trim().toUpperCase();
+    var targetBlokParam = String(params.blok || params.blok_kios || '').trim().toUpperCase();
     var driveUrl = String(params.driveUrl || params.pdfUrl || '').trim();
     var userOperator = params.user || 'Admin';
 
@@ -431,7 +494,18 @@ function handleDeletePerjanjian(params) {
       var data = pSheet.getDataRange().getValues();
       for (var i = data.length - 1; i >= 1; i--) {
         var rowNo = String(data[i][1] || '').trim(); // Kolom index 1: NOMOR PERJANJIAN
+        var rowPedagang = String(data[i][5] || '').trim().toUpperCase();
+        var rowBlok = String(data[i][8] || '').trim().toUpperCase();
+
         if (rowNo === nomorPerjanjian) {
+          // Safeguard: jika pedagang / blok ditentukan, pastikan cocok!
+          if (targetPedagangParam && !rowPedagang.includes(targetPedagangParam) && !targetPedagangParam.includes(rowPedagang)) {
+            continue;
+          }
+          if (targetBlokParam && !rowBlok.includes(targetBlokParam) && !targetBlokParam.includes(rowBlok)) {
+            continue;
+          }
+
           deletedRowData = data[i];
           pSheet.deleteRow(i + 1);
           break;
@@ -439,13 +513,22 @@ function handleDeletePerjanjian(params) {
       }
     }
 
-    // 2. Hapus dari sheet HISTORI (agar riwayat terbitan lama terhapus bersih)
+    // 2. Hapus dari sheet HISTORI (hanya yang cocok dengan nomor dan pedagang/blok)
     var hSheet = ss.getSheetByName('HISTORI');
     if (hSheet) {
       var hData = hSheet.getDataRange().getValues();
       for (var hi = hData.length - 1; hi >= 1; hi--) {
         var hDocNo = String(hData[hi][3] || '').trim(); // Kolom index 3: NO DOKUMEN / KIOS
+        var hPedagang = String(hData[hi][6] || '').trim().toUpperCase();
+        var hBlok = String(hData[hi][4] || '').trim().toUpperCase();
+
         if (hDocNo === nomorPerjanjian) {
+          if (targetPedagangParam && !hPedagang.includes(targetPedagangParam) && !targetPedagangParam.includes(hPedagang)) {
+            continue;
+          }
+          if (targetBlokParam && !hBlok.includes(targetBlokParam) && !targetBlokParam.includes(hBlok)) {
+            continue;
+          }
           hSheet.deleteRow(hi + 1);
         }
       }
@@ -518,6 +601,199 @@ function handleDeletePerjanjian(params) {
       message: 'Surat perjanjian ' + nomorPerjanjian + ' berhasil dihapus'
     })).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// =========================================================================
+// 3C. REVISI NASKAH PERJANJIAN (NOMOR DOKUMEN TETAP SAMA)
+// =========================================================================
+function handleRevisePerjanjian(data) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('Buku_Perjanjian_Sewa');
+    if (!sheet) {
+      return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Sheet Buku_Perjanjian_Sewa tidak ditemukan' })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var nomorPerjanjian = String(data.nomor_perjanjian || data.nomorPerjanjian || '').trim();
+    var blokKios = String(data.blok_kios || data.blok || '').trim();
+    var cleanBlok = blokKios.replace(/^blok\s*/i, '').replace(/^(SND|SYR)-/i, '').trim().toUpperCase();
+    var newNamaPedagang = String(data.nama_pedagang || data.namaPedagang || '').trim().toUpperCase();
+    var newNik = String(data.nik || '-').trim();
+    var newAlamat = String(data.alamat || 'Desa Karangpucung').trim();
+    var userOperator = data.user || 'Admin';
+
+    if (!nomorPerjanjian) {
+      return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Nomor perjanjian tidak boleh kosong' })).setMimeType(ContentService.MimeType.JSON);
+    }
+    if (!newNamaPedagang) {
+      return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Nama pedagang baru tidak boleh kosong' })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var values = sheet.getDataRange().getValues();
+    var targetRowIndex = -1;
+    var oldRowData = null;
+
+    for (var i = 1; i < values.length; i++) {
+      var rNo = String(values[i][1] || '').trim();
+      var rBlok = String(values[i][8] || '').replace(/^blok\s*/i, '').replace(/^(SND|SYR)-/i, '').trim().toUpperCase();
+
+      if (rNo === nomorPerjanjian) {
+        if (cleanBlok && rBlok !== cleanBlok) {
+          continue; // Lewati jika beda blok
+        }
+        targetRowIndex = i + 1;
+        oldRowData = values[i];
+        break;
+      }
+    }
+
+    if (targetRowIndex === -1 || !oldRowData) {
+      return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Naskah ' + nomorPerjanjian + ' (' + blokKios + ') tidak ditemukan di database' })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var oldPedagang = String(oldRowData[5] || '');
+    var oldPdfUrl = String(oldRowData[oldRowData.length - 1] || '');
+    var tglAkad = String(oldRowData[2] || '');
+    var hariAkad = String(oldRowData[3] || '');
+    var pihak1 = String(oldRowData[4] || 'A. ANJARNINGSIH, S.E. (Pj. Kades)');
+    var rowBlokKios = String(oldRowData[8] || blokKios || 'Blok A1');
+    var rowKawasan = String(oldRowData[9] || 'PASAR SANDANG');
+    var tipeKios = String(oldRowData[10] || 'LOS');
+    var kategori = String(oldRowData[11] || 'Umum');
+    var luasM2 = String(oldRowData[12] || '4.0');
+    var luasDimensi = String(oldRowData[13] || '200 x 200');
+    var jumlahUnit = String(oldRowData[14] || '1 Unit Usaha');
+    var biayaSewa = String(oldRowData[15] || 'Rp 250.000');
+    var biayaSewaTerbilang = String(oldRowData[16] || 'Dua Ratus Lima Puluh Ribu Rupiah');
+    var tglMulai = String(oldRowData[17] || '');
+    var tglSelesai = String(oldRowData[18] || '');
+    var saksi = String(oldRowData[19] || '');
+
+    // Folder Google Drive untuk naskah
+    var rootFolder;
+    try {
+      rootFolder = DriveApp.getFolderById(ROOT_PERJANJIAN_FOLDER_ID);
+    } catch(errFolder) {
+      rootFolder = DriveApp.getRootFolder();
+    }
+
+    var isSayur = (rowKawasan.toUpperCase().indexOf('SAYUR') !== -1);
+    var marketSubfolderName = isSayur ? 'SAYUR' : 'SANDANG';
+    var marketFolder = getOrCreateFolder(rootFolder, marketSubfolderName);
+    var blockFolderName = extractBlockFolderName(rowBlokKios);
+    var targetBlockFolder = getOrCreateFolder(marketFolder, blockFolderName);
+
+    // Penamaan File Baru: PERJANJIAN_BLOK ..._NAMA BARU
+    var cleanFileName = 'PERJANJIAN_' + rowBlokKios.toUpperCase().replace(/\s+/g, ' ') + '_' + newNamaPedagang.replace(/[^a-zA-Z0-9 ]/g, '');
+
+    var templateFile;
+    try {
+      templateFile = DriveApp.getFileById(TEMPLATE_PERJANJIAN_DOC_ID);
+    } catch(errTpl) {
+      templateFile = null;
+    }
+
+    var finalPdfFile;
+
+    // Pisah tanggal akad jika ada
+    var dateParts = tglAkad.split(' ');
+    var tglHari = dateParts[0] || 'dua';
+    var tglBln = dateParts[1] || 'September';
+    var tglThn = dateParts[2] || '2026';
+
+    var saksiParts = saksi.split('&');
+    var saksi1Val = saksiParts[0] ? saksiParts[0].trim() : '';
+    var saksi2Val = saksiParts[1] ? saksiParts[1].trim() : '';
+
+    var replacements = {
+      'nomor_perjanjian': nomorPerjanjian,
+      'hari': hariAkad || 'Senin',
+      'tanggal': tglHari,
+      'bulan': tglBln,
+      'tahun': tglThn,
+      'nama_pedagang': newNamaPedagang,
+      'nik': newNik,
+      'alamat': newAlamat,
+      'blok_kios': rowBlokKios,
+      'jenis_pasar': isSayur ? 'PASAR SAYUR' : 'PASAR SANDANG',
+      'tipe_kios': tipeKios,
+      'kategori': kategori,
+      'luas_dimensi': luasDimensi,
+      'luas_m2': luasM2,
+      'jumlah_unit': jumlahUnit,
+      'biaya_sewa': biayaSewa,
+      'biaya_sewa_angka': biayaSewa.replace(/[^0-9]/g, ''),
+      'biaya_sewa_terbilang': biayaSewaTerbilang,
+      'tgl_mulai': tglMulai,
+      'tgl_selesai': tglSelesai,
+      'saksi1': saksi1Val,
+      'saksi2': saksi2Val
+    };
+
+    if (templateFile) {
+      var tempDocFile = templateFile.makeCopy('TEMP_' + cleanFileName, targetBlockFolder);
+      var tempDoc = DocumentApp.openById(tempDocFile.getId());
+      var body = tempDoc.getBody();
+
+      for (var key in replacements) {
+        var val = String(replacements[key] || '');
+        body.replaceText('[$][{]\\s*' + key + '\\s*[}]', val);
+        body.replaceText('[{][{]\\s*' + key + '\\s*[}][}]', val);
+      }
+
+      tempDoc.saveAndClose();
+      var pdfBlob = tempDocFile.getAs('application/pdf').setName(cleanFileName + '.pdf');
+      finalPdfFile = targetBlockFolder.createFile(pdfBlob);
+      try { tempDocFile.setTrashed(true); } catch (err) {}
+    } else {
+      var newDoc = DocumentApp.create('TEMP_' + cleanFileName);
+      var body = newDoc.getBody();
+      body.appendParagraph('SURAT PERJANJIAN SEWA TANAH/BANGUNAN\nPEMERINTAH DESA KARANGPUCUNG\nNomor : ' + replacements.nomor_perjanjian);
+      body.appendParagraph('Pihak Kedua: ' + replacements.nama_pedagang + ' (NIK: ' + replacements.nik + ', Alamat: ' + replacements.alamat + ')');
+      newDoc.saveAndClose();
+      var docFile = DriveApp.getFileById(newDoc.getId());
+      var pdfBlob = docFile.getAs('application/pdf').setName(cleanFileName + '.pdf');
+      finalPdfFile = targetBlockFolder.createFile(pdfBlob);
+      try { docFile.setTrashed(true); } catch (err) {}
+    }
+
+    try { finalPdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (err) {}
+
+    // Trash file PDF lama agar Drive tetap rapi
+    if (oldPdfUrl) {
+      try {
+        var oldFileIdMatch = oldPdfUrl.match(/[-\w]{25,}/);
+        if (oldFileIdMatch) {
+          DriveApp.getFileById(oldFileIdMatch[0]).setTrashed(true);
+        }
+      } catch(errOldDrive) {}
+    }
+
+    // 1. UPDATE ROW IN-PLACE PADA Buku_Perjanjian_Sewa
+    sheet.getRange(targetRowIndex, 6).setValue(newNamaPedagang);
+    sheet.getRange(targetRowIndex, 7).setValue(newNik);
+    sheet.getRange(targetRowIndex, 8).setValue(newAlamat);
+    sheet.getRange(targetRowIndex, oldRowData.length).setValue(finalPdfFile.getUrl());
+
+    // 2. UPDATE NAMA PEDAGANG DI TAB SHEET "PEDAGANG"
+    updatePedagangMerchantInfo(ss, data.kiosId, rowBlokKios, rowKawasan, newNamaPedagang, newNik, newAlamat);
+
+    // 3. LOG AUDIT TRAIL KE TAB SHEET "HISTORI"
+    var historiDetail = 'Revisi Identitas Pihak II: ' + oldPedagang + ' -> ' + newNamaPedagang + ' (Nomor Dokumen Tetap: ' + nomorPerjanjian + ')';
+    logToHistoriSheet(ss, 'REVISI PERJANJIAN', nomorPerjanjian, rowBlokKios, marketSubfolderName, newNamaPedagang, historiDetail, userOperator, finalPdfFile.getUrl());
+
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success',
+      message: 'Surat perjanjian ' + nomorPerjanjian + ' berhasil direvisi menjadi atas nama ' + newNamaPedagang,
+      pdfUrl: finalPdfFile.getUrl(),
+      fileName: finalPdfFile.getName(),
+      namaPedagang: newNamaPedagang,
+      nik: newNik,
+      alamat: newAlamat
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
     return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
   }
 }
@@ -1012,6 +1288,38 @@ function handleGetAgendaSurat() {
       tanggalKirim: String(row[5] || ''),
       tujuan: String(row[6] || ''),
       ket: String(row[7] || '')
+    });
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({ status: 'success', total: result.length, data: result })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function handleGetPerjanjian() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Buku_Perjanjian_Sewa');
+  if (!sheet) return ContentService.createTextOutput(JSON.stringify({ status: 'success', data: [] })).setMimeType(ContentService.MimeType.JSON);
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return ContentService.createTextOutput(JSON.stringify({ status: 'success', data: [] })).setMimeType(ContentService.MimeType.JSON);
+
+  var result = [];
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    result.push({
+      no: row[0] || i,
+      nomorPerjanjian: String(row[1] || ''),
+      tanggalAkad: String(row[2] || ''),
+      hari: String(row[3] || ''),
+      pihak1: String(row[4] || ''),
+      namaPedagang: String(row[5] || ''),
+      nik: String(row[6] || ''),
+      alamat: String(row[7] || ''),
+      blok: String(row[8] || ''),
+      pasar: String(row[9] || ''),
+      tipeKios: String(row[10] || ''),
+      kategori: String(row[11] || ''),
+      biayaSewa: String(row[15] || ''),
+      driveUrl: String(row[row.length - 1] || '')
     });
   }
 

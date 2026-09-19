@@ -612,6 +612,103 @@ class SpreadsheetService {
   }
 
   /**
+   * Revise existing Surat Perjanjian (same document number, updated merchant details)
+   */
+  async reviseRemotePerjanjian(payload) {
+    try {
+      const res = await fetch(GOOGLE_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'revisePerjanjian',
+          apiToken: API_SECURITY_TOKEN,
+          ...payload
+        }),
+        redirect: 'follow'
+      });
+      const data = await res.json();
+      if (data && data.status === 'success') {
+        const key = 'pasar_buku_perjanjian_logs_v1';
+        const existing = this.getPerjanjianLogs();
+        const updated = existing.map(item => {
+          if (item.nomorPerjanjian === payload.nomor_perjanjian) {
+            return {
+              ...item,
+              namaPedagang: payload.nama_pedagang,
+              nik: payload.nik || item.nik,
+              alamat: payload.alamat || item.alamat,
+              driveUrl: data.pdfUrl || item.driveUrl
+            };
+          }
+          return item;
+        });
+        localStorage.setItem(key, JSON.stringify(updated));
+        this.notify();
+      }
+      return data;
+    } catch (e) {
+      console.warn('Error revising remote perjanjian:', e);
+      return { status: 'error', message: e.message };
+    }
+  }
+
+  /**
+   * Helper to ensure 1:1 synchronized numbering between Kwitansi and Surat Perjanjian
+   */
+  getPairedDocumentNumber(kiosId = '', blokKode = '', targetDocType = 'perjanjian') {
+    const cleanBlok = String(blokKode || '').replace(/^blok\s*/i, '').replace(/^(SND|SYR)-/i, '').trim().toUpperCase();
+
+    if (targetDocType === 'perjanjian') {
+      // Find matching Kwitansi
+      const kwitansiLogs = this.getKwitansiLogs();
+      const match = kwitansiLogs.find(k => {
+        const kBlok = String(k.blok || '').replace(/^blok\s*/i, '').replace(/^(SND|SYR)-/i, '').trim().toUpperCase();
+        return (cleanBlok && kBlok === cleanBlok) || (kiosId && k.kiosId === kiosId);
+      });
+
+      if (match && match.nomorKwitansi) {
+        const numMatch = String(match.nomorKwitansi).match(/\d+/g);
+        if (numMatch && numMatch.length > 0) {
+          const rawNum = numMatch[0] === '2026' && numMatch.length > 1 ? numMatch[1] : numMatch[0];
+          const padded = String(rawNum).padStart(3, '0');
+          return {
+            paired: true,
+            number: `${padded} / KRPC / 2026`,
+            rawNumber: padded,
+            sourceDoc: 'Kwitansi',
+            sourceNumber: match.nomorKwitansi,
+            pedagang: match.namaPedagang || ''
+          };
+        }
+      }
+    } else if (targetDocType === 'kwitansi') {
+      // Find matching Perjanjian
+      const perjanjianLogs = this.getPerjanjianLogs();
+      const match = perjanjianLogs.find(p => {
+        const pBlok = String(p.blok || '').replace(/^blok\s*/i, '').replace(/^(SND|SYR)-/i, '').trim().toUpperCase();
+        return (cleanBlok && pBlok === cleanBlok) || (kiosId && p.kiosId === kiosId);
+      });
+
+      if (match && match.nomorPerjanjian) {
+        const numMatch = String(match.nomorPerjanjian).match(/\d+/);
+        if (numMatch) {
+          const padded = String(numMatch[0]).padStart(3, '0');
+          return {
+            paired: true,
+            number: padded,
+            rawNumber: padded,
+            sourceDoc: 'Surat Perjanjian',
+            sourceNumber: match.nomorPerjanjian,
+            pedagang: match.namaPedagang || ''
+          };
+        }
+      }
+    }
+
+    return { paired: false, number: null };
+  }
+
+  /**
    * Fetch fresh perjanjian list directly from master sheet Buku_Perjanjian_Sewa
    */
   async fetchRemotePerjanjian(skipNotify = false) {

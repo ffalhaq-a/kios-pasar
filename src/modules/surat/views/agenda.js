@@ -103,6 +103,64 @@ export function renderAgendaSuratView(container) {
         </div>
       </div>
     </div>
+
+    <!-- MODAL REVISI IDENTITAS PERJANJIAN -->
+    <div id="modal-revise-perjanjian" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div class="${cardBg} border rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div class="flex items-center justify-between p-4 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}">
+          <div class="flex items-center gap-2.5">
+            <div class="p-2 bg-amber-500/10 text-amber-400 rounded-xl">
+              <i data-lucide="edit-3" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="text-sm font-extrabold ${textPrimary}">Revisi Identitas Surat Perjanjian</h3>
+              <p class="text-[10px] ${textSecondary}">Nomor surat tetap sama, PDF baru akan diterbitkan ulang di Google Drive.</p>
+            </div>
+          </div>
+          <button type="button" id="btn-close-revise-modal" class="p-1 rounded-lg text-slate-400 hover:text-slate-200">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <form id="form-revise-perjanjian" class="p-4 space-y-3 text-xs">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div>
+              <label class="font-bold ${textSecondary} block mb-1">Nomor Perjanjian:</label>
+              <input type="text" id="revise-input-no" readonly class="w-full px-2.5 py-1.5 rounded-lg border font-mono font-bold bg-slate-800/40 text-amber-400 border-slate-700 cursor-not-allowed outline-none" />
+            </div>
+            <div>
+              <label class="font-bold ${textSecondary} block mb-1">Objek Kios / Blok:</label>
+              <input type="text" id="revise-input-blok" readonly class="w-full px-2.5 py-1.5 rounded-lg border font-bold bg-slate-800/40 ${textPrimary} border-slate-700 cursor-not-allowed outline-none" />
+            </div>
+          </div>
+
+          <div class="space-y-1">
+            <label class="font-bold ${textPrimary} block">Nama Pedagang Baru (Pihak II): <span class="text-rose-400">*</span></label>
+            <input type="text" id="revise-input-pedagang" required placeholder="Contoh: SUPARNO" class="w-full px-3 py-2 rounded-xl border font-bold uppercase focus:ring-2 focus:ring-amber-500 outline-none ${inputBg}" />
+          </div>
+
+          <div class="space-y-1">
+            <label class="font-bold ${textSecondary} block">NIK Pedagang:</label>
+            <input type="text" id="revise-input-nik" placeholder="16 digit NIK atau tanda -" class="w-full px-3 py-2 rounded-xl border focus:ring-2 focus:ring-amber-500 outline-none ${inputBg}" />
+          </div>
+
+          <div class="space-y-1">
+            <label class="font-bold ${textSecondary} block">Alamat / Domisili:</label>
+            <input type="text" id="revise-input-alamat" placeholder="Desa / Kecamatan" class="w-full px-3 py-2 rounded-xl border focus:ring-2 focus:ring-amber-500 outline-none ${inputBg}" />
+          </div>
+
+          <div class="pt-3 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'} flex items-center justify-end gap-2">
+            <button type="button" id="btn-cancel-revise" class="px-3 py-2 rounded-xl text-xs font-bold border text-slate-400 hover:text-slate-200">
+              Batal
+            </button>
+            <button type="submit" id="btn-submit-revise" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white flex items-center gap-1.5 shadow-md shadow-amber-900/30">
+              <i data-lucide="check-circle" class="w-4 h-4"></i>
+              <span>Simpan & Terbitkan PDF</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   `;
 
   const thead = container.querySelector('#agenda-table-head');
@@ -221,9 +279,14 @@ export function renderAgendaSuratView(container) {
               ` : `<span class="text-slate-500 text-[11px]">Tersimpan di Sheet</span>`}
             </td>
             <td class="px-4 py-3 text-center">
-              <button class="btn-delete-perjanjian p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition-all" data-no="${escapeHTML(item.nomorPerjanjian || '')}" data-url="${escapeHTML(item.driveUrl || '')}" data-pedagang="${escapeHTML(item.namaPedagang || '')}" data-blok="${escapeHTML(item.blok || '')}" title="Hapus / Batalkan Surat Perjanjian">
-                <i data-lucide="trash-2" class="w-4 h-4"></i>
-              </button>
+              <div class="flex items-center justify-center gap-1">
+                <button class="btn-revise-perjanjian p-1.5 rounded-lg text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/30 transition-all" data-no="${escapeHTML(item.nomorPerjanjian || '')}" data-pedagang="${escapeHTML(item.namaPedagang || '')}" data-nik="${escapeHTML(item.nik || '')}" data-alamat="${escapeHTML(item.alamat || '')}" data-blok="${escapeHTML(item.blok || '')}" data-pasar="${escapeHTML(item.pasar || '')}" title="Revisi Naskah (Ganti Nama / Nomor Tetap)">
+                  <i data-lucide="edit-3" class="w-4 h-4"></i>
+                </button>
+                <button class="btn-delete-perjanjian p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition-all" data-no="${escapeHTML(item.nomorPerjanjian || '')}" data-url="${escapeHTML(item.driveUrl || '')}" data-pedagang="${escapeHTML(item.namaPedagang || '')}" data-blok="${escapeHTML(item.blok || '')}" title="Hapus / Batalkan Surat Perjanjian">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              </div>
             </td>
           </tr>
         `;
@@ -348,8 +411,35 @@ export function renderAgendaSuratView(container) {
     });
   }
 
-  // Event Delegation for Delete Perjanjian & Kwitansi
+  // Event Delegation for Delete & Revise Perjanjian, Kwitansi, Surat
   tbody.addEventListener('click', async (e) => {
+    // 0. Revisi Perjanjian (Ganti Nama / Nomor Tetap)
+    const btnRevise = e.target.closest('.btn-revise-perjanjian');
+    if (btnRevise) {
+      const no = btnRevise.getAttribute('data-no');
+      const pedagang = btnRevise.getAttribute('data-pedagang') || '';
+      const nik = btnRevise.getAttribute('data-nik') || '';
+      const alamat = btnRevise.getAttribute('data-alamat') || '';
+      const blok = btnRevise.getAttribute('data-blok') || '';
+      const pasar = btnRevise.getAttribute('data-pasar') || '';
+
+      const modal = container.querySelector('#modal-revise-perjanjian');
+      if (modal) {
+        modal.querySelector('#revise-input-no').value = no;
+        modal.querySelector('#revise-input-blok').value = `${blok} (${pasar || 'Pasar'})`;
+        modal.querySelector('#revise-input-pedagang').value = pedagang;
+        modal.querySelector('#revise-input-nik').value = (nik && nik !== '-') ? nik : '';
+        modal.querySelector('#revise-input-alamat').value = (alamat && alamat !== '-') ? alamat : '';
+        modal.setAttribute('data-target-blok', blok);
+        modal.setAttribute('data-target-pasar', pasar);
+
+        modal.classList.remove('hidden');
+        if (window.lucide) window.lucide.createIcons();
+        setTimeout(() => modal.querySelector('#revise-input-pedagang')?.focus(), 100);
+      }
+      return;
+    }
+
     // 1. Delete Perjanjian
     const btnDelPerjanjian = e.target.closest('.btn-delete-perjanjian');
     if (btnDelPerjanjian) {
@@ -416,6 +506,64 @@ export function renderAgendaSuratView(container) {
       return;
     }
   });
+
+  // Modal Revisi Perjanjian Event Listeners
+  const reviseModal = container.querySelector('#modal-revise-perjanjian');
+  const btnCloseRevise = container.querySelector('#btn-close-revise-modal');
+  const btnCancelRevise = container.querySelector('#btn-cancel-revise');
+  const formRevise = container.querySelector('#form-revise-perjanjian');
+
+  const closeReviseModal = () => {
+    if (reviseModal) reviseModal.classList.add('hidden');
+  };
+
+  if (btnCloseRevise) btnCloseRevise.addEventListener('click', closeReviseModal);
+  if (btnCancelRevise) btnCancelRevise.addEventListener('click', closeReviseModal);
+
+  if (formRevise) {
+    formRevise.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const btnSubmit = formRevise.querySelector('#btn-submit-revise');
+      const no = reviseModal.querySelector('#revise-input-no').value.trim();
+      const blok = reviseModal.getAttribute('data-target-blok') || '';
+      const pasar = reviseModal.getAttribute('data-target-pasar') || '';
+      const newPedagang = reviseModal.querySelector('#revise-input-pedagang').value.trim().toUpperCase();
+      const newNik = reviseModal.querySelector('#revise-input-nik').value.trim();
+      const newAlamat = reviseModal.querySelector('#revise-input-alamat').value.trim();
+
+      if (!newPedagang) return;
+
+      btnSubmit.disabled = true;
+      btnSubmit.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin"></i><span>Menerbitkan Ulang Dokumen...</span>`;
+      if (window.lucide) window.lucide.createIcons();
+
+      try {
+        const res = await spreadsheetService.reviseRemotePerjanjian({
+          nomor_perjanjian: no,
+          blok_kios: blok,
+          nama_pedagang: newPedagang,
+          nik: newNik,
+          alamat: newAlamat,
+          zona: pasar
+        });
+
+        if (res && res.status === 'success') {
+          closeReviseModal();
+          perjanjianLogs = spreadsheetService.getPerjanjianLogs() || [];
+          renderTable();
+          alert(`Berhasil! Surat Perjanjian ${no} telah direvisi atas nama ${newPedagang}.\nFile PDF baru telah diperbarui di Google Drive.`);
+        } else {
+          alert('Gagal merevisi surat: ' + (res?.message || 'Terjadi kesalahan sistem'));
+        }
+      } catch (err) {
+        alert('Gagal merevisi surat: ' + err.message);
+      } finally {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4"></i><span>Simpan & Terbitkan PDF</span>`;
+        if (window.lucide) window.lucide.createIcons();
+      }
+    });
+  }
 
   renderTable();
 
