@@ -33,6 +33,8 @@ function handleRequest(params) {
   if (action === 'getKiosks') return handleGetKiosks();
   if (action === 'login') return handleLogin(params);
   if (action === 'updateKios' || action === 'updateKiosk') return handleUpdateKios(params);
+  if (action === 'addKios' || action === 'addKiosk') return handleAddKios(params);
+  if (action === 'deleteKios' || action === 'deleteKiosk') return handleDeleteKios(params);
   if (action === 'generatePerjanjian') return handleGeneratePerjanjianDoc(params);
   if (action === 'revisePerjanjian') return handleRevisePerjanjian(params);
   if (action === 'deletePerjanjian') return handleDeletePerjanjian(params);
@@ -202,6 +204,166 @@ function handleUpdateKios(params) {
     }
   }
   return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Kios (' + kioskId + ') tidak ditemukan di sheet PEDAGANG' })).setMimeType(ContentService.MimeType.JSON);
+}
+
+// =========================================================================
+// 2B. TAMBAH KIOS / PEDAGANG BARU KE SHEET PEDAGANG
+// =========================================================================
+function handleAddKios(params) {
+  try {
+    var kiosk = params.kiosk || params.data || params || {};
+    var zona = String(kiosk.zona || 'PASAR SANDANG').toUpperCase().trim();
+    var isSayur = (zona.indexOf('SAYUR') !== -1);
+    var cleanZona = isSayur ? 'PASAR SAYUR' : 'PASAR SANDANG';
+    
+    var rawBlok = String(kiosk.blokKode || kiosk.blok || '').replace(/^(SND|SYR)-/i, '').replace(/^BLOK\s*/i, '').trim();
+    if (!rawBlok) {
+      return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Kode Blok kios wajib diisi' })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    var prefix = isSayur ? 'SYR-' : 'SND-';
+    var generatedId = kiosk.id ? String(kiosk.id).trim() : (prefix + rawBlok.toUpperCase());
+    var userOperator = params.user || 'Admin';
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('PEDAGANG');
+    if (!sheet) {
+      return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Sheet PEDAGANG tidak ditemukan' })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var data = sheet.getDataRange().getValues();
+    // Cek duplikasi ID atau Blok
+    for (var i = 1; i < data.length; i++) {
+      var existingId = String(data[i][0] || '').toUpperCase().trim();
+      var existingBlok = String(data[i][1] || '').replace(/^BLOK\s*/i, '').replace(/^(SND|SYR)-/i, '').toUpperCase().trim();
+      var existingZona = String(data[i][2] || '').toUpperCase().trim();
+
+      if (existingId === generatedId.toUpperCase()) {
+        return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'ID Kios ' + generatedId + ' sudah ada di database!' })).setMimeType(ContentService.MimeType.JSON);
+      }
+      if (existingBlok === rawBlok.toUpperCase() && ((isSayur && existingZona.indexOf('SAYUR') !== -1) || (!isSayur && existingZona.indexOf('SANDANG') !== -1))) {
+        return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Blok ' + rawBlok + ' sudah terdaftar di ' + cleanZona })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
+    var newRow = [
+      generatedId,
+      rawBlok,
+      cleanZona,
+      kiosk.pedagang || '-',
+      kiosk.nik || '-',
+      kiosk.alamat || '-',
+      kiosk.kategori || 'Umum',
+      kiosk.tipeKios || 'LOS',
+      kiosk.luasDimensi || '200 x 200',
+      kiosk.luasM2 || '4.0',
+      kiosk.sewaBulanan || 'Rp 225.000/thn',
+      kiosk.tglPembayaran || '-',
+      kiosk.tglHabisSewa || '2026-12-31',
+      kiosk.statusBayar || 'belum_bayar',
+      kiosk.nomorHp || '',
+      kiosk.catatan || ''
+    ];
+
+    sheet.appendRow(newRow);
+    SpreadsheetApp.flush();
+
+    // Catat ke HISTORI
+    var detailHistori = 'Pendaftaran Unit Kios Baru: ' + (kiosk.tipeKios || 'LOS') + ' (Luas: ' + (kiosk.luasM2 || '4.0') + ' m², Pedagang: ' + (kiosk.pedagang || '-') + ')';
+    logToHistoriSheet(ss, 'PENAMBAHAN KIOS', generatedId, 'Blok ' + rawBlok, cleanZona, (kiosk.pedagang || '-'), detailHistori, userOperator, '-');
+
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success',
+      message: 'Kios ' + rawBlok + ' (' + cleanZona + ') berhasil ditambahkan',
+      kios: {
+        id: generatedId,
+        blokKode: rawBlok,
+        zona: cleanZona,
+        pedagang: kiosk.pedagang || '-',
+        nik: kiosk.nik || '-',
+        alamat: kiosk.alamat || '-',
+        kategori: kiosk.kategori || 'Umum',
+        tipeKios: kiosk.tipeKios || 'LOS',
+        luasDimensi: kiosk.luasDimensi || '200 x 200',
+        luasM2: kiosk.luasM2 || '4.0',
+        sewaBulanan: kiosk.sewaBulanan || 'Rp 225.000/thn',
+        tglPembayaran: kiosk.tglPembayaran || '-',
+        tglHabisSewa: kiosk.tglHabisSewa || '2026-12-31',
+        statusBayar: kiosk.statusBayar || 'belum_bayar',
+        nomorHp: kiosk.nomorHp || '',
+        catatan: kiosk.catatan || ''
+      }
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// =========================================================================
+// 2C. HAPUS KIOS PERMANEN DARI SHEET PEDAGANG
+// =========================================================================
+function handleDeleteKios(params) {
+  try {
+    var kioskId = String(params.id || params.kiosId || '').trim();
+    var rawBlok = String(params.blokKode || params.blok || '').replace(/^(SND|SYR)-/i, '').replace(/^BLOK\s*/i, '').trim().toUpperCase();
+    var zona = String(params.zona || '').toUpperCase().trim();
+    var userOperator = params.user || 'Admin';
+
+    if (!kioskId && !rawBlok) {
+      return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'ID atau Blok Kios wajib diisi' })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('PEDAGANG');
+    if (!sheet) {
+      return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Sheet PEDAGANG tidak ditemukan' })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var data = sheet.getDataRange().getValues();
+    var targetRowIdx = -1;
+    var deletedKiosData = null;
+
+    var isTargetSayur = (kioskId.indexOf('SYR') !== -1 || zona.indexOf('SAYUR') !== -1);
+    var isTargetSandang = !isTargetSayur && (kioskId.indexOf('SND') !== -1 || zona.indexOf('SANDANG') !== -1);
+
+    for (var i = 1; i < data.length; i++) {
+      var rowId = String(data[i][0] || '').toUpperCase().trim();
+      var rowBlok = String(data[i][1] || '').replace(/^BLOK\s*/i, '').replace(/^(SND|SYR)-/i, '').toUpperCase().trim();
+      var rowZona = String(data[i][2] || '').toUpperCase().trim();
+
+      var isRowSayur = (rowId.indexOf('SYR') !== -1 || rowZona.indexOf('SAYUR') !== -1);
+      var isRowSandang = !isRowSayur && (rowId.indexOf('SND') !== -1 || rowZona.indexOf('SANDANG') !== -1);
+      var zoneMatch = (isTargetSayur && isRowSayur) || (isTargetSandang && isRowSandang) || !zona;
+
+      if (kioskId && rowId === kioskId.toUpperCase()) {
+        targetRowIdx = i + 1;
+        deletedKiosData = data[i];
+        break;
+      } else if (rawBlok && rowBlok === rawBlok && zoneMatch) {
+        targetRowIdx = i + 1;
+        deletedKiosData = data[i];
+        break;
+      }
+    }
+
+    if (targetRowIdx === -1 || !deletedKiosData) {
+      return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Kios tidak ditemukan di sheet PEDAGANG' })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    sheet.deleteRow(targetRowIdx);
+    SpreadsheetApp.flush();
+
+    // Catat ke HISTORI
+    var detailHistori = 'Penghapusan Kios Fisik Permanen: ' + deletedKiosData[0] + ' (' + deletedKiosData[1] + ' • ' + deletedKiosData[2] + ')';
+    logToHistoriSheet(ss, 'PENGHAPUSAN KIOS', deletedKiosData[0], 'Blok ' + deletedKiosData[1], deletedKiosData[2], deletedKiosData[3], detailHistori, userOperator, '-');
+
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success',
+      message: 'Kios ' + (deletedKiosData[1] || kioskId) + ' berhasil dihapus permanen dari database pasar'
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 // =========================================================================

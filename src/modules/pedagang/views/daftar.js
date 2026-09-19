@@ -289,6 +289,16 @@ export function renderDaftarPedagangView(container) {
                 <i data-lucide="edit-2" class="w-3 h-3"></i>
                 <span>Edit</span>
               </button>
+              ${(item.pedagang && item.pedagang !== '-') ? `
+                <button data-reset-id="${item.id}" data-blok="${cleanBlok}" data-pedagang="${escapeHTML(item.pedagang)}" class="reset-merchant-btn bg-amber-600/90 hover:bg-amber-600 text-white px-2 py-1 rounded-lg text-[10px] font-bold shadow transition-all flex items-center gap-1" title="Kosongkan Kios (Putus Sewa / Lahan Kosong)">
+                  <i data-lucide="user-x" class="w-3 h-3"></i>
+                  <span>Kosongkan</span>
+                </button>
+              ` : ''}
+              <button data-delete-id="${item.id}" data-blok="${cleanBlok}" data-zona="${item.zona}" class="delete-kiosk-btn bg-rose-600/90 hover:bg-rose-600 text-white px-2 py-1 rounded-lg text-[10px] font-bold shadow transition-all flex items-center gap-1" title="Hapus Unit Kios Permanen dari Database">
+                <i data-lucide="trash-2" class="w-3 h-3"></i>
+                <span>Hapus</span>
+              </button>
             </div>
           </td>
         </tr>
@@ -323,6 +333,45 @@ export function renderDaftarPedagangView(container) {
       btn.addEventListener('click', () => {
         const targetId = btn.getAttribute('data-edit-id');
         openEditModal(targetId);
+      });
+    });
+
+    tbody.querySelectorAll('.reset-merchant-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const targetId = btn.getAttribute('data-reset-id');
+        const blok = btn.getAttribute('data-blok');
+        const pedagang = btn.getAttribute('data-pedagang');
+        if (confirm(`Putus sewa dan kosongkan unit ${blok} (${pedagang})?\n\nNama penyewa akan diubah menjadi LAHAN KOSONG (-) dan status bayar diset belum bayar.`)) {
+          btn.disabled = true;
+          await spreadsheetService.resetKioskMerchant(targetId);
+          refreshKiosksState();
+          renderTableContent();
+        }
+      });
+    });
+
+    tbody.querySelectorAll('.delete-kiosk-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const targetId = btn.getAttribute('data-delete-id');
+        const blok = btn.getAttribute('data-blok');
+        const zona = btn.getAttribute('data-zona');
+        if (confirm(`PERINGATAN: Apakah Anda yakin ingin MENGHAPUS PERMANEN unit ${blok} (${zona}) dari database pasar?\n\nUnit kios ini akan dihapus dari Google Sheets dan tidak bisa dikembalikan!`)) {
+          btn.disabled = true;
+          btn.innerHTML = `<i data-lucide="refresh-cw" class="w-3 h-3 animate-spin"></i><span>...</span>`;
+          if (window.lucide) window.lucide.createIcons();
+
+          const res = await spreadsheetService.deleteKioskRemote(targetId, blok, zona);
+          if (res.status === 'success') {
+            alert(res.message || 'Kios berhasil dihapus permanen');
+            refreshKiosksState();
+            renderTableContent();
+          } else {
+            alert('Gagal menghapus kios: ' + (res.message || 'Terjadi kesalahan'));
+            btn.disabled = false;
+            btn.innerHTML = `<i data-lucide="trash-2" class="w-3 h-3"></i><span>Hapus</span>`;
+            if (window.lucide) window.lucide.createIcons();
+          }
+        }
       });
     });
   }
@@ -413,6 +462,11 @@ export function renderDaftarPedagangView(container) {
         </div>
 
         <div class="flex items-center gap-3">
+          <button id="btn-tambah-kios" class="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-blue-900/20 whitespace-nowrap">
+            <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+            <span>+ Tambah Kios Baru</span>
+          </button>
+
           <button id="btn-sync-cloud-pedagang" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-emerald-900/20 whitespace-nowrap">
             <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
             <span>Sinkronkan Cloud</span>
@@ -642,6 +696,113 @@ export function renderDaftarPedagangView(container) {
               </button>
               <button type="submit" class="px-5 py-2.5 rounded-xl font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg">
                 Simpan Perubahan
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Add New Kiosk Modal Popup -->
+      <div id="add-kiosk-modal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm hidden flex items-center justify-center z-50 p-4">
+        <div class="border rounded-2xl w-full max-w-lg p-6 relative shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto ${isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'}">
+          <button id="close-add-modal-btn" class="absolute right-4 top-4 ${textSecondary} hover:text-emerald-500">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-500 flex items-center justify-center font-bold">
+              <i data-lucide="plus-circle" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <h3 class="text-base font-bold">Tambah Unit Kios Baru</h3>
+              <p class="text-xs ${textSecondary}">Daftarkan unit kios/los baru ke database Pasar</p>
+            </div>
+          </div>
+
+          <form id="add-kiosk-form" class="space-y-3 text-xs">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block font-semibold mb-1 ${textSecondary}">Zona Pasar *</label>
+                <select id="add-zona-input" required class="w-full p-2.5 rounded-xl border ${inputBg}">
+                  <option value="PASAR SANDANG">PASAR SANDANG</option>
+                  <option value="PASAR SAYUR">PASAR SAYUR</option>
+                </select>
+              </div>
+              <div>
+                <label class="block font-semibold mb-1 ${textSecondary}">Kode Blok * (misal: A-15, LOS-01)</label>
+                <input type="text" id="add-blok-input" required placeholder="Contoh: A-10 atau LOS-05" class="w-full p-2.5 rounded-xl border ${inputBg}" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block font-semibold mb-1 ${textSecondary}">Tipe Unit *</label>
+                <select id="add-tipe-input" required class="w-full p-2.5 rounded-xl border ${inputBg}">
+                  <option value="LOS">LOS</option>
+                  <option value="KIOS 1">KIOS 1</option>
+                  <option value="KIOS 2">KIOS 2</option>
+                  <option value="KANTIN">KANTIN</option>
+                </select>
+              </div>
+              <div>
+                <label class="block font-semibold mb-1 ${textSecondary}">Jenis Usaha / Kategori</label>
+                <input type="text" id="add-usaha-input" placeholder="misal: Pakaian, Sayur, Kuliner" class="w-full p-2.5 rounded-xl border ${inputBg}" />
+              </div>
+            </div>
+
+            <!-- Dimensi & Luas -->
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block font-semibold mb-1 ${textSecondary}">Ukuran Dimensi:</label>
+                <input type="text" id="add-dimensi-input" placeholder="misal: 200 x 200" value="200 x 200" class="w-full p-2.5 rounded-xl border ${inputBg}" />
+              </div>
+              <div>
+                <label class="block font-semibold mb-1 ${textSecondary}">Luas (m²):</label>
+                <input type="text" id="add-luas-input" placeholder="4.0" value="4.0" class="w-full p-2.5 rounded-xl border ${inputBg}" />
+              </div>
+            </div>
+
+            <!-- Live Kalkulasi Biaya Sewa -->
+            <div class="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-500 text-xs font-bold flex items-center justify-between">
+              <span class="flex items-center gap-1.5">
+                <i data-lucide="calculator" class="w-4 h-4 text-blue-500"></i>
+                <span>Estimasi Biaya Sewa:</span>
+              </span>
+              <span id="add-live-sewa-text" class="font-mono text-blue-400 font-extrabold">-</span>
+            </div>
+
+            <!-- Data Pedagang Awal (Opsional) -->
+            <div class="p-3 rounded-xl border ${isDark ? 'border-slate-800 bg-slate-950/40' : 'border-slate-200 bg-slate-50/70'} space-y-2">
+              <p class="text-[11px] font-bold text-emerald-500 uppercase tracking-wider">Data Penyewa Awal (Opsional - Kosongkan jika Kios Kosong)</p>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block font-semibold mb-1 ${textSecondary}">Nama Pedagang:</label>
+                  <input type="text" id="add-nama-input" placeholder="Boleh dikosongkan (-)" class="w-full p-2 rounded-lg border ${inputBg}" />
+                </div>
+                <div>
+                  <label class="block font-semibold mb-1 ${textSecondary}">NIK:</label>
+                  <input type="text" id="add-nik-input" placeholder="NIK KTP" class="w-full p-2 rounded-lg border ${inputBg}" />
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block font-semibold mb-1 ${textSecondary}">Alamat Desa:</label>
+                  <input type="text" id="add-alamat-input" placeholder="Desa..." class="w-full p-2 rounded-lg border ${inputBg}" />
+                </div>
+                <div>
+                  <label class="block font-semibold mb-1 ${textSecondary}">Nomor HP / WhatsApp:</label>
+                  <input type="text" id="add-hp-input" placeholder="08..." class="w-full p-2 rounded-lg border ${inputBg}" />
+                </div>
+              </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-3 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}">
+              <button type="button" id="close-add-modal-btn2" class="px-4 py-2.5 rounded-xl font-bold bg-slate-800 text-slate-300 hover:bg-slate-700">
+                Batal
+              </button>
+              <button type="submit" id="submit-add-kiosk-btn" class="px-5 py-2.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-lg flex items-center gap-1.5">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                <span>Simpan Kios Baru</span>
               </button>
             </div>
           </form>
@@ -883,6 +1044,135 @@ export function renderDaftarPedagangView(container) {
     modal.classList.add('hidden');
     renderTableContent();
   });
+
+  // ==========================================
+  // ADD NEW KIOSK MODAL LOGIC & EVENT HANDLERS
+  // ==========================================
+  const addModal = container.querySelector('#add-kiosk-modal');
+  const btnTambahKios = container.querySelector('#btn-tambah-kios');
+  const closeAddModalBtn = container.querySelector('#close-add-modal-btn');
+  const closeAddModalBtn2 = container.querySelector('#close-add-modal-btn2');
+  const addDimensiInput = container.querySelector('#add-dimensi-input');
+  const addLuasInput = container.querySelector('#add-luas-input');
+  const addTipeInput = container.querySelector('#add-tipe-input');
+  const addKioskForm = container.querySelector('#add-kiosk-form');
+
+  function updateAddModalLiveSewa() {
+    if (!addLuasInput || !addTipeInput) return;
+    const luasVal = addLuasInput.value || '4.0';
+    const tipeVal = addTipeInput.value || 'LOS';
+    const rentCalc = rateService.calculateRent(luasVal, tipeVal);
+    const previewEl = container.querySelector('#add-live-sewa-text');
+    if (previewEl) {
+      previewEl.innerText = rentCalc.summary;
+    }
+    return rentCalc;
+  }
+
+  if (btnTambahKios && addModal) {
+    btnTambahKios.addEventListener('click', () => {
+      addModal.classList.remove('hidden');
+      updateAddModalLiveSewa();
+      if (window.lucide) window.lucide.createIcons();
+    });
+  }
+
+  if (closeAddModalBtn && addModal) {
+    closeAddModalBtn.addEventListener('click', () => addModal.classList.add('hidden'));
+  }
+  if (closeAddModalBtn2 && addModal) {
+    closeAddModalBtn2.addEventListener('click', () => addModal.classList.add('hidden'));
+  }
+
+  // Dimension Auto Compute
+  if (addDimensiInput && addLuasInput) {
+    addDimensiInput.addEventListener('input', (e) => {
+      const val = e.target.value;
+      const parts = val.split(/x|\*/i);
+      if (parts.length === 2) {
+        const p = parseFloat(parts[0].replace(/,/g, '.').trim()) || 0;
+        const l = parseFloat(parts[1].replace(/,/g, '.').trim()) || 0;
+        if (p > 0 && l > 0) {
+          const pM = p > 50 ? p / 100 : p;
+          const lM = l > 50 ? l / 100 : l;
+          const m2 = Math.round((pM * lM) * 100) / 100;
+          addLuasInput.value = m2.toFixed(2);
+          updateAddModalLiveSewa();
+        }
+      }
+    });
+
+    addLuasInput.addEventListener('input', () => {
+      updateAddModalLiveSewa();
+    });
+
+    if (addTipeInput) {
+      addTipeInput.addEventListener('change', () => {
+        updateAddModalLiveSewa();
+      });
+    }
+  }
+
+  if (addKioskForm) {
+    addKioskForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const submitBtn = container.querySelector('#submit-add-kiosk-btn');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `<i data-lucide="refresh-cw" class="w-3.5 h-3.5 animate-spin"></i><span>Menyimpan ke Cloud...</span>`;
+      if (window.lucide) window.lucide.createIcons();
+
+      const zona = container.querySelector('#add-zona-input').value;
+      const rawBlok = container.querySelector('#add-blok-input').value.trim();
+      const cleanBlok = rawBlok.replace(/^(SND|SYR)-/i, '').replace(/^BLOK\s*/i, '').toUpperCase();
+      const isSayur = (zona.indexOf('SAYUR') !== -1);
+      const prefix = isSayur ? 'SYR-' : 'SND-';
+      const generatedId = prefix + cleanBlok;
+      const tipeKios = container.querySelector('#add-tipe-input').value;
+      const dimensi = container.querySelector('#add-dimensi-input').value.trim() || '200 x 200';
+      const luas = container.querySelector('#add-luas-input').value.trim() || '4.0';
+      const namaPedagang = container.querySelector('#add-nama-input').value.trim() || '-';
+      const nik = container.querySelector('#add-nik-input').value.trim() || '-';
+      const alamat = container.querySelector('#add-alamat-input').value.trim() || '-';
+      const kategori = container.querySelector('#add-usaha-input').value.trim() || 'Umum';
+      const hp = container.querySelector('#add-hp-input').value.trim() || '';
+
+      const rentCalc = rateService.calculateRent(luas, tipeKios);
+
+      const newKioskData = {
+        id: generatedId,
+        blokKode: cleanBlok,
+        zona: zona,
+        pedagang: namaPedagang,
+        nik: nik,
+        alamat: alamat,
+        kategori: kategori,
+        tipeKios: tipeKios,
+        luasDimensi: dimensi,
+        luasM2: luas,
+        sewaBulanan: rentCalc.formattedTotal,
+        tglPembayaran: '-',
+        tglHabisSewa: '2026-12-31',
+        statusBayar: 'belum_bayar',
+        nomorHp: hp,
+        catatan: ''
+      };
+
+      const res = await spreadsheetService.addKioskRemote(newKioskData);
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = `<i data-lucide="plus" class="w-4 h-4"></i><span>Simpan Kios Baru</span>`;
+      if (window.lucide) window.lucide.createIcons();
+
+      if (res.status === 'success') {
+        alert(res.message || 'Kios baru berhasil didaftarkan ke database pasar!');
+        addModal.classList.add('hidden');
+        addKioskForm.reset();
+        refreshKiosksState();
+        renderTableContent();
+      } else {
+        alert('Gagal menambahkan unit kios: ' + (res.message || 'Terjadi kesalahan sistem'));
+      }
+    });
+  }
 
   // Sync Cloud Manual Button
   const btnSyncCloud = container.querySelector('#btn-sync-cloud-pedagang');

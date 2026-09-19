@@ -249,6 +249,93 @@ class SpreadsheetService {
     return null;
   }
 
+  async addKioskRemote(kioskData) {
+    const currentUser = authService.getCurrentUser();
+    const petugasName = currentUser ? `${currentUser.nama} (${currentUser.username})` : 'Admin';
+
+    try {
+      const res = await fetch(GOOGLE_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'addKios',
+          kiosk: kioskData,
+          user: petugasName,
+          apiToken: API_SECURITY_TOKEN
+        }),
+        redirect: 'follow'
+      });
+      const json = await res.json();
+      if (json.status === 'success' && json.kios) {
+        const kiosks = this.loadKiosks();
+        const existingIdx = kiosks.findIndex(k => k.id === json.kios.id);
+        if (existingIdx !== -1) {
+          kiosks[existingIdx] = json.kios;
+        } else {
+          kiosks.push(json.kios);
+        }
+        this.saveKiosksLocally(kiosks);
+        return { status: 'success', kios: json.kios, message: json.message };
+      } else {
+        return { status: 'error', message: json.message || 'Gagal menambahkan kios ke server' };
+      }
+    } catch (err) {
+      console.error('Error addKioskRemote:', err);
+      // Local fallback
+      const kiosks = this.loadKiosks();
+      kiosks.push(kioskData);
+      this.saveKiosksLocally(kiosks);
+      return { status: 'success', kios: kioskData, message: 'Kios tersimpan di lokal (mode offline)' };
+    }
+  }
+
+  async deleteKioskRemote(kioskId, blokKode, zona) {
+    const currentUser = authService.getCurrentUser();
+    const petugasName = currentUser ? `${currentUser.nama} (${currentUser.username})` : 'Admin';
+
+    try {
+      const res = await fetch(GOOGLE_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'deleteKios',
+          id: kioskId,
+          blokKode: blokKode,
+          zona: zona,
+          user: petugasName,
+          apiToken: API_SECURITY_TOKEN
+        }),
+        redirect: 'follow'
+      });
+      const json = await res.json();
+      if (json.status === 'success') {
+        const kiosks = this.loadKiosks().filter(k => k.id !== kioskId);
+        this.saveKiosksLocally(kiosks);
+        return { status: 'success', message: json.message };
+      } else {
+        return { status: 'error', message: json.message || 'Gagal menghapus kios di server' };
+      }
+    } catch (err) {
+      console.error('Error deleteKioskRemote:', err);
+      const kiosks = this.loadKiosks().filter(k => k.id !== kioskId);
+      this.saveKiosksLocally(kiosks);
+      return { status: 'success', message: 'Kios dihapus di lokal (mode offline)' };
+    }
+  }
+
+  async resetKioskMerchant(kioskId) {
+    return await this.updateKios(kioskId, {
+      pedagang: '-',
+      nik: '-',
+      alamat: '-',
+      statusBayar: 'belum_bayar',
+      tglPembayaran: '-',
+      nomorHp: '',
+      catatan: 'Dikosongkan / Putus Sewa'
+    });
+  }
+
+
   getStats(zone = null) {
     let kiosks = this.loadKiosks();
     if (zone) {
