@@ -472,8 +472,36 @@ function handleDeletePerjanjian(params) {
     var targetPedagang = deletedRowData ? deletedRowData[5] : (params.pedagang || '-');
     logToHistoriSheet(ss, 'PEMBATALAN PERJANJIAN', nomorPerjanjian, targetBlok, targetKawasan, targetPedagang, 'Pembatalan & Penghapusan Surat Perjanjian Kontrak', userOperator, driveUrl);
 
-    // 5. Reset status bayar pedagang di sheet PEDAGANG menjadi 'belum_bayar'
-    updatePedagangPaymentStatus(ss, params.kiosId, targetBlok, targetKawasan, 'belum_bayar', '-');
+    // 5. Cek apakah masih ada naskah Perjanjian atau Kwitansi lain yang aktif untuk kios ini
+    var hasOtherActive = false;
+    var cleanBlokTarget = String(targetBlok || '').replace(/^blok\s*/i, '').replace(/^(SND|SYR)-/i, '').trim().toUpperCase();
+    if (pSheet && cleanBlokTarget && cleanBlokTarget !== '-') {
+      var remainingP = pSheet.getDataRange().getValues();
+      for (var r = 1; r < remainingP.length; r++) {
+        var rBlok = String(remainingP[r][8] || '').replace(/^blok\s*/i, '').replace(/^(SND|SYR)-/i, '').trim().toUpperCase();
+        if (rBlok === cleanBlokTarget) {
+          hasOtherActive = true;
+          break;
+        }
+      }
+    }
+
+    var kwSheet = ss.getSheetByName('Buku_Kwitansi');
+    if (!hasOtherActive && kwSheet && cleanBlokTarget && cleanBlokTarget !== '-') {
+      var kwData = kwSheet.getDataRange().getValues();
+      for (var kr = 1; kr < kwData.length; kr++) {
+        var krBlok = String(kwData[kr][5] || '').replace(/^blok\s*/i, '').replace(/^(SND|SYR)-/i, '').trim().toUpperCase();
+        if (krBlok === cleanBlokTarget) {
+          hasOtherActive = true;
+          break;
+        }
+      }
+    }
+
+    // Reset ke belum_bayar HANYA JIKA tidak ada naskah lain yang aktif
+    if (!hasOtherActive) {
+      updatePedagangPaymentStatus(ss, params.kiosId, targetBlok, targetKawasan, 'belum_bayar', '-');
+    }
 
     return ContentService.createTextOutput(JSON.stringify({
       status: 'success',
@@ -678,8 +706,36 @@ function handleDeleteKwitansi(params) {
     var targetPedagang = deletedRowData ? deletedRowData[3] : (params.pedagang || '-');
     logToHistoriSheet(ss, 'PEMBATALAN KWITANSI', nomorKwitansi, targetBlok, targetKawasan, targetPedagang, 'Pembatalan & Penghapusan Kwitansi Pembayaran', userOperator, driveUrl);
 
-    // 5. Reset status di sheet PEDAGANG jika ada data kios
-    updatePedagangPaymentStatus(ss, params.kiosId, targetBlok, targetKawasan, 'belum_bayar', '-');
+    // 5. Cek apakah masih ada naskah Kwitansi atau Perjanjian lain yang aktif untuk kios ini
+    var hasOtherActive = false;
+    var cleanBlokTarget = String(targetBlok || '').replace(/^blok\s*/i, '').replace(/^(SND|SYR)-/i, '').trim().toUpperCase();
+    if (kSheet && cleanBlokTarget && cleanBlokTarget !== '-') {
+      var remainingK = kSheet.getDataRange().getValues();
+      for (var kr = 1; kr < remainingK.length; kr++) {
+        var krBlok = String(remainingK[kr][5] || '').replace(/^blok\s*/i, '').replace(/^(SND|SYR)-/i, '').trim().toUpperCase();
+        if (krBlok === cleanBlokTarget) {
+          hasOtherActive = true;
+          break;
+        }
+      }
+    }
+
+    var prSheet = ss.getSheetByName('Buku_Perjanjian_Sewa');
+    if (!hasOtherActive && prSheet && cleanBlokTarget && cleanBlokTarget !== '-') {
+      var prData = prSheet.getDataRange().getValues();
+      for (var pr = 1; pr < prData.length; pr++) {
+        var prBlok = String(prData[pr][8] || '').replace(/^blok\s*/i, '').replace(/^(SND|SYR)-/i, '').trim().toUpperCase();
+        if (prBlok === cleanBlokTarget) {
+          hasOtherActive = true;
+          break;
+        }
+      }
+    }
+
+    // Reset ke belum_bayar HANYA JIKA tidak ada naskah lain yang aktif
+    if (!hasOtherActive) {
+      updatePedagangPaymentStatus(ss, params.kiosId, targetBlok, targetKawasan, 'belum_bayar', '-');
+    }
 
     return ContentService.createTextOutput(JSON.stringify({
       status: 'success',
