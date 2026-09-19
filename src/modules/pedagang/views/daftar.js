@@ -117,15 +117,21 @@ export function renderDaftarPedagangView(container) {
         blockPrefix === currentBlokFilter.toUpperCase();
 
       // 4. Status Bayar & Okupansi Match
+      const isPaid = (s) => {
+        if (!s) return false;
+        const lower = String(s).trim().toLowerCase();
+        return lower === 'lunas' || lower === 'sudah bayar' || lower === 'sudah_bayar';
+      };
+
       let matchStatus = true;
       if (currentStatusFilter === 'kosong') {
         matchStatus = (k.status === 'kosong' || !k.pedagang || k.pedagang === '-');
       } else if (currentStatusFilter === 'terisi') {
         matchStatus = (k.pedagang && k.pedagang !== '-');
       } else if (currentStatusFilter === 'lunas') {
-        matchStatus = (k.statusBayar === 'lunas' && k.pedagang && k.pedagang !== '-');
+        matchStatus = (isPaid(k.statusBayar) && k.pedagang && k.pedagang !== '-');
       } else if (currentStatusFilter === 'belum_bayar') {
-        matchStatus = (k.pedagang && k.pedagang !== '-' && k.statusBayar !== 'lunas');
+        matchStatus = (k.pedagang && k.pedagang !== '-' && !isPaid(k.statusBayar));
       } else if (currentStatusFilter !== 'ALL') {
         matchStatus = (k.statusBayar === currentStatusFilter);
       }
@@ -176,6 +182,12 @@ export function renderDaftarPedagangView(container) {
       return;
     }
 
+    const isPaid = (s) => {
+      if (!s) return false;
+      const lower = String(s).trim().toLowerCase();
+      return lower === 'lunas' || lower === 'sudah bayar' || lower === 'sudah_bayar';
+    };
+
     tbody.innerHTML = paginatedItems.map((item) => {
       const isSayur = (item.zona || '').toUpperCase().includes('SAYUR') || String(item.id || '').toUpperCase().startsWith('SYR');
       const zonaBadge = isSayur
@@ -194,7 +206,7 @@ export function renderDaftarPedagangView(container) {
             KOSONG
           </span>
         `;
-      } else if (item.statusBayar === 'lunas') {
+      } else if (isPaid(item.statusBayar)) {
         statusBadge = `
           <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
             LUNAS

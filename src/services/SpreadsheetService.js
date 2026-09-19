@@ -123,7 +123,10 @@ class SpreadsheetService {
             sewaBulanan: String(k.sewaBulanan || 'Rp 225.000/thn'),
             tglPembayaran: k.tglPembayaran ? String(k.tglPembayaran) : '-',
             tglHabisSewa: k.tglHabisSewa ? String(k.tglHabisSewa) : '2026-12-31',
-            statusBayar: String(k.statusBayar || 'belum_bayar').toLowerCase(),
+            statusBayar: (() => {
+              const raw = String(k.statusBayar || 'belum_bayar').trim().toLowerCase();
+              return (raw === 'lunas' || raw === 'sudah bayar' || raw === 'sudah_bayar') ? 'lunas' : raw;
+            })(),
             nomorHp: escapeHTML(k.nomorHp || ''),
             catatan: escapeHTML(k.catatan || '')
           };
@@ -252,11 +255,16 @@ class SpreadsheetService {
       kiosks = kiosks.filter(k => k.zona === zone);
     }
 
+    const isLunas = s => {
+      const lower = String(s || '').trim().toLowerCase();
+      return lower === 'lunas' || lower === 'sudah bayar' || lower === 'sudah_bayar';
+    };
+
     const total = kiosks.length;
     const terisi = kiosks.filter(k => k.pedagang && k.pedagang !== '-').length;
     const kosong = total - terisi;
-    const sudahBayar = kiosks.filter(k => k.statusBayar === 'lunas' && k.pedagang !== '-').length;
-    const belumBayar = kiosks.filter(k => k.statusBayar === 'belum_bayar' && k.pedagang !== '-').length;
+    const sudahBayar = kiosks.filter(k => isLunas(k.statusBayar) && k.pedagang && k.pedagang !== '-').length;
+    const belumBayar = kiosks.filter(k => !isLunas(k.statusBayar) && k.pedagang && k.pedagang !== '-').length;
     const jatuhTempo = kiosks.filter(k => (k.statusBayar === 'jatuh_tempo' || k.statusBayar === 'hampir_habis') && k.pedagang !== '-').length;
 
     const totalSewa = kiosks.reduce((acc, curr) => {
@@ -445,13 +453,13 @@ class SpreadsheetService {
         const perjanjian = [];
         const kwitansi = [];
         
-        // Track cancelled documents
-        const cancelledPerjanjianNos = new Set();
+        // Track cancelled documents (Perjanjian & Kwitansi)
+        const cancelledDocNos = new Set();
         json.data.forEach(item => {
           const jenis = String(item.jenisTindakan || '').toUpperCase();
           const detail = String(item.detail || '').toUpperCase();
           if (jenis.includes('BATAL') || jenis.includes('HAPUS') || detail.includes('PEMBATALAN') || detail.includes('DIHAPUS')) {
-            if (item.noDokumen && item.noDokumen !== '-') cancelledPerjanjianNos.add(String(item.noDokumen).trim());
+            if (item.noDokumen && item.noDokumen !== '-') cancelledDocNos.add(String(item.noDokumen).trim());
           }
         });
 
@@ -460,7 +468,7 @@ class SpreadsheetService {
           const noDoc = String(item.noDokumen || '').toUpperCase().trim();
           const detail = String(item.detail || '');
 
-          if (jenis.includes('BATAL') || jenis.includes('HAPUS') || cancelledPerjanjianNos.has(item.noDokumen)) {
+          if (jenis.includes('BATAL') || jenis.includes('HAPUS') || cancelledDocNos.has(item.noDokumen)) {
             return; // Skip cancelled / deleted entries
           }
 
@@ -617,6 +625,46 @@ class SpreadsheetService {
       if (!skipNotify) this.notify();
     } catch (e) {
       console.warn('Error saving local kwitansi log:', e);
+    }
+  }
+
+  deleteLocalKwitansiLog(nomorKwitansi) {
+    try {
+      const key = 'pasar_buku_kwitansi_logs_v1';
+      const existing = this.getKwitansiLogs();
+      const filtered = existing.filter(item => item.nomorKwitansi !== nomorKwitansi && item.id !== nomorKwitansi);
+      localStorage.setItem(key, JSON.stringify(filtered));
+      this.notify();
+    } catch (e) {
+      console.warn('Error deleting local kwitansi log:', e);
+    }
+  }
+
+  /**
+   * Delete Kwitansi on Google Sheet & Google Drive
+   */
+  async deleteRemoteKwitansiDoc(nomorKwitansi, driveUrl = '', kiosId = '', blok = '') {
+    this.deleteLocalKwitansiLog(nomorKwitansi);
+
+    try {
+      const res = await fetch(GOOGLE_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'deleteKwitansi',
+          apiToken: API_SECURITY_TOKEN,
+          nomor_kwitansi: nomorKwitansi,
+          driveUrl: driveUrl,
+          kiosId: kiosId,
+          blok: blok
+        }),
+        redirect: 'follow'
+      });
+      const data = await res.json();
+      return data;
+    } catch (e) {
+      console.warn('Error deleting remote kwitansi:', e);
+      return { status: 'success', localOnly: true };
     }
   }
 

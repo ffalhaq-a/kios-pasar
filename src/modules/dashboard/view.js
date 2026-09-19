@@ -10,9 +10,15 @@ export function renderDashboardView(container) {
   const terisi = kiosks.filter(k => k.pedagang && k.pedagang !== '-').length;
   const kosong = totalKios - terisi;
   
+  const isLunas = (status) => {
+    if (!status) return false;
+    const s = String(status).trim().toLowerCase();
+    return s === 'lunas' || s === 'sudah bayar' || s === 'sudah_bayar';
+  };
+
   // Sudah Bayar vs Jatuh Tempo / Belum Bayar
-  const sudahBayar = kiosks.filter(k => k.statusBayar === 'lunas' && k.pedagang !== '-').length;
-  const belumBayar = kiosks.filter(k => k.pedagang !== '-' && k.statusBayar !== 'lunas').length;
+  const sudahBayar = kiosks.filter(k => isLunas(k.statusBayar) && k.pedagang && k.pedagang !== '-').length;
+  const belumBayar = kiosks.filter(k => k.pedagang && k.pedagang !== '-' && !isLunas(k.statusBayar)).length;
 
   // 2. Unit Type Breakdown (Kios 1, Kios 2, Los, Lemprakan)
   const countKios1 = kiosks.filter(k => (k.tipeKios || '').toUpperCase().includes('KIOS 1')).length;
@@ -26,16 +32,16 @@ export function renderDashboardView(container) {
 
   const sandangTerisi = sandangKiosks.filter(k => k.pedagang && k.pedagang !== '-').length;
   const sandangKosong = sandangKiosks.length - sandangTerisi;
-  const sandangSudahBayar = sandangKiosks.filter(k => k.statusBayar === 'lunas' && k.pedagang !== '-').length;
-  const sandangBelumBayar = sandangTerisi - sandangSudahBayar;
+  const sandangSudahBayar = sandangKiosks.filter(k => isLunas(k.statusBayar) && k.pedagang && k.pedagang !== '-').length;
+  const sandangBelumBayar = Math.max(0, sandangTerisi - sandangSudahBayar);
 
   const sayurTerisi = sayurKiosks.filter(k => k.pedagang && k.pedagang !== '-').length;
   const sayurKosong = sayurKiosks.length - sayurTerisi;
-  const sayurSudahBayar = sayurKiosks.filter(k => k.statusBayar === 'lunas' && k.pedagang !== '-').length;
-  const sayurBelumBayar = sayurTerisi - sayurSudahBayar;
+  const sayurSudahBayar = sayurKiosks.filter(k => isLunas(k.statusBayar) && k.pedagang && k.pedagang !== '-').length;
+  const sayurBelumBayar = Math.max(0, sayurTerisi - sayurSudahBayar);
 
   // List of kiosks needing payment attention
-  const expiringKiosks = kiosks.filter(k => k.pedagang !== '-' && (k.statusBayar === 'belum_bayar' || k.statusBayar === 'hampir_habis' || k.statusBayar === 'jatuh_tempo')).slice(0, 5);
+  const expiringKiosks = kiosks.filter(k => k.pedagang && k.pedagang !== '-' && !isLunas(k.statusBayar)).slice(0, 5);
 
   const cardBg = isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200 shadow-sm';
   const textPrimary = isDark ? 'text-slate-100' : 'text-slate-900';

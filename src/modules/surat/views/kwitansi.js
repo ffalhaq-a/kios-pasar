@@ -480,7 +480,7 @@ export function renderKwitansiView(container, initialKiosId = null) {
     try {
       const res = await spreadsheetService.generateRemoteKwitansiDoc(itemData);
 
-      // Save local history log
+      // Save local history log (skipNotify=true to prevent screen jump)
       spreadsheetService.saveKwitansiLog({
         nomorKwitansi: itemData.nomor_kwitansi,
         tanggal: itemData.tanggal_bayar,
@@ -490,12 +490,39 @@ export function renderKwitansiView(container, initialKiosId = null) {
         nominal: itemData.biaya_sewa,
         driveUrl: res?.pdfUrl || '',
         fileName: res?.fileName || `Kwitansi_${itemData.blok_kios}.pdf`
-      });
+      }, true);
+
+      // Auto-update merchant status to lunas & record payment date
+      if (currentTargetKiosk) {
+        spreadsheetService.updateKios(currentTargetKiosk.id, {
+          statusBayar: 'lunas',
+          tglPembayaran: itemData.tanggal_bayar || new Date().toISOString().slice(0, 10),
+          status: 'terisi'
+        });
+      }
+
+      // Auto-advance next receipt number
+      const updatedLogs = spreadsheetService.getKwitansiLogs() || [];
+      const nextSmartNo = getSmartNextNumber('kwitansi', updatedLogs);
+      if (inputNo) inputNo.value = nextSmartNo;
 
       if (res && res.status === 'success' && res.pdfUrl) {
         statusAlertBox.classList.remove('hidden');
-        statusAlertText.innerText = `✅ Kwitansi ${itemData.blok_kios} tersimpan di Google Drive: ${res.folderPath || 'Pasar'} / ${res.fileName}`;
-        window.open(res.pdfUrl, '_blank');
+        statusAlertText.innerHTML = `
+          <div class="flex flex-col gap-1.5 py-1">
+            <div class="font-extrabold text-sky-400 flex items-center gap-1.5">
+              <span>✅ Kwitansi ${itemData.blok_kios} (${itemData.nama_pedagang}) Berhasil Diterbitkan!</span>
+            </div>
+            <span class="text-[11px] font-normal ${textSecondary}">Status Pedagang otomatis diperbarui: <b>Sudah Bayar (Lunas)</b></span>
+            <span class="text-[11px] font-normal ${textSecondary}">Tersimpan di Google Drive: <b>${res.folderPath || 'Pasar'} / ${res.fileName}</b></span>
+            <a href="${res.pdfUrl}" target="_blank" class="inline-flex items-center gap-1.5 bg-sky-500 hover:bg-sky-400 text-slate-950 px-3.5 py-1.5 rounded-xl text-xs font-extrabold w-fit mt-1 shadow-md transition-all">
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+              <span>Buka & Cetak Kwitansi PDF di Google Drive ↗</span>
+            </a>
+          </div>
+        `;
+        if (window.lucide) window.lucide.createIcons();
+        try { window.open(res.pdfUrl, '_blank'); } catch(e) {}
       } else {
         const doc = pdfService.generateKwitansi(itemData);
         const fileName = `KWITANSI_${itemData.blok_kios.replace(/\s+/g, '_')}_${itemData.nama_pedagang.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;

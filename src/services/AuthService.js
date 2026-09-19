@@ -83,6 +83,24 @@ class AuthService {
     });
 
     this.saveUsersCache(users);
+
+    // Background cloud sync to USERS sheet
+    try {
+      fetch(GOOGLE_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'saveUser',
+          username: cleanUsername,
+          password: user.password || '123456',
+          nama: user.nama || user.username,
+          role: user.role || 'PETUGAS',
+          apiToken: API_SECURITY_TOKEN
+        }),
+        redirect: 'follow'
+      }).catch(err => console.warn('Cloud user sync error:', err));
+    } catch (e) {}
+
     return { success: true, message: 'Pengguna berhasil ditambahkan!' };
   }
 
@@ -98,6 +116,24 @@ class AuthService {
     };
 
     this.saveUsersCache(users);
+
+    // Background cloud sync to USERS sheet
+    try {
+      fetch(GOOGLE_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'saveUser',
+          username: users[idx].username,
+          password: users[idx].password,
+          nama: users[idx].nama,
+          role: users[idx].role,
+          apiToken: API_SECURITY_TOKEN
+        }),
+        redirect: 'follow'
+      }).catch(err => console.warn('Cloud user update error:', err));
+    } catch (e) {}
+
     return { success: true, message: 'Data pengguna berhasil diperbarui!' };
   }
 
@@ -110,7 +146,41 @@ class AuthService {
 
     const filtered = users.filter(u => String(u.username).toLowerCase() !== cleanUsername);
     this.saveUsersCache(filtered);
+
+    // Background cloud sync to USERS sheet
+    try {
+      fetch(GOOGLE_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'deleteUser',
+          username: cleanUsername,
+          apiToken: API_SECURITY_TOKEN
+        }),
+        redirect: 'follow'
+      }).catch(err => console.warn('Cloud user delete error:', err));
+    } catch (e) {}
+
     return { success: true, message: 'Akun berhasil dihapus!' };
+  }
+
+  /**
+   * Sync users from Cloud USERS sheet
+   */
+  async fetchRemoteUsers() {
+    try {
+      const res = await fetch(`${GOOGLE_API_URL}?action=getUsers&apiToken=${encodeURIComponent(API_SECURITY_TOKEN)}`, {
+        redirect: 'follow'
+      });
+      const json = await res.json();
+      if (json && json.status === 'success' && Array.isArray(json.data) && json.data.length > 0) {
+        this.saveUsersCache(json.data);
+        return { success: true, users: json.data };
+      }
+    } catch (e) {
+      console.warn('Error fetching remote users:', e);
+    }
+    return { success: false, users: this.getCachedUsers() };
   }
 
   /**
@@ -154,6 +224,7 @@ class AuthService {
         } else {
           sessionStorage.setItem(this.sessionKey, JSON.stringify(userObj));
         }
+        this.fetchRemoteUsers().catch(() => {});
         this.notify();
         return { success: true, user: userObj };
       }

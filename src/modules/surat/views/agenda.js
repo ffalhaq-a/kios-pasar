@@ -61,9 +61,18 @@ export function renderAgendaSuratView(container) {
 
       <!-- SEARCH & FILTER BAR -->
       <div class="${cardBg} border rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div class="relative w-full sm:w-80">
-          <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
-          <input type="text" id="input-search-agenda" placeholder="Cari nomor, nama pedagang, atau blok..." class="w-full pl-9 pr-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}" />
+        <div class="flex flex-col sm:flex-row items-center gap-2.5 w-full sm:w-auto">
+          <div class="relative w-full sm:w-72">
+            <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
+            <input type="text" id="input-search-agenda" placeholder="Cari nomor, pedagang, atau blok..." class="w-full pl-9 pr-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}" />
+          </div>
+          <div class="w-full sm:w-44">
+            <select id="select-pasar-agenda" class="w-full px-3 py-2 rounded-xl border text-xs font-semibold focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}">
+              <option value="ALL">Semua Pasar</option>
+              <option value="SANDANG">Pasar Sandang</option>
+              <option value="SAYUR">Pasar Sayur</option>
+            </select>
+          </div>
         </div>
         <div class="flex items-center gap-2 text-xs">
           <span id="tab-badge-info" class="inline-flex items-center gap-1.5 font-semibold text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20">
@@ -100,6 +109,7 @@ export function renderAgendaSuratView(container) {
   const tbody = container.querySelector('#agenda-table-body');
   const emptyState = container.querySelector('#agenda-empty-state');
   const searchInput = container.querySelector('#input-search-agenda');
+  const pasarSelect = container.querySelector('#select-pasar-agenda');
   const tabBtnSurat = container.querySelector('#tab-btn-surat');
   const tabBtnPerjanjian = container.querySelector('#tab-btn-perjanjian');
   const tabBtnKwitansi = container.querySelector('#tab-btn-kwitansi');
@@ -108,6 +118,7 @@ export function renderAgendaSuratView(container) {
 
   function renderTable() {
     const q = (searchInput?.value || '').toLowerCase().trim();
+    const selectedPasar = (pasarSelect?.value || 'ALL').toUpperCase();
 
     if (currentTab === 'surat') {
       thead.innerHTML = `
@@ -123,7 +134,9 @@ export function renderAgendaSuratView(container) {
 
       const filtered = agendaLogs.filter(item => {
         const str = `${item.nomorSurat || ''} ${item.tujuan || ''} ${item.ket || ''}`.toLowerCase();
-        return str.includes(q);
+        const matchesQuery = str.includes(q);
+        const matchesPasar = selectedPasar === 'ALL' || str.toUpperCase().includes(selectedPasar);
+        return matchesQuery && matchesPasar;
       });
 
       if (filtered.length === 0) {
@@ -172,7 +185,9 @@ export function renderAgendaSuratView(container) {
 
       const filtered = perjanjianLogs.filter(item => {
         const str = `${item.nomorPerjanjian || ''} ${item.namaPedagang || ''} ${item.blok || ''}`.toLowerCase();
-        return str.includes(q);
+        const matchesQuery = str.includes(q);
+        const matchesPasar = selectedPasar === 'ALL' || String(item.pasar || '').toUpperCase().includes(selectedPasar);
+        return matchesQuery && matchesPasar;
       });
 
       if (filtered.length === 0) {
@@ -218,12 +233,15 @@ export function renderAgendaSuratView(container) {
           <th class="px-4 py-3">Objek Kios</th>
           <th class="px-4 py-3">Jumlah Uang</th>
           <th class="px-4 py-3">Arsip Google Drive</th>
+          <th class="px-4 py-3 text-center w-20">Aksi</th>
         </tr>
       `;
 
       const filtered = kwitansiLogs.filter(item => {
         const str = `${item.nomorKwitansi || ''} ${item.namaPedagang || ''} ${item.blok || ''}`.toLowerCase();
-        return str.includes(q);
+        const matchesQuery = str.includes(q);
+        const matchesPasar = selectedPasar === 'ALL' || String(item.pasar || '').toUpperCase().includes(selectedPasar);
+        return matchesQuery && matchesPasar;
       });
 
       if (filtered.length === 0) {
@@ -250,6 +268,11 @@ export function renderAgendaSuratView(container) {
                 </a>
               ` : `<span class="text-slate-500 text-[11px]">Tersimpan di Sheet</span>`}
             </td>
+            <td class="px-4 py-3 text-center">
+              <button class="btn-delete-kwitansi p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition-all" data-no="${escapeHTML(item.nomorKwitansi || '')}" data-url="${escapeHTML(item.driveUrl || '')}" data-blok="${escapeHTML(item.blok || '')}" title="Hapus / Batalkan Kwitansi">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </td>
           </tr>
         `;
       }).join('');
@@ -271,6 +294,7 @@ export function renderAgendaSuratView(container) {
   tabBtnPerjanjian.addEventListener('click', () => setTab('perjanjian'));
   tabBtnKwitansi.addEventListener('click', () => setTab('kwitansi'));
   if (searchInput) searchInput.addEventListener('input', renderTable);
+  if (pasarSelect) pasarSelect.addEventListener('change', renderTable);
 
   if (btnSync) {
     btnSync.addEventListener('click', async () => {
@@ -317,27 +341,50 @@ export function renderAgendaSuratView(container) {
     });
   }
 
-  // Event Delegation for Delete Perjanjian
+  // Event Delegation for Delete Perjanjian & Kwitansi
   tbody.addEventListener('click', async (e) => {
-    const btnDel = e.target.closest('.btn-delete-perjanjian');
-    if (!btnDel) return;
+    // 1. Delete Perjanjian
+    const btnDelPerjanjian = e.target.closest('.btn-delete-perjanjian');
+    if (btnDelPerjanjian) {
+      const noPerjanjian = btnDelPerjanjian.getAttribute('data-no');
+      const driveUrl = btnDelPerjanjian.getAttribute('data-url');
+      if (!noPerjanjian) return;
 
-    const noPerjanjian = btnDel.getAttribute('data-no');
-    const driveUrl = btnDel.getAttribute('data-url');
+      const confirmed = confirm(`Apakah Anda yakin ingin membatalkan & menghapus Surat Perjanjian:\n${noPerjanjian}?\n\nFile di Google Drive dan catatan database Google Sheet akan dihapus.`);
+      if (!confirmed) return;
 
-    if (!noPerjanjian) return;
+      btnDelPerjanjian.disabled = true;
+      btnDelPerjanjian.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin text-rose-500"></i>`;
+      if (window.lucide) window.lucide.createIcons();
 
-    const confirmed = confirm(`Apakah Anda yakin ingin membatalkan & menghapus Surat Perjanjian:\n${noPerjanjian}?\n\nFile di Google Drive dan catatan database Google Sheet akan dihapus.`);
-    if (!confirmed) return;
+      await spreadsheetService.deleteRemotePerjanjianDoc(noPerjanjian, driveUrl);
+      perjanjianLogs = spreadsheetService.getPerjanjianLogs() || [];
+      tabBtnPerjanjian.querySelector('span').innerText = `Surat Perjanjian Kontrak (${perjanjianLogs.length})`;
+      renderTable();
+      return;
+    }
 
-    btnDel.disabled = true;
-    btnDel.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin text-rose-500"></i>`;
-    if (window.lucide) window.lucide.createIcons();
+    // 2. Delete Kwitansi
+    const btnDelKwitansi = e.target.closest('.btn-delete-kwitansi');
+    if (btnDelKwitansi) {
+      const noKwitansi = btnDelKwitansi.getAttribute('data-no');
+      const driveUrl = btnDelKwitansi.getAttribute('data-url');
+      const blok = btnDelKwitansi.getAttribute('data-blok') || '';
+      if (!noKwitansi) return;
 
-    await spreadsheetService.deleteRemotePerjanjianDoc(noPerjanjian, driveUrl);
-    perjanjianLogs = spreadsheetService.getPerjanjianLogs() || [];
-    tabBtnPerjanjian.querySelector('span').innerText = `Surat Perjanjian Kontrak (${perjanjianLogs.length})`;
-    renderTable();
+      const confirmed = confirm(`Apakah Anda yakin ingin membatalkan & menghapus Kwitansi:\n${noKwitansi}?\n\nFile di Google Drive dan catatan database Google Sheet akan dihapus.`);
+      if (!confirmed) return;
+
+      btnDelKwitansi.disabled = true;
+      btnDelKwitansi.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin text-rose-500"></i>`;
+      if (window.lucide) window.lucide.createIcons();
+
+      await spreadsheetService.deleteRemoteKwitansiDoc(noKwitansi, driveUrl, '', blok);
+      kwitansiLogs = spreadsheetService.getKwitansiLogs() || [];
+      tabBtnKwitansi.querySelector('span').innerText = `Kwitansi Kas Desa (${kwitansiLogs.length})`;
+      renderTable();
+      return;
+    }
   });
 
   renderTable();

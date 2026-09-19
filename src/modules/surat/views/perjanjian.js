@@ -540,17 +540,14 @@ export function renderPerjanjianView(container, initialKiosId = null) {
       }
 
       if (res && res.status === 'success' && res.pdfUrl) {
-        // Auto-update status kios lokal menjadi Sudah Bayar
+        // Auto-update status kios lokal & Google Sheets menjadi lunas
         if (currentTargetKiosk) {
-          currentTargetKiosk.keterangan = 'Sudah Bayar';
-          currentTargetKiosk.statusBayar = 'Sudah Bayar';
-          const allKiosks = spreadsheetService.loadKiosks();
-          const found = allKiosks.find(k => k.id === currentTargetKiosk.id);
-          if (found) {
-            found.keterangan = 'Sudah Bayar';
-            found.statusBayar = 'Sudah Bayar';
-            localStorage.setItem('pasar_kios_data_v1', JSON.stringify(allKiosks));
-          }
+          const tglAkad = itemData.tanggal_lengkap || itemData.tanggal || new Date().toISOString().slice(0, 10);
+          spreadsheetService.updateKios(currentTargetKiosk.id, {
+            statusBayar: 'lunas',
+            tglPembayaran: tglAkad,
+            status: 'terisi'
+          });
         }
 
         // Auto-advance next agreement number

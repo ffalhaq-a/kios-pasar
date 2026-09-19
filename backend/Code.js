@@ -36,9 +36,16 @@ function handleRequest(params) {
   if (action === 'generatePerjanjian') return handleGeneratePerjanjianDoc(params);
   if (action === 'deletePerjanjian') return handleDeletePerjanjian(params);
   if (action === 'generateKwitansi') return handleGenerateKwitansiDoc(params);
+  if (action === 'deleteKwitansi') return handleDeleteKwitansi(params);
   if (action === 'generateSuratPemberitahuan') return handleGenerateSuratPemberitahuan(params);
   if (action === 'getHistori') return handleGetHistori();
   if (action === 'getAgendaSurat') return handleGetAgendaSurat();
+  if (action === 'logSurat') return handleLogSurat(params);
+  if (action === 'logPerjanjian') return handleLogPerjanjian(params);
+  if (action === 'logKwitansi') return handleLogKwitansi(params);
+  if (action === 'getUsers') return handleGetUsers();
+  if (action === 'saveUser') return handleSaveUser(params);
+  if (action === 'deleteUser') return handleDeleteUser(params);
 
   return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Aksi tidak dikenal: ' + action })).setMimeType(ContentService.MimeType.JSON);
 }
@@ -195,6 +202,63 @@ function handleUpdateKios(params) {
 }
 
 // =========================================================================
+// HELPER: UPDATE STATUS BAYAR PEDAGANG KE TAB SHEET "PEDAGANG"
+// =========================================================================
+function updatePedagangPaymentStatus(ss, targetId, blokKode, zonaName, newStatus, tglBayar) {
+  try {
+    var pSheet = ss.getSheetByName('PEDAGANG');
+    if (!pSheet) return false;
+
+    var pValues = pSheet.getDataRange().getValues();
+    if (pValues.length <= 1) return false;
+
+    var headers = pValues[0].map(function(h) { return String(h || '').trim(); });
+    var colMap = {};
+    for (var c = 0; c < headers.length; c++) {
+      colMap[headers[c]] = c + 1;
+    }
+
+    var idCol = colMap['id'] || 1;
+    var blokCol = colMap['blokKode'] || 2;
+    var zonaCol = colMap['zona'] || 3;
+    var tglBayarCol = colMap['tglPembayaran'] || 12;
+    var statusCol = colMap['statusBayar'] || 14;
+
+    var targetIdUpper = String(targetId || '').trim().toUpperCase();
+    var cleanTargetBlok = String(blokKode || '').replace(/^blok\s*/i, '').replace(/^(SND|SYR)-/i, '').trim().toUpperCase();
+    var targetZonaUpper = String(zonaName || '').trim().toUpperCase();
+    var isTargetSayur = (targetIdUpper.indexOf('SYR') !== -1 || targetZonaUpper.indexOf('SAYUR') !== -1);
+    var isTargetSandang = !isTargetSayur && (targetIdUpper.indexOf('SND') !== -1 || targetZonaUpper.indexOf('SANDANG') !== -1);
+
+    for (var pi = 1; pi < pValues.length; pi++) {
+      var rowId = String(pValues[pi][idCol - 1] || '').trim().toUpperCase();
+      var rowBlok = String(pValues[pi][blokCol - 1] || '').replace(/^blok\s*/i, '').replace(/^(SND|SYR)-/i, '').trim().toUpperCase();
+      var rowZona = String(pValues[pi][zonaCol - 1] || '').trim().toUpperCase();
+
+      var isRowSayur = (rowId.indexOf('SYR') !== -1 || rowZona.indexOf('SAYUR') !== -1);
+      var isRowSandang = !isRowSayur && (rowId.indexOf('SND') !== -1 || rowZona.indexOf('SANDANG') !== -1);
+
+      var isMatch = false;
+      if (targetIdUpper && rowId === targetIdUpper) {
+        isMatch = true;
+      } else if (cleanTargetBlok && rowBlok === cleanTargetBlok && ((isTargetSayur && isRowSayur) || (isTargetSandang && isRowSandang) || !zonaName)) {
+        isMatch = true;
+      }
+
+      if (isMatch) {
+        if (statusCol) pSheet.getRange(pi + 1, statusCol).setValue(newStatus);
+        if (tglBayar && tglBayarCol) pSheet.getRange(pi + 1, tglBayarCol).setValue(tglBayar);
+        SpreadsheetApp.flush();
+        return true;
+      }
+    }
+  } catch(err) {
+    Logger.log('Error updating pedagang status: ' + err.toString());
+  }
+  return false;
+}
+
+// =========================================================================
 // 3. GENERATE & ARSIP SURAT PERJANJIAN (ROOT -> SANDANG/SAYUR -> BLOK -> PDF)
 // =========================================================================
 function handleGeneratePerjanjianDoc(data) {
@@ -330,34 +394,9 @@ function handleGeneratePerjanjianDoc(data) {
     var detailHistori = 'Penerbitan Surat Perjanjian Kontrak 8 Pasal (Biaya Sewa: ' + replacements.biaya_sewa + ', Masa: ' + replacements.tgl_mulai + ' s/d ' + replacements.tgl_selesai + ')';
     logToHistoriSheet(ss, 'PENERBITAN PERJANJIAN', replacements.nomor_perjanjian, blokKios, marketSubfolderName, namaPedagang, detailHistori, userOperator, finalPdfFile.getUrl());
 
-    // 3. AUTO-UPDATE STATUS BAYAR PEDAGANG MENJADI 'Sudah Bayar' DI TAB PEDAGANG
-    try {
-      var pSheet = ss.getSheetByName('PEDAGANG');
-      if (pSheet) {
-        var pValues = pSheet.getDataRange().getValues();
-        var targetKiosId = String(data.kiosId || data.id || '').trim().toUpperCase();
-        var cleanTargetBlok = blokKios.replace(/^blok\s+/i, '').trim().toUpperCase();
-
-        for (var pi = 1; pi < pValues.length; pi++) {
-          var rowId = String(pValues[pi][1] || '').trim().toUpperCase();
-          var rowZona = String(pValues[pi][2] || '').trim().toUpperCase();
-          var rowBlok = String(pValues[pi][3] || '').trim().toUpperCase().replace(/^blok\s+/i, '');
-          var rowNama = String(pValues[pi][4] || '').trim().toUpperCase();
-
-          var isMatch = (targetKiosId && rowId === targetKiosId) ||
-                        (rowBlok === cleanTargetBlok && (rowZona.includes(marketSubfolderName) || !rowZona));
-
-          if (isMatch) {
-            // Kolom 14: KETERANGAN / STATUS BAYAR (1-indexed)
-            pSheet.getRange(pi + 1, 14).setValue('Sudah Bayar');
-            try { pSheet.getRange(pi + 1, 16).setValue(new Date().toISOString()); } catch(eDate) {}
-            break;
-          }
-        }
-      }
-    } catch(errPedagang) {
-      // Non-blocking update
-    }
+    // 3. AUTO-UPDATE STATUS BAYAR PEDAGANG MENJADI 'lunas' DI TAB PEDAGANG
+    var paymentDate = Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd');
+    updatePedagangPaymentStatus(ss, data.kiosId || data.id, blokKios, marketSubfolderName, 'lunas', paymentDate);
 
     return ContentService.createTextOutput(JSON.stringify({
       status: 'success',
@@ -425,6 +464,15 @@ function handleDeletePerjanjian(params) {
         // Skip if file already deleted or not found
       }
     }
+
+    // 4. Catat Pembatalan ke HISTORI
+    var targetBlok = deletedRowData ? deletedRowData[8] : (params.blok || '-');
+    var targetKawasan = deletedRowData ? deletedRowData[9] : (params.zona || '-');
+    var targetPedagang = deletedRowData ? deletedRowData[5] : (params.pedagang || '-');
+    logToHistoriSheet(ss, 'PEMBATALAN PERJANJIAN', nomorPerjanjian, targetBlok, targetKawasan, targetPedagang, 'Pembatalan & Penghapusan Surat Perjanjian Kontrak', userOperator, driveUrl);
+
+    // 5. Reset status bayar pedagang di sheet PEDAGANG menjadi 'belum_bayar'
+    updatePedagangPaymentStatus(ss, params.kiosId, targetBlok, targetKawasan, 'belum_bayar', '-');
 
     return ContentService.createTextOutput(JSON.stringify({
       status: 'success',
@@ -554,11 +602,87 @@ function handleGenerateKwitansiDoc(data) {
     var detailHistori = 'Penerbitan Kwitansi Kas Desa (Nominal: ' + replacements.biaya_sewa + ', Keterangan: ' + replacements.keterangan_pembayaran + ')';
     logToHistoriSheet(ss, 'PENERBITAN KWITANSI', replacements.nomor_kwitansi, blokKios, marketSubfolderName, namaPedagang, detailHistori, userOperator, finalPdfFile.getUrl());
 
+    // 3. AUTO-UPDATE STATUS BAYAR PEDAGANG MENJADI 'lunas' DI TAB PEDAGANG
+    var paymentDate = Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd');
+    updatePedagangPaymentStatus(ss, data.kiosId || data.id, blokKios, marketSubfolderName, 'lunas', paymentDate);
+
     return ContentService.createTextOutput(JSON.stringify({
       status: 'success',
       fileName: finalPdfFile.getName(),
       pdfUrl: finalPdfFile.getUrl(),
       folderPath: marketSubfolderName + ' / ' + blockFolderName
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// =========================================================================
+// 4B. HAPUS / BATALKAN KWITANSI PEMBAYARAN
+// =========================================================================
+function handleDeleteKwitansi(params) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var nomorKwitansi = String(params.nomor_kwitansi || params.nomorKwitansi || '').trim();
+    var driveUrl = String(params.driveUrl || params.pdfUrl || '').trim();
+    var userOperator = params.user || 'Admin';
+
+    if (!nomorKwitansi) {
+      return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Nomor kwitansi tidak boleh kosong' })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 1. Hapus dari sheet Buku_Kwitansi
+    var kSheet = ss.getSheetByName('Buku_Kwitansi');
+    var deletedRowData = null;
+    if (kSheet) {
+      var data = kSheet.getDataRange().getValues();
+      for (var i = data.length - 1; i >= 1; i--) {
+        var rowNo = String(data[i][1] || '').trim();
+        if (rowNo === nomorKwitansi) {
+          deletedRowData = data[i];
+          kSheet.deleteRow(i + 1);
+          break;
+        }
+      }
+    }
+
+    // 2. Hapus dari sheet HISTORI
+    var hSheet = ss.getSheetByName('HISTORI');
+    if (hSheet) {
+      var hData = hSheet.getDataRange().getValues();
+      for (var hi = hData.length - 1; hi >= 1; hi--) {
+        var hDocNo = String(hData[hi][3] || '').trim();
+        if (hDocNo === nomorKwitansi) {
+          hSheet.deleteRow(hi + 1);
+        }
+      }
+    }
+
+    // 3. Trash file di Google Drive jika ada URL
+    if (driveUrl) {
+      try {
+        var fileIdMatch = driveUrl.match(/[-\w]{25,}/);
+        if (fileIdMatch) {
+          var file = DriveApp.getFileById(fileIdMatch[0]);
+          if (file) {
+            file.setTrashed(true);
+          }
+        }
+      } catch(errDrive) {}
+    }
+
+    // 4. Catat Pembatalan ke HISTORI
+    var targetBlok = deletedRowData ? deletedRowData[5] : (params.blok || '-');
+    var targetKawasan = deletedRowData ? deletedRowData[6] : (params.zona || '-');
+    var targetPedagang = deletedRowData ? deletedRowData[3] : (params.pedagang || '-');
+    logToHistoriSheet(ss, 'PEMBATALAN KWITANSI', nomorKwitansi, targetBlok, targetKawasan, targetPedagang, 'Pembatalan & Penghapusan Kwitansi Pembayaran', userOperator, driveUrl);
+
+    // 5. Reset status di sheet PEDAGANG jika ada data kios
+    updatePedagangPaymentStatus(ss, params.kiosId, targetBlok, targetKawasan, 'belum_bayar', '-');
+
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success',
+      message: 'Kwitansi ' + nomorKwitansi + ' berhasil dibatalkan dan dihapus'
     })).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
@@ -763,4 +887,321 @@ function handleLogin(params) {
     return ContentService.createTextOutput(JSON.stringify({ status: 'success', user: { username: 'admin', nama: 'Kepala Pasar Karangpucung', role: 'ADMIN' } })).setMimeType(ContentService.MimeType.JSON);
   }
   return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Username atau Password salah!' })).setMimeType(ContentService.MimeType.JSON);
+}
+
+// =========================================================================
+// 8B. LOG SURAT, PERJANJIAN & KWITANSI KE CLOUD DRIVE & AGENDA
+// =========================================================================
+function handleLogSurat(params) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = getOrCreateSheet(ss, 'Buku_Agenda_Surat', [
+      'NO', 'NOMOR SURAT', 'TANGGAL SURAT', 'PERIHAL', 'LAMPIRAN', 'TANGGAL KIRIM', 'TUJUAN / KEPADA', 'KETERANGAN', 'LINK DRIVE'
+    ], '#059669');
+
+    var entries = params.entries;
+    if (!entries || !Array.isArray(entries)) {
+      entries = [{
+        nomorSurat: params.nomor_surat || params.nomorSurat || '-',
+        tanggalSurat: params.tanggal_surat || params.tanggalSurat || '-',
+        perihal: params.perihal || 'Pemberitahuan Sewa Kios',
+        lampiran: params.lampiran || '-',
+        tanggalKirim: params.tanggal_kirim || params.tanggalKirim || Utilities.formatDate(new Date(), 'GMT+7', 'dd/MM/yyyy'),
+        tujuan: params.tujuan || params.nama_pedagang || '-',
+        ket: params.ket || 'Tercatat di Agenda'
+      }];
+    }
+
+    var driveUrl = '';
+    if (params.pdfBase64) {
+      try {
+        var rootFolder;
+        try {
+          rootFolder = DriveApp.getFolderById(ROOT_SURAT_FOLDER_ID);
+        } catch(eF) {
+          rootFolder = DriveApp.getRootFolder();
+        }
+
+        var isSayur = String(params.zona || '').toUpperCase().includes('SAYUR');
+        var marketSubfolder = isSayur ? 'SAYUR' : 'SANDANG';
+        var targetFolder = getOrCreateFolder(rootFolder, marketSubfolder);
+
+        var cleanBase64 = String(params.pdfBase64).replace(/^data:application\/pdf;base64,/, '');
+        var decodedBytes = Utilities.base64Decode(cleanBase64);
+        var fileName = params.fileName || ('Surat_Pemberitahuan_' + Date.now() + '.pdf');
+        var blob = Utilities.newBlob(decodedBytes, 'application/pdf', fileName);
+        var file = targetFolder.createFile(blob);
+        try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (eShare) {}
+        driveUrl = file.getUrl();
+      } catch(errPdf) {
+        Logger.log('Gagal upload base64 PDF surat: ' + errPdf.toString());
+      }
+    }
+
+    var lastRow = sheet.getLastRow();
+    for (var i = 0; i < entries.length; i++) {
+      var item = entries[i];
+      var finalLink = driveUrl || item.driveUrl || '-';
+      sheet.appendRow([
+        lastRow + i,
+        item.nomorSurat || '-',
+        item.tanggalSurat || '-',
+        item.perihal || '-',
+        item.lampiran || '-',
+        item.tanggalKirim || '-',
+        item.tujuan || '-',
+        item.ket || (driveUrl ? 'Tersimpan di Cloud' : 'Tercetak'),
+        finalLink
+      ]);
+
+      logToHistoriSheet(
+        ss,
+        'PENERBITAN SURAT PEMBERITAHUAN',
+        item.nomorSurat || '-',
+        item.blok || '-',
+        params.zona || 'PASAR SANDANG',
+        item.tujuan || '-',
+        'Penerbitan Surat: ' + (item.perihal || 'Pemberitahuan'),
+        params.user || 'Admin',
+        finalLink
+      );
+    }
+
+    SpreadsheetApp.flush();
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success',
+      message: 'Berhasil dicatat di Buku Agenda Surat',
+      driveUrl: driveUrl,
+      count: entries.length
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function handleLogPerjanjian(params) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = getOrCreateSheet(ss, 'Buku_Perjanjian_Sewa', [
+      'NO', 'NOMOR PERJANJIAN', 'TANGGAL AKAD', 'HARI', 'PIHAK I (KADES)', 'PIHAK II (PEDAGANG)',
+      'NIK', 'ALAMAT', 'BLOK KIOS', 'KAWASAN', 'TIPE KIOS', 'KATEGORI', 'LUAS M2', 'DIMENSI', 'JUMLAH UNIT', 'BIAYA SEWA',
+      'TERBILANG', 'MASA MULAI', 'MASA SELESAI', 'SAKSI 1 & 2', 'LINK DRIVE'
+    ], '#D97706');
+
+    var driveUrl = '';
+    if (params.pdfBase64) {
+      try {
+        var rootFolder = DriveApp.getFolderById(ROOT_PERJANJIAN_FOLDER_ID);
+        var isSayur = String(params.zona || '').toUpperCase().includes('SAYUR');
+        var marketSubfolder = isSayur ? 'SAYUR' : 'SANDANG';
+        var marketFolder = getOrCreateFolder(rootFolder, marketSubfolder);
+        var cleanBase64 = String(params.pdfBase64).replace(/^data:application\/pdf;base64,/, '');
+        var decodedBytes = Utilities.base64Decode(cleanBase64);
+        var fileName = params.fileName || ('Perjanjian_' + Date.now() + '.pdf');
+        var blob = Utilities.newBlob(decodedBytes, 'application/pdf', fileName);
+        var file = marketFolder.createFile(blob);
+        try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (eShare) {}
+        driveUrl = file.getUrl();
+      } catch(e) {}
+    }
+
+    var entries = params.entries || [];
+    var lastRow = sheet.getLastRow();
+    for (var i = 0; i < entries.length; i++) {
+      var itm = entries[i];
+      var link = driveUrl || itm.driveUrl || '-';
+      sheet.appendRow([
+        lastRow + i,
+        itm.nomorPerjanjian || '-',
+        itm.tanggalAkad || itm.tanggal || '-',
+        itm.hari || '-',
+        itm.pihak1 || 'A. ANJARNINGSIH, S.E. (Pj. Kades)',
+        itm.namaPedagang || '-',
+        itm.nik || '-',
+        itm.alamat || '-',
+        itm.blok || '-',
+        itm.pasar || params.zona || 'PASAR SANDANG',
+        itm.tipeKios || 'LOS',
+        itm.kategori || 'Umum',
+        itm.luasM2 || '4.0',
+        itm.luasDimensi || '200 x 200',
+        itm.jumlahUnit || '1 Unit Usaha',
+        itm.biayaSewa || '-',
+        itm.terbilang || '-',
+        itm.tglMulai || '-',
+        itm.tglSelesai || '-',
+        itm.saksi || '-',
+        link
+      ]);
+
+      logToHistoriSheet(ss, 'PENERBITAN PERJANJIAN', itm.nomorPerjanjian, itm.blok, params.zona || 'PASAR SANDANG', itm.namaPedagang, 'Penerbitan Kontrak Sewa', params.user || 'Admin', link);
+      updatePedagangPaymentStatus(ss, itm.kiosId, itm.blok, params.zona, 'lunas', Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd'));
+    }
+
+    SpreadsheetApp.flush();
+    return ContentService.createTextOutput(JSON.stringify({ status: 'success', driveUrl: driveUrl, count: entries.length })).setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function handleLogKwitansi(params) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = getOrCreateSheet(ss, 'Buku_Kwitansi', [
+      'NO', 'NOMOR KWITANSI', 'TANGGAL BAYAR', 'DITERIMA DARI', 'NIK', 'BLOK KIOS',
+      'KAWASAN', 'TIPE KIOS', 'LUAS M2', 'JUMLAH UNIT', 'NOMINAL (ANGKA)', 'TERBILANG', 'KETERANGAN', 'LINK DRIVE'
+    ], '#0284C7');
+
+    var driveUrl = '';
+    if (params.pdfBase64) {
+      try {
+        var rootFolder = DriveApp.getFolderById(ROOT_KWITANSI_FOLDER_ID);
+        var isSayur = String(params.zona || '').toUpperCase().includes('SAYUR');
+        var marketSubfolder = isSayur ? 'SAYUR' : 'SANDANG';
+        var marketFolder = getOrCreateFolder(rootFolder, marketSubfolder);
+        var cleanBase64 = String(params.pdfBase64).replace(/^data:application\/pdf;base64,/, '');
+        var decodedBytes = Utilities.base64Decode(cleanBase64);
+        var fileName = params.fileName || ('Kwitansi_' + Date.now() + '.pdf');
+        var blob = Utilities.newBlob(decodedBytes, 'application/pdf', fileName);
+        var file = marketFolder.createFile(blob);
+        try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (eShare) {}
+        driveUrl = file.getUrl();
+      } catch(e) {}
+    }
+
+    var entries = params.entries || [];
+    var lastRow = sheet.getLastRow();
+    for (var i = 0; i < entries.length; i++) {
+      var itm = entries[i];
+      var link = driveUrl || itm.driveUrl || '-';
+      sheet.appendRow([
+        lastRow + i,
+        itm.nomorKwitansi || '-',
+        itm.tanggalBayar || itm.tanggal || Utilities.formatDate(new Date(), 'GMT+7', 'dd/MM/yyyy'),
+        itm.namaPedagang || '-',
+        itm.nik || '-',
+        itm.blok || '-',
+        itm.pasar || params.zona || 'PASAR SANDANG',
+        itm.tipeKios || 'LOS',
+        itm.luasM2 || '4.0',
+        itm.jumlahUnit || '1 Unit Usaha',
+        itm.nominal || itm.biayaSewa || '-',
+        itm.terbilang || '-',
+        itm.keterangan || '-',
+        link
+      ]);
+
+      logToHistoriSheet(ss, 'PENERBITAN KWITANSI', itm.nomorKwitansi, itm.blok, params.zona || 'PASAR SANDANG', itm.namaPedagang, 'Penerbitan Kwitansi Pembayaran', params.user || 'Admin', link);
+      updatePedagangPaymentStatus(ss, itm.kiosId, itm.blok, params.zona, 'lunas', itm.tanggalBayar || Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd'));
+    }
+
+    SpreadsheetApp.flush();
+    return ContentService.createTextOutput(JSON.stringify({ status: 'success', driveUrl: driveUrl, count: entries.length })).setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// =========================================================================
+// 8C. MANAJEMEN PENGGUNA CLOUD (SHEET "USERS")
+// =========================================================================
+function handleGetUsers() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = getOrCreateSheet(ss, 'USERS', ['USERNAME', 'PASSWORD', 'NAMA', 'ROLE', 'CREATED_AT'], '#1E293B');
+    var data = sheet.getDataRange().getValues();
+
+    if (data.length <= 1) {
+      sheet.appendRow(['admin', 'admin123', 'Kepala Pasar Karangpucung', 'ADMIN', new Date().toISOString()]);
+      sheet.appendRow(['petugas', 'petugas123', 'Petugas Penagihan Lapangan', 'PETUGAS', new Date().toISOString()]);
+      SpreadsheetApp.flush();
+      data = sheet.getDataRange().getValues();
+    }
+
+    var users = [];
+    for (var i = 1; i < data.length; i++) {
+      var row = data[i];
+      var u = String(row[0] || '').trim().toLowerCase();
+      if (!u) continue;
+      users.push({
+        username: u,
+        password: String(row[1] || '').trim(),
+        nama: String(row[2] || u).trim(),
+        role: String(row[3] || 'PETUGAS').trim().toUpperCase(),
+        createdAt: String(row[4] || '')
+      });
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({ status: 'success', data: users })).setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function handleSaveUser(params) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = getOrCreateSheet(ss, 'USERS', ['USERNAME', 'PASSWORD', 'NAMA', 'ROLE', 'CREATED_AT'], '#1E293B');
+    var username = String(params.username || '').trim().toLowerCase();
+    var password = String(params.password || '').trim();
+    var nama = String(params.nama || username).trim();
+    var role = String(params.role || 'PETUGAS').trim().toUpperCase();
+
+    if (!username) {
+      return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Username tidak boleh kosong' })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var data = sheet.getDataRange().getValues();
+    var foundIdx = -1;
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0] || '').trim().toLowerCase() === username) {
+        foundIdx = i + 1;
+        break;
+      }
+    }
+
+    if (foundIdx > 0) {
+      if (password) sheet.getRange(foundIdx, 2).setValue(password);
+      if (nama) sheet.getRange(foundIdx, 3).setValue(nama);
+      if (role) sheet.getRange(foundIdx, 4).setValue(role);
+    } else {
+      sheet.appendRow([username, password || '123456', nama, role, new Date().toISOString()]);
+    }
+
+    SpreadsheetApp.flush();
+    return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'Data pengguna berhasil disimpan di Cloud USERS' })).setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function handleDeleteUser(params) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('USERS');
+    var username = String(params.username || '').trim().toLowerCase();
+
+    if (!username) {
+      return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Username tidak boleh kosong' })).setMimeType(ContentService.MimeType.JSON);
+    }
+    if (username === 'admin') {
+      return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Akun Super Admin tidak boleh dihapus' })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (sheet) {
+      var data = sheet.getDataRange().getValues();
+      for (var i = data.length - 1; i >= 1; i--) {
+        if (String(data[i][0] || '').trim().toLowerCase() === username) {
+          sheet.deleteRow(i + 1);
+          SpreadsheetApp.flush();
+          return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'Pengguna ' + username + ' berhasil dihapus dari Cloud' })).setMimeType(ContentService.MimeType.JSON);
+        }
+      }
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Pengguna tidak ditemukan' })).setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
 }
