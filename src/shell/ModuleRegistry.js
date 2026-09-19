@@ -63,6 +63,18 @@ class ModuleRegistry {
         }
       }
     }
+
+    // Direct view route fallback (e.g. /surat, /pedagang)
+    for (const mod of this.modules.values()) {
+      if (mod.views && typeof mod.views[this.currentPath] === 'function') {
+        return {
+          module: mod,
+          menu: mod.menus[0] || { label: mod.title, path: this.currentPath },
+          render: mod.views[this.currentPath]
+        };
+      }
+    }
+
     return null;
   }
 }
