@@ -221,7 +221,7 @@ export function renderAgendaSuratView(container) {
               ` : `<span class="text-slate-500 text-[11px]">Tersimpan di Sheet</span>`}
             </td>
             <td class="px-4 py-3 text-center">
-              <button class="btn-delete-perjanjian p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition-all" data-no="${escapeHTML(item.nomorPerjanjian || '')}" data-url="${escapeHTML(item.driveUrl || '')}" title="Hapus / Batalkan Surat Perjanjian">
+              <button class="btn-delete-perjanjian p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition-all" data-no="${escapeHTML(item.nomorPerjanjian || '')}" data-url="${escapeHTML(item.driveUrl || '')}" data-pedagang="${escapeHTML(item.namaPedagang || '')}" data-blok="${escapeHTML(item.blok || '')}" title="Hapus / Batalkan Surat Perjanjian">
                 <i data-lucide="trash-2" class="w-4 h-4"></i>
               </button>
             </td>
@@ -310,6 +310,7 @@ export function renderAgendaSuratView(container) {
 
       await Promise.all([
         spreadsheetService.fetchRemoteAgenda(),
+        spreadsheetService.fetchRemotePerjanjian(),
         spreadsheetService.fetchRemoteHistori()
       ]);
 
@@ -354,16 +355,18 @@ export function renderAgendaSuratView(container) {
     if (btnDelPerjanjian) {
       const noPerjanjian = btnDelPerjanjian.getAttribute('data-no');
       const driveUrl = btnDelPerjanjian.getAttribute('data-url');
+      const pedagang = btnDelPerjanjian.getAttribute('data-pedagang') || '';
+      const blok = btnDelPerjanjian.getAttribute('data-blok') || '';
       if (!noPerjanjian) return;
 
-      const confirmed = confirm(`Apakah Anda yakin ingin membatalkan & menghapus Surat Perjanjian:\n${noPerjanjian}?\n\nFile di Google Drive dan catatan database Google Sheet akan dihapus.`);
+      const confirmed = confirm(`Apakah Anda yakin ingin membatalkan & menghapus Surat Perjanjian:\n${noPerjanjian} (${pedagang} - ${blok})?\n\nFile di Google Drive dan catatan database Google Sheet akan dihapus.`);
       if (!confirmed) return;
 
       btnDelPerjanjian.disabled = true;
       btnDelPerjanjian.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin text-rose-500"></i>`;
       if (window.lucide) window.lucide.createIcons();
 
-      await spreadsheetService.deleteRemotePerjanjianDoc(noPerjanjian, driveUrl);
+      await spreadsheetService.deleteRemotePerjanjianDoc(noPerjanjian, driveUrl, pedagang, blok);
       perjanjianLogs = spreadsheetService.getPerjanjianLogs() || [];
       tabBtnPerjanjian.querySelector('span').innerText = `Surat Perjanjian Kontrak (${perjanjianLogs.length})`;
       renderTable();

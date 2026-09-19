@@ -548,11 +548,33 @@ class SpreadsheetService {
     }
   }
 
-  deleteLocalPerjanjianLog(nomorPerjanjian) {
+  deleteLocalPerjanjianLog(nomorPerjanjian, namaPedagang = '', blok = '') {
     try {
       const key = 'pasar_buku_perjanjian_logs_v1';
       const existing = this.getPerjanjianLogs();
-      const filtered = existing.filter(item => item.nomorPerjanjian !== nomorPerjanjian && item.id !== nomorPerjanjian);
+      const cleanPedagang = (namaPedagang || '').trim().toUpperCase();
+      const cleanBlok = (blok || '').trim().toUpperCase();
+
+      const filtered = existing.filter(item => {
+        const matchNo = item.nomorPerjanjian === nomorPerjanjian || item.id === nomorPerjanjian;
+        if (!matchNo) return true; // keep
+
+        // Jika nama pedagang atau blok ditentukan, pastikan hanya yang cocok yang dihapus
+        if (cleanPedagang && item.namaPedagang) {
+          const itemPedagang = item.namaPedagang.toUpperCase();
+          if (!itemPedagang.includes(cleanPedagang) && !cleanPedagang.includes(itemPedagang)) {
+            return true; // keep: beda pedagang
+          }
+        }
+        if (cleanBlok && item.blok) {
+          const itemBlok = item.blok.toUpperCase();
+          if (!itemBlok.includes(cleanBlok) && !cleanBlok.includes(itemBlok)) {
+            return true; // keep: beda blok
+          }
+        }
+        return false; // Hapus entri spesifik ini
+      });
+
       localStorage.setItem(key, JSON.stringify(filtered));
       this.notify();
     } catch (e) {
@@ -563,9 +585,9 @@ class SpreadsheetService {
   /**
    * Delete Surat Perjanjian on Google Sheet & Google Drive
    */
-  async deleteRemotePerjanjianDoc(nomorPerjanjian, driveUrl = '') {
-    // 1. Instantly delete from local state for immediate responsive UI
-    this.deleteLocalPerjanjianLog(nomorPerjanjian);
+  async deleteRemotePerjanjianDoc(nomorPerjanjian, driveUrl = '', namaPedagang = '', blok = '') {
+    // 1. Instantly delete from local state with composite identity check
+    this.deleteLocalPerjanjianLog(nomorPerjanjian, namaPedagang, blok);
 
     try {
       const res = await fetch(GOOGLE_API_URL, {
@@ -575,7 +597,9 @@ class SpreadsheetService {
           action: 'deletePerjanjian',
           apiToken: API_SECURITY_TOKEN,
           nomor_perjanjian: nomorPerjanjian,
-          driveUrl: driveUrl
+          driveUrl: driveUrl,
+          pedagang: namaPedagang,
+          blok: blok
         }),
         redirect: 'follow'
       });
@@ -588,11 +612,52 @@ class SpreadsheetService {
   }
 
   /**
+   * Fetch fresh perjanjian list directly from master sheet Buku_Perjanjian_Sewa
+   */
+  async fetchRemotePerjanjian(skipNotify = false) {
+    try {
+      const res = await fetch(`${GOOGLE_API_URL}?action=getPerjanjian&apiToken=${encodeURIComponent(API_SECURITY_TOKEN)}`, {
+        redirect: 'follow'
+      });
+      const json = await res.json();
+      if (json && json.status === 'success' && Array.isArray(json.data)) {
+        const formatted = json.data.map(item => ({
+          id: 'PRJ-' + item.no,
+          nomorPerjanjian: item.nomorPerjanjian || '-',
+          tanggalAkad: item.tanggalAkad || '-',
+          hari: item.hari || '-',
+          pihak1: item.pihak1 || '-',
+          namaPedagang: item.namaPedagang || '-',
+          nik: item.nik || '-',
+          alamat: item.alamat || '-',
+          blok: item.blok || '-',
+          pasar: item.pasar || '-',
+          tipeKios: item.tipeKios || '-',
+          kategori: item.kategori || '-',
+          biayaSewa: item.biayaSewa || '250.000',
+          driveUrl: item.driveUrl || '',
+          fileName: `Perjanjian_${item.blok || 'Kios'}.pdf`
+        }));
+        localStorage.setItem('pasar_buku_perjanjian_logs_v1', JSON.stringify(formatted));
+        if (!skipNotify) this.notify();
+        return { success: true, count: formatted.length, data: formatted };
+      }
+    } catch (e) {
+      console.warn('Error fetching remote perjanjian:', e);
+    }
+    return { success: false, data: this.getPerjanjianLogs() };
+  }
+
+  /**
    * Silent background auto-sync to ensure cross-device consistency without manual clicks
    */
   async silentAutoSync() {
     try {
-      await this.fetchRemoteHistori(true);
+      await Promise.all([
+        this.fetchRemoteAgenda(true),
+        this.fetchRemotePerjanjian(true),
+        this.fetchRemoteHistori(true)
+      ]);
     } catch (e) {
       // Silent catch
     }
