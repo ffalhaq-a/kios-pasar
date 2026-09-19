@@ -377,6 +377,7 @@ export function renderPerjanjianView(container, initialKiosId = null) {
   const btnGotoAgenda = container.querySelector('#btn-goto-agenda');
   if (btnGotoAgenda) {
     btnGotoAgenda.addEventListener('click', () => {
+      window._agendaCurrentTab = 'perjanjian';
       if (window._navigate) window._navigate('/surat/agenda');
     });
   }

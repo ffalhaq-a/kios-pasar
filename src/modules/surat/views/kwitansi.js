@@ -270,6 +270,7 @@ export function renderKwitansiView(container, initialKiosId = null) {
   const btnGotoAgenda = container.querySelector('#btn-goto-agenda');
   if (btnGotoAgenda) {
     btnGotoAgenda.addEventListener('click', () => {
+      window._agendaCurrentTab = 'kwitansi';
       if (window._navigate) window._navigate('/surat/agenda');
     });
   }

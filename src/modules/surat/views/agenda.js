@@ -7,6 +7,7 @@ export function renderAgendaSuratView(container) {
 
   const isDark = themeManager.isDark();
   let currentTab = window._agendaCurrentTab || 'surat'; // 'surat' | 'perjanjian' | 'kwitansi'
+  let currentSort = window._agendaCurrentSort || 'num_asc'; // 'num_asc' | 'num_desc' | 'raw'
 
   let agendaLogs = spreadsheetService.getAgendaLogs() || [];
   let perjanjianLogs = spreadsheetService.getPerjanjianLogs() || [];
@@ -59,18 +60,25 @@ export function renderAgendaSuratView(container) {
         </button>
       </div>
 
-      <!-- SEARCH & FILTER BAR -->
-      <div class="${cardBg} border rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div class="flex flex-col sm:flex-row items-center gap-2.5 w-full sm:w-auto">
-          <div class="relative w-full sm:w-72">
+      <!-- SEARCH & FILTER BAR WITH SORTING OPTIONS -->
+      <div class="${cardBg} border rounded-2xl p-4 flex flex-col lg:flex-row items-center justify-between gap-3">
+        <div class="flex flex-col sm:flex-row items-center gap-2.5 w-full lg:w-auto">
+          <div class="relative w-full sm:w-64">
             <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
             <input type="text" id="input-search-agenda" placeholder="Cari nomor, pedagang, atau blok..." class="w-full pl-9 pr-3 py-2 rounded-xl border text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}" />
           </div>
-          <div class="w-full sm:w-44">
+          <div class="w-full sm:w-40">
             <select id="select-pasar-agenda" class="w-full px-3 py-2 rounded-xl border text-xs font-semibold focus:ring-2 focus:ring-emerald-500 outline-none ${inputBg}">
               <option value="ALL">Semua Pasar</option>
               <option value="SANDANG">Pasar Sandang</option>
               <option value="SAYUR">Pasar Sayur</option>
+            </select>
+          </div>
+          <div class="w-full sm:w-64">
+            <select id="select-sort-agenda" class="w-full px-3 py-2 rounded-xl border text-xs font-semibold focus:ring-2 focus:ring-amber-500 outline-none ${inputBg}">
+              <option value="num_asc" ${currentSort === 'num_asc' ? 'selected' : ''}>🔢 Urutan No: 001 → 999 (Rapi)</option>
+              <option value="num_desc" ${currentSort === 'num_desc' ? 'selected' : ''}>🔢 Urutan No: 999 → 001 (Terbesar)</option>
+              <option value="raw" ${currentSort === 'raw' ? 'selected' : ''}>⏱️ Urut Waktu Pembuatan (Input)</option>
             </select>
           </div>
         </div>
@@ -168,11 +176,56 @@ export function renderAgendaSuratView(container) {
   const emptyState = container.querySelector('#agenda-empty-state');
   const searchInput = container.querySelector('#input-search-agenda');
   const pasarSelect = container.querySelector('#select-pasar-agenda');
+  const sortSelect = container.querySelector('#select-sort-agenda');
   const tabBtnSurat = container.querySelector('#tab-btn-surat');
   const tabBtnPerjanjian = container.querySelector('#tab-btn-perjanjian');
   const tabBtnKwitansi = container.querySelector('#tab-btn-kwitansi');
   const btnSync = container.querySelector('#btn-sync-cloud-agenda');
   const btnClear = container.querySelector('#btn-clear-local-agenda');
+
+  // Helper untuk mengekstrak nomor urut dokumen (misal: "043 / KRPC / 2026" -> 43, "025 / KRPC / 2026" -> 25)
+  function extractDocNumber(str) {
+    if (!str) return 0;
+    const clean = String(str).trim();
+    const slashParts = clean.split('/');
+    if (slashParts.length > 1) {
+      const p0 = slashParts[0].trim();
+      const p0Num = parseInt(p0.replace(/[^0-9]/g, ''), 10);
+      if (!isNaN(p0Num) && p0Num > 0 && p0Num < 1900) {
+        return p0Num;
+      }
+      for (let i = 1; i < slashParts.length; i++) {
+        const part = slashParts[i].trim();
+        if (/^\d+$/.test(part)) {
+          const val = parseInt(part, 10);
+          if (val < 1900) return val;
+        }
+      }
+    }
+    const allNums = clean.match(/\d+/g);
+    if (allNums) {
+      for (const numStr of allNums) {
+        const val = parseInt(numStr, 10);
+        if (val < 1900 || val > 2099) {
+          return val;
+        }
+      }
+      return parseInt(allNums[0], 10);
+    }
+    return 0;
+  }
+
+  function sortLogItems(list, keyField, secondaryField = 'blok') {
+    if (currentSort === 'raw') return list;
+    return [...list].sort((a, b) => {
+      const nA = extractDocNumber(a[keyField]);
+      const nB = extractDocNumber(b[keyField]);
+      if (nA !== nB) {
+        return currentSort === 'num_desc' ? nB - nA : nA - nB;
+      }
+      return String(a[secondaryField] || '').localeCompare(String(b[secondaryField] || ''));
+    });
+  }
 
   function renderTable() {
     const q = (searchInput?.value || '').toLowerCase().trim();
@@ -182,7 +235,14 @@ export function renderAgendaSuratView(container) {
       thead.innerHTML = `
         <tr>
           <th class="px-4 py-3 text-center w-12">No</th>
-          <th class="px-4 py-3">Nomor Surat</th>
+          <th class="px-4 py-3">
+            <button id="th-sort-btn" class="flex items-center gap-1.5 font-bold uppercase hover:text-emerald-400 transition-colors" title="Klik untuk balik urutan nomor">
+              <span>Nomor Surat</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${currentSort === 'num_asc' ? 'bg-emerald-500/20 text-emerald-400' : (currentSort === 'num_desc' ? 'bg-sky-500/20 text-sky-400' : 'bg-slate-800 text-slate-400')}">
+                ${currentSort === 'num_asc' ? '▲ 001→999' : (currentSort === 'num_desc' ? '▼ 999→001' : '⏱️ Input')}
+              </span>
+            </button>
+          </th>
           <th class="px-4 py-3">Tanggal</th>
           <th class="px-4 py-3">Tujuan / Pedagang</th>
           <th class="px-4 py-3">Perihal</th>
@@ -198,14 +258,16 @@ export function renderAgendaSuratView(container) {
         return matchesQuery && matchesPasar;
       });
 
-      if (filtered.length === 0) {
+      const sorted = sortLogItems(filtered, 'nomorSurat', 'tujuan');
+
+      if (sorted.length === 0) {
         tbody.innerHTML = '';
         emptyState.classList.remove('hidden');
         return;
       }
       emptyState.classList.add('hidden');
 
-      tbody.innerHTML = filtered.map((item, idx) => {
+      tbody.innerHTML = sorted.map((item, idx) => {
         const driveMatch = String(item.ket || '').match(/https:\/\/drive\.google\.com[^\s]+/);
         const driveUrl = driveMatch ? driveMatch[0] : (item.driveUrl || '');
 
@@ -237,7 +299,14 @@ export function renderAgendaSuratView(container) {
       thead.innerHTML = `
         <tr>
           <th class="px-4 py-3 text-center w-12">No</th>
-          <th class="px-4 py-3">Nomor Perjanjian</th>
+          <th class="px-4 py-3">
+            <button id="th-sort-btn" class="flex items-center gap-1.5 font-bold uppercase hover:text-amber-400 transition-colors" title="Klik untuk balik urutan nomor">
+              <span>Nomor Perjanjian</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${currentSort === 'num_asc' ? 'bg-amber-500/20 text-amber-400' : (currentSort === 'num_desc' ? 'bg-sky-500/20 text-sky-400' : 'bg-slate-800 text-slate-400')}">
+                ${currentSort === 'num_asc' ? '▲ 001→999' : (currentSort === 'num_desc' ? '▼ 999→001' : '⏱️ Input')}
+              </span>
+            </button>
+          </th>
           <th class="px-4 py-3">Tanggal Akad</th>
           <th class="px-4 py-3">Pihak II (Pedagang)</th>
           <th class="px-4 py-3">Blok & Kawasan</th>
@@ -254,14 +323,17 @@ export function renderAgendaSuratView(container) {
         return matchesQuery && matchesPasar;
       });
 
-      if (filtered.length === 0) {
+      // URUTKAN SECARA OTOMATIS BERDASARKAN NOMOR PERJANJIAN (ASCENDING 001 -> 999)
+      const sorted = sortLogItems(filtered, 'nomorPerjanjian', 'blok');
+
+      if (sorted.length === 0) {
         tbody.innerHTML = '';
         emptyState.classList.remove('hidden');
         return;
       }
       emptyState.classList.add('hidden');
 
-      tbody.innerHTML = filtered.map((item, idx) => {
+      tbody.innerHTML = sorted.map((item, idx) => {
         return `
           <tr class="hover:bg-slate-800/40 transition-colors">
             <td class="px-4 py-3 text-center font-mono text-slate-500">${idx + 1}</td>
@@ -296,7 +368,14 @@ export function renderAgendaSuratView(container) {
       thead.innerHTML = `
         <tr>
           <th class="px-4 py-3 text-center w-12">No</th>
-          <th class="px-4 py-3">Nomor Kwitansi</th>
+          <th class="px-4 py-3">
+            <button id="th-sort-btn" class="flex items-center gap-1.5 font-bold uppercase hover:text-sky-400 transition-colors" title="Klik untuk balik urutan nomor">
+              <span>Nomor Kwitansi</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${currentSort === 'num_asc' ? 'bg-sky-500/20 text-sky-400' : (currentSort === 'num_desc' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-800 text-slate-400')}">
+                ${currentSort === 'num_asc' ? '▲ 001→999' : (currentSort === 'num_desc' ? '▼ 999→001' : '⏱️ Input')}
+              </span>
+            </button>
+          </th>
           <th class="px-4 py-3">Tanggal Bayar</th>
           <th class="px-4 py-3">Diterima Dari</th>
           <th class="px-4 py-3">Objek Kios</th>
@@ -313,14 +392,17 @@ export function renderAgendaSuratView(container) {
         return matchesQuery && matchesPasar;
       });
 
-      if (filtered.length === 0) {
+      // URUTKAN SECARA OTOMATIS BERDASARKAN NOMOR KWITANSI (ASCENDING 001 -> 999)
+      const sorted = sortLogItems(filtered, 'nomorKwitansi', 'blok');
+
+      if (sorted.length === 0) {
         tbody.innerHTML = '';
         emptyState.classList.remove('hidden');
         return;
       }
       emptyState.classList.add('hidden');
 
-      tbody.innerHTML = filtered.map((item, idx) => {
+      tbody.innerHTML = sorted.map((item, idx) => {
         return `
           <tr class="hover:bg-slate-800/40 transition-colors">
             <td class="px-4 py-3 text-center font-mono text-slate-500">${idx + 1}</td>
@@ -347,6 +429,17 @@ export function renderAgendaSuratView(container) {
       }).join('');
     }
 
+    // Bind Column Header Sort Toggle
+    const thSortBtn = thead.querySelector('#th-sort-btn');
+    if (thSortBtn) {
+      thSortBtn.addEventListener('click', () => {
+        currentSort = currentSort === 'num_asc' ? 'num_desc' : 'num_asc';
+        window._agendaCurrentSort = currentSort;
+        if (sortSelect) sortSelect.value = currentSort;
+        renderTable();
+      });
+    }
+
     if (window.lucide) window.lucide.createIcons();
   }
 
@@ -364,6 +457,13 @@ export function renderAgendaSuratView(container) {
   tabBtnKwitansi.addEventListener('click', () => setTab('kwitansi'));
   if (searchInput) searchInput.addEventListener('input', renderTable);
   if (pasarSelect) pasarSelect.addEventListener('change', renderTable);
+  if (sortSelect) {
+    sortSelect.addEventListener('change', (e) => {
+      currentSort = e.target.value;
+      window._agendaCurrentSort = currentSort;
+      renderTable();
+    });
+  }
 
   if (btnSync) {
     btnSync.addEventListener('click', async () => {
